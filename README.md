@@ -23,7 +23,7 @@ brew tap terramantle/tap && brew install terramantle
 
 ```sh
 curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/terramantle/terramantle-cli/releases/latest/download/terramantle-installer.sh | sh
+  https://github.com/terramantle/terramantle-cli/releases/latest/download/cli-installer.sh | sh
 ```
 
 ### From source
@@ -181,7 +181,7 @@ jobs:
       - name: Install terramantle
         run: |
           curl --proto '=https' --tlsv1.2 -LsSf \
-            https://github.com/terramantle/terramantle-cli/releases/latest/download/terramantle-installer.sh | sh
+            https://github.com/terramantle/terramantle-cli/releases/latest/download/cli-installer.sh | sh
 
       # Auth mode auto-detects GITHUB_ACTIONS and uses the ambient OIDC token.
       - name: Push provider lock file
@@ -204,7 +204,7 @@ push-lock:
     - apt-get update && apt-get install -y curl
     - |
       curl --proto '=https' --tlsv1.2 -LsSf \
-        https://github.com/terramantle/terramantle-cli/releases/latest/download/terramantle-installer.sh | sh
+        https://github.com/terramantle/terramantle-cli/releases/latest/download/cli-installer.sh | sh
     # Auth mode auto-detects GITLAB_CI and uses $TERRAMANTLE_ID_TOKEN as bearer.
     - terramantle lock push --workspace prod --fail-on-atrisk
 ```
