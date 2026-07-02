@@ -13,6 +13,8 @@ edition = "2021"
 license = "MIT"
 authors = ["Terramantle"]
 repository = "https://github.com/terramantle/terramantle-cli"
+homepage = "https://terramantle.dev"
+description = "Discover the Terramantle registry, push provider lock files from CI, and operate state."
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -39,6 +41,7 @@ cargo-dist-version = "0.14.0"
 ci = ["github"]
 installers = ["shell", "homebrew"]
 tap = "terramantle/homebrew-tap"
+publish-jobs = ["homebrew"]
 targets = [
     "x86_64-unknown-linux-musl",
     "aarch64-unknown-linux-musl",
