@@ -10,7 +10,7 @@ use owo_colors::OwoColorize;
 
 use tm_config::{resolve, Context, EnvOverrides, FlagOverrides, ResolvedConfig};
 
-use crate::cli::{Cli, Command, ConfigCommand, ContextCommand, GlobalArgs};
+use crate::cli::{Cli, Command, ConfigCommand, ContextCommand, GlobalArgs, LockCommand};
 use crate::output::{self, TableView};
 
 /// Result carrying the process exit code to use.
@@ -52,7 +52,7 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
         }
         Command::Providers { command } => crate::discovery::providers(command, cli),
         Command::Modules { command } => crate::discovery::modules(command, cli),
-        Command::Lock { .. } => not_implemented("lock"),
+        Command::Lock { command } => lock(command, cli),
         Command::State { .. } => not_implemented("state"),
         Command::Auth { command } => crate::auth::dispatch(command, cli),
     }
@@ -62,6 +62,29 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
 fn not_implemented(name: &str) -> CmdResult {
     eprintln!("{name}: not yet implemented");
     Ok(0)
+}
+
+fn lock(command: &LockCommand, cli: &Cli) -> CmdResult {
+    match command {
+        LockCommand::Push {
+            path,
+            fail_on_atrisk,
+            dry_run,
+            repo_url,
+            posture_timeout,
+            require_posture,
+        } => crate::lock::push(
+            cli,
+            &crate::lock::PushArgs {
+                path,
+                fail_on_atrisk: *fail_on_atrisk,
+                dry_run: *dry_run,
+                repo_url: repo_url.as_deref(),
+                posture_timeout: *posture_timeout,
+                require_posture: *require_posture,
+            },
+        ),
+    }
 }
 
 fn context(command: &ContextCommand, global: &GlobalArgs) -> CmdResult {

@@ -4,6 +4,7 @@ mod auth;
 mod cli;
 mod commands;
 mod discovery;
+mod lock;
 mod output;
 
 use clap::Parser;

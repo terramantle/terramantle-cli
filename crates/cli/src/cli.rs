@@ -146,7 +146,7 @@ pub enum ModulesCommand {
 pub enum LockCommand {
     /// Upload .terraform.lock.hcl (default ./).
     Push {
-        /// Directory containing .terraform.lock.hcl.
+        /// Directory (or file) containing .terraform.lock.hcl.
         #[arg(default_value = ".")]
         path: String,
         /// Exit 3 if any pushed provider is at-risk.
@@ -155,6 +155,15 @@ pub enum LockCommand {
         /// Parse and show posture without uploading.
         #[arg(long)]
         dry_run: bool,
+        /// Attribute the push to a git repo URL (X-Git-Repo-URL header).
+        #[arg(long, value_name = "URL")]
+        repo_url: Option<String>,
+        /// Seconds to poll for posture before giving up (default 15).
+        #[arg(long, value_name = "SECS", default_value_t = 15)]
+        posture_timeout: u64,
+        /// Treat unknown posture (poll timeout) as a failure (exit 3).
+        #[arg(long)]
+        require_posture: bool,
     },
 }
 

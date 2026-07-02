@@ -61,6 +61,30 @@ pub fn config_org(cli: &Cli) -> Result<Option<String>, Box<dyn std::error::Error
     Ok(cli.global.org.clone().or(env.org).or(ctx_org))
 }
 
+/// Resolve the effective workspace via the §4 precedence
+/// (`--workspace` > `TERRAMANTLE_WORKSPACE` > context default), without erroring
+/// when absent — returns `None` so the caller can fail with a tailored message.
+pub fn config_workspace(cli: &Cli) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let file = tm_config::ConfigFile::load()?;
+    let env = tm_config::EnvOverrides::from_env()?;
+    let context_override = cli.global.context.as_deref().or(env.context.as_deref());
+    let active = file.active_context(context_override)?;
+    let ctx_ws = active.and_then(|(_, c)| c.workspace.clone());
+    Ok(cli.global.workspace.clone().or(env.workspace).or(ctx_ws))
+}
+
+/// Human-readable label for the resolved auth mode, for the step cadence line
+/// (§6: "Authenticating (github oidc)").
+pub fn mode_label(ctx: &AuthContext) -> &'static str {
+    match ctx.mode {
+        tm_auth::mode::AuthMode::GitHub => "github oidc",
+        tm_auth::mode::AuthMode::GitLab => "gitlab oidc",
+        tm_auth::mode::AuthMode::Device => "device",
+        tm_auth::mode::AuthMode::Raw => "token",
+        tm_auth::mode::AuthMode::ClientCredentials => "client",
+    }
+}
+
 /// Log a diagnostic line at `-v` (mode + issuer only — never the token).
 fn narrate_mode(cli: &Cli, ctx: &AuthContext) {
     if cli.global.verbose > 0 {

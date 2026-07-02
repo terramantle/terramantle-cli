@@ -119,7 +119,7 @@ pub fn join_rows(usage: &[ProviderUsage], overview: &[ProviderOverview]) -> Vec<
 ///
 /// Returns `(client, org)` so the client (built once, with its refresh hook) is
 /// reused for every call the command makes.
-fn resolve_client_and_org(cli: &Cli) -> Result<(Client, String), Box<dyn std::error::Error>> {
+pub fn resolve_client_and_org(cli: &Cli) -> Result<(Client, String), Box<dyn std::error::Error>> {
     let ctx = auth::auth_context(cli)?;
     let client = auth::api_client(&ctx)?;
 
@@ -162,7 +162,7 @@ impl std::error::Error for AmbiguousOrg {}
 
 /// The exit code for an org-resolution failure (§9: missing config → usage-ish;
 /// we use 6 "not found" only for real 404s, so a missing org is exit 2).
-const EXIT_MISSING_ORG: i32 = 2;
+pub const EXIT_MISSING_ORG: i32 = 2;
 
 // ── dispatch ───────────────────────────────────────────────────────────────────
 
