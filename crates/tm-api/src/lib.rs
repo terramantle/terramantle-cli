@@ -5,4 +5,7 @@
 //! now this crate carries only shared model stubs so downstream crates can
 //! depend on it.
 
+pub mod client;
 pub mod types;
+
+pub use client::{ApiError, HttpClient};

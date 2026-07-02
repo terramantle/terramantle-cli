@@ -48,6 +48,10 @@ pub struct GlobalArgs {
     #[arg(short = 'o', long, global = true, value_name = "FORMAT")]
     pub output: Option<OutputFormat>,
 
+    /// Authentication mode (auto|token|client|github|gitlab|device).
+    #[arg(long, global = true, value_name = "MODE")]
+    pub auth_mode: Option<String>,
+
     /// Disable coloured output.
     #[arg(long, global = true)]
     pub no_color: bool,

@@ -54,7 +54,7 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
         Command::Modules { .. } => not_implemented("modules"),
         Command::Lock { .. } => not_implemented("lock"),
         Command::State { .. } => not_implemented("state"),
-        Command::Auth { .. } => not_implemented("auth"),
+        Command::Auth { command } => crate::auth::dispatch(command, cli),
     }
 }
 

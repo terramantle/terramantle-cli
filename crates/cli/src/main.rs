@@ -1,5 +1,6 @@
 //! Terramantle CLI entry point (SPEC §3, §9).
 
+mod auth;
 mod cli;
 mod commands;
 mod output;

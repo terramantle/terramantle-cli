@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/terramantle",
+    "crates/cli",
     "crates/tm-config",
     "crates/tm-api",
     "crates/tm-auth",
