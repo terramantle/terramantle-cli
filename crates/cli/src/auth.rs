@@ -4,8 +4,7 @@
 //! `GET /api/orgs` only for human tokens. `/api/auth/me` is never called.
 //! Tokens are never printed at any verbosity (rubric 7).
 
-use serde::Deserialize;
-use tm_api::{ApiError, HttpClient};
+use tm_api::{ApiError, Client, OrgMembership};
 use tm_auth::jwt::{self, TokenType};
 use tm_auth::mode::{self, AuthMode};
 use tm_auth::{AuthContext, AuthError};
@@ -13,13 +12,6 @@ use tm_auth::{AuthContext, AuthError};
 use crate::cli::{AuthCommand, Cli};
 use crate::commands::CmdResult;
 use crate::output::{self, TableView};
-
-/// One org membership row from `GET /api/orgs` (§4.1 layer 4).
-#[derive(Debug, Deserialize, serde::Serialize)]
-struct OrgMembership {
-    slug: String,
-    role: String,
-}
 
 /// Build the auth context from the resolved config + env/flag overrides,
 /// resolving the effective auth mode.
@@ -140,9 +132,9 @@ fn whoami(ctx: &AuthContext, cli: &Cli) -> CmdResult {
 }
 
 /// `GET /api/orgs` → memberships (human tokens only). Never calls `/api/auth/me`.
+/// Delegates to the shared `tm_api::Client` so the model lives in one place.
 fn fetch_orgs(api_url: &str, token: &str) -> Result<Vec<OrgMembership>, ApiError> {
-    let client = HttpClient::new(api_url).with_bearer(token);
-    client.get_json("/api/orgs")
+    Client::new(api_url, token).orgs_list()
 }
 
 /// Map a 401/403 from an authed call to exit 5 (§9); other statuses fall

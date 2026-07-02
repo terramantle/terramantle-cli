@@ -48,6 +48,31 @@ pub fn client_credentials(
     Ok(resp.access_token)
 }
 
+/// Refresh a device token (§5, deferred from slice 2). `POST {issuer}/oauth/v2/token`
+/// with `grant_type=refresh_token`. Returns the rotated bundle; the refresh token
+/// may itself rotate, so we prefer the new one and fall back to the old.
+pub fn refresh_token(
+    issuer: &str,
+    client_id: &str,
+    refresh_token: &str,
+) -> Result<StoredToken, AuthError> {
+    let client = HttpClient::new(issuer);
+    let body = serde_json::json!({
+        "grant_type": "refresh_token",
+        "client_id": client_id,
+        "refresh_token": refresh_token,
+    });
+    let resp: TokenResponse = client
+        .post_json("/oauth/v2/token", &body)
+        .map_err(AuthError::TokenExchange)?;
+    Ok(StoredToken {
+        access_token: resp.access_token,
+        refresh_token: resp
+            .refresh_token
+            .or_else(|| Some(refresh_token.to_string())),
+    })
+}
+
 /// GitHub Actions ambient OIDC (§5). Reads `ACTIONS_ID_TOKEN_REQUEST_URL` +
 /// `_TOKEN`; errors clearly when absent (needs `id-token: write`).
 pub fn github_oidc(

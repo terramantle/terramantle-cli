@@ -21,7 +21,7 @@ pub use discovery::Discovery;
 pub use jwt::{Claims, TokenType};
 pub use mode::AuthMode;
 
-use tm_api::ApiError;
+use tm_api::{ApiError, Client, RefreshHook};
 
 /// Exit code for auth failures (§9).
 pub const EXIT_AUTH: i32 = 5;
@@ -125,6 +125,50 @@ pub fn login(ctx: &AuthContext) -> Result<(), AuthError> {
 /// `auth logout`: clear the stored device token.
 pub fn logout(api_url: &str) -> Result<(), AuthError> {
     store::clear(api_url)
+}
+
+/// Build a `tm_api::Client` for an authed command, resolving the bearer per §5.
+///
+/// For the **device** flow the client is fitted with a refresh-on-401 hook
+/// (§5, deferred from slice 2): a 401 triggers one `grant_type=refresh_token`
+/// exchange, the rotated token is persisted to the keyring, and the request is
+/// retried once. Every **non-device** flow (raw/CI/client-creds) gets a plain
+/// client, so a 401 simply propagates → exit 5. Refresh is contained entirely in
+/// the client request path.
+pub fn client(ctx: &AuthContext) -> Result<Client, AuthError> {
+    let token = resolve_token(ctx)?;
+    match ctx.mode {
+        AuthMode::Device => match build_refresh_hook(ctx) {
+            Some(hook) => Ok(Client::with_refresh(ctx.api_url.clone(), token, hook)),
+            None => Ok(Client::new(ctx.api_url.clone(), token)),
+        },
+        _ => Ok(Client::new(ctx.api_url.clone(), token)),
+    }
+}
+
+/// Build the device refresh-on-401 hook, or `None` when there is nothing to
+/// refresh with (no stored refresh token, or discovery has no device client).
+/// The hook loads the stored bundle, exchanges the refresh token once, persists
+/// the rotated bundle, and yields the new access token.
+fn build_refresh_hook(ctx: &AuthContext) -> Option<RefreshHook> {
+    // Both a stored refresh token and a device client id are required; if either
+    // is missing there is no viable refresh and the 401 should just propagate.
+    let stored = store::load(&ctx.api_url).ok()??;
+    stored.refresh_token.as_ref()?;
+    let disco = discovery::fetch(&ctx.api_url).ok()?;
+    let issuer = disco.issuer(ctx.issuer_override.as_deref()).to_string();
+    let device_client_id = disco.oidc.device_client_id.clone()?;
+    let api_url = ctx.api_url.clone();
+
+    Some(Box::new(move || {
+        // Re-read on each call so a token rotated by an earlier retry is picked up.
+        let stored = store::load(&api_url).ok()??;
+        let refresh = stored.refresh_token.as_deref()?;
+        let rotated = flows::refresh_token(&issuer, &device_client_id, refresh).ok()?;
+        // Persist before returning so the rotation survives the process.
+        store::save(&api_url, &rotated).ok()?;
+        Some(rotated.access_token)
+    }))
 }
 
 #[cfg(test)]
