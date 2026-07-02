@@ -1,0 +1,26 @@
+[package]
+name = "terramantle"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Terramantle CLI — discover the registry, push provider lock files, operate state."
+
+[[bin]]
+name = "terramantle"
+path = "src/main.rs"
+
+[dependencies]
+tm-config = { path = "../tm-config" }
+tm-api = { path = "../tm-api" }
+tm-auth = { path = "../tm-auth" }
+
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+comfy-table = "7"
+owo-colors = "4"
+supports-color = "3"
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }

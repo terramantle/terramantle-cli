@@ -1,0 +1,52 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/terramantle",
+    "crates/tm-config",
+    "crates/tm-api",
+    "crates/tm-auth",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Terramantle"]
+repository = "https://github.com/terramantle/terramantle-cli"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+thiserror = "1"
+directories = "5"
+
+# cargo-dist configuration.
+#
+# The release workflow itself (`.github/workflows/release.yml`) is machine-generated
+# by `cargo dist init` / `cargo dist generate` and is NOT hand-authored — running
+# `cargo dist init` reads the config below and writes the workflow. On a `v*` tag it
+# builds all target triples, publishes a GitHub Release with checksummed artifacts,
+# and pushes the generated formula to `terramantle/homebrew-tap` under
+# `Formula/terramantle.rb`.
+#
+# The release job requires a `HOMEBREW_TAP_TOKEN` Actions secret (PAT or GitHub App
+# install token) with `contents:write` on the tap repo so cargo-dist can push the
+# formula. Add it under the CLI repo's Actions secrets before tagging a release.
+[workspace.metadata.dist]
+cargo-dist-version = "0.14.0"
+ci = ["github"]
+installers = ["shell", "homebrew"]
+tap = "terramantle/homebrew-tap"
+targets = [
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
