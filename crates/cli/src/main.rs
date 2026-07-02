@@ -3,9 +3,11 @@
 mod auth;
 mod cli;
 mod commands;
+mod confirm;
 mod discovery;
 mod lock;
 mod output;
+mod state;
 
 use clap::Parser;
 

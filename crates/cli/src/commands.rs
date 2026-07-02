@@ -53,15 +53,9 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
         Command::Providers { command } => crate::discovery::providers(command, cli),
         Command::Modules { command } => crate::discovery::modules(command, cli),
         Command::Lock { command } => lock(command, cli),
-        Command::State { .. } => not_implemented("state"),
+        Command::State { command } => crate::state::state(command, cli),
         Command::Auth { command } => crate::auth::dispatch(command, cli),
     }
-}
-
-/// Stub handler for commands landing in a later slice (§10).
-fn not_implemented(name: &str) -> CmdResult {
-    eprintln!("{name}: not yet implemented");
-    Ok(0)
 }
 
 fn lock(command: &LockCommand, cli: &Cli) -> CmdResult {
