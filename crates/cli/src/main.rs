@@ -3,6 +3,7 @@
 mod auth;
 mod cli;
 mod commands;
+mod discovery;
 mod output;
 
 use clap::Parser;

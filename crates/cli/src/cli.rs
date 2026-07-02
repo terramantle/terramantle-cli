@@ -128,6 +128,12 @@ pub enum ModulesCommand {
     Search {
         /// Search query.
         query: String,
+        /// Results per page (default 20).
+        #[arg(long, value_name = "N")]
+        limit: Option<u64>,
+        /// Follow pagination to exhaustion (capped at 500).
+        #[arg(long)]
+        all: bool,
     },
     /// Show a module.
     Show {

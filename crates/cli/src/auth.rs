@@ -14,8 +14,9 @@ use crate::commands::CmdResult;
 use crate::output::{self, TableView};
 
 /// Build the auth context from the resolved config + env/flag overrides,
-/// resolving the effective auth mode.
-fn auth_context(cli: &Cli) -> Result<AuthContext, Box<dyn std::error::Error>> {
+/// resolving the effective auth mode. Public so discovery commands share one
+/// context-construction path.
+pub fn auth_context(cli: &Cli) -> Result<AuthContext, Box<dyn std::error::Error>> {
     let api_url = cli
         .global
         .api_url
@@ -38,6 +39,26 @@ fn auth_context(cli: &Cli) -> Result<AuthContext, Box<dyn std::error::Error>> {
         audience_override: std::env::var("TERRAMANTLE_AUDIENCE").ok(),
         mode: detected,
     })
+}
+
+/// Build the shared `tm_api::Client` for an authed command. Delegates to
+/// `tm_auth::client`, which resolves the bearer per §5 and fits the device flow
+/// with its refresh-on-401 hook — never clone an `HttpClient`, a clone drops the
+/// hook. Auth failures map to exit 5.
+pub fn api_client(ctx: &AuthContext) -> Result<Client, Box<dyn std::error::Error>> {
+    Ok(tm_auth::client(ctx)?)
+}
+
+/// Resolve the org via the §4 precedence (flag > env > context), **without**
+/// erroring when absent — returns `None` so the caller can fall back to the
+/// single-membership default (humans) or fail with a tailored message.
+pub fn config_org(cli: &Cli) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let file = tm_config::ConfigFile::load()?;
+    let env = tm_config::EnvOverrides::from_env()?;
+    let context_override = cli.global.context.as_deref().or(env.context.as_deref());
+    let active = file.active_context(context_override)?;
+    let ctx_org = active.map(|(_, c)| c.org.clone());
+    Ok(cli.global.org.clone().or(env.org).or(ctx_org))
 }
 
 /// Log a diagnostic line at `-v` (mode + issuer only — never the token).

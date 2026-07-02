@@ -50,8 +50,8 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
             println!("terramantle {}", env!("CARGO_PKG_VERSION"));
             Ok(0)
         }
-        Command::Providers { .. } => not_implemented("providers"),
-        Command::Modules { .. } => not_implemented("modules"),
+        Command::Providers { command } => crate::discovery::providers(command, cli),
+        Command::Modules { command } => crate::discovery::modules(command, cli),
         Command::Lock { .. } => not_implemented("lock"),
         Command::State { .. } => not_implemented("state"),
         Command::Auth { command } => crate::auth::dispatch(command, cli),
