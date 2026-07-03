@@ -37,7 +37,7 @@ directories = "5"
 # install token) with `contents:write` on the tap repo so cargo-dist can push the
 # formula. Add it under the CLI repo's Actions secrets before tagging a release.
 [workspace.metadata.dist]
-cargo-dist-version = "0.14.0"
+cargo-dist-version = "0.32.0"
 ci = ["github"]
 installers = ["shell", "homebrew"]
 tap = "terramantle/homebrew-tap"
