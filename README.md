@@ -237,6 +237,10 @@ cargo fmt --all -- --check
 
 CI (`.github/workflows/ci.yml`) enforces all four on push/PR.
 
+Run `./scripts/install-hooks.sh` once after cloning to install a pre-commit hook
+that runs fmt/clippy/test locally, so a push can't fail CI on any of them. Bypass
+an individual commit with `git commit --no-verify`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

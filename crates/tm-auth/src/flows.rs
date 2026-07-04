@@ -163,10 +163,7 @@ pub fn device_flow(issuer: &str, device_client_id: &str) -> Result<StoredToken, 
     let deadline = Instant::now() + Duration::from_secs(auth.expires_in);
     let mut interval = Duration::from_secs(auth.interval.max(1));
     let token_params = [
-        (
-            "grant_type",
-            "urn:ietf:params:oauth:grant-type:device_code",
-        ),
+        ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
         ("device_code", auth.device_code.as_str()),
         ("client_id", device_client_id),
     ];
