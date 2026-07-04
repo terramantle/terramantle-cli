@@ -153,6 +153,24 @@ impl HttpClient {
         })
     }
 
+    // ── form POST ──────────────────────────────────────────────────────────────
+
+    /// POST an `application/x-www-form-urlencoded` body to `path` and deserialize
+    /// the JSON response. OAuth 2.0 token/device endpoints (RFC 6749/8628) require
+    /// form encoding, not JSON - `post_json` would set `application/json`, and the
+    /// issuer then parses no form fields (e.g. Zitadel: "client_id must be provided").
+    pub fn post_form<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        params: &[(&str, &str)],
+    ) -> Result<T, ApiError> {
+        let url = self.url(path);
+        self.with_retry(&url, |c| {
+            let req = c.apply_auth(c.agent.post(&url));
+            Self::response_json(req.send_form(params), &url)
+        })
+    }
+
     // ── JSON DELETE (with a body) ──────────────────────────────────────────────
 
     /// DELETE `path` sending a JSON body (§7 N4: force-unlock echoes the lock id).

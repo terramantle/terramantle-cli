@@ -36,14 +36,16 @@ pub fn client_credentials(
 ) -> Result<String, AuthError> {
     let _ = disco;
     let client = HttpClient::new(issuer);
-    let body = serde_json::json!({
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "audience": audience,
-    });
     let resp: TokenResponse = client
-        .post_json("/oauth/v2/token", &body)
+        .post_form(
+            "/oauth/v2/token",
+            &[
+                ("grant_type", "client_credentials"),
+                ("client_id", client_id),
+                ("client_secret", client_secret),
+                ("audience", audience),
+            ],
+        )
         .map_err(AuthError::TokenExchange)?;
     Ok(resp.access_token)
 }
@@ -57,13 +59,15 @@ pub fn refresh_token(
     refresh_token: &str,
 ) -> Result<StoredToken, AuthError> {
     let client = HttpClient::new(issuer);
-    let body = serde_json::json!({
-        "grant_type": "refresh_token",
-        "client_id": client_id,
-        "refresh_token": refresh_token,
-    });
     let resp: TokenResponse = client
-        .post_json("/oauth/v2/token", &body)
+        .post_form(
+            "/oauth/v2/token",
+            &[
+                ("grant_type", "refresh_token"),
+                ("client_id", client_id),
+                ("refresh_token", refresh_token),
+            ],
+        )
         .map_err(AuthError::TokenExchange)?;
     Ok(StoredToken {
         access_token: resp.access_token,
@@ -141,12 +145,11 @@ struct PollError {
 /// stderr, then polls until success or expiry. Returns the stored token bundle.
 pub fn device_flow(issuer: &str, device_client_id: &str) -> Result<StoredToken, AuthError> {
     let client = HttpClient::new(issuer);
-    let auth_body = serde_json::json!({
-        "client_id": device_client_id,
-        "scope": DEVICE_SCOPE,
-    });
     let auth: DeviceAuth = client
-        .post_json("/oauth/v2/device_authorization", &auth_body)
+        .post_form(
+            "/oauth/v2/device_authorization",
+            &[("client_id", device_client_id), ("scope", DEVICE_SCOPE)],
+        )
         .map_err(AuthError::TokenExchange)?;
 
     let mut err = std::io::stderr();
@@ -159,18 +162,21 @@ pub fn device_flow(issuer: &str, device_client_id: &str) -> Result<StoredToken, 
 
     let deadline = Instant::now() + Duration::from_secs(auth.expires_in);
     let mut interval = Duration::from_secs(auth.interval.max(1));
-    let token_body = serde_json::json!({
-        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-        "device_code": auth.device_code,
-        "client_id": device_client_id,
-    });
+    let token_params = [
+        (
+            "grant_type",
+            "urn:ietf:params:oauth:grant-type:device_code",
+        ),
+        ("device_code", auth.device_code.as_str()),
+        ("client_id", device_client_id),
+    ];
 
     loop {
         if Instant::now() >= deadline {
             return Err(AuthError::DeviceExpired);
         }
         sleep(interval);
-        match client.post_json::<_, TokenResponse>("/oauth/v2/token", &token_body) {
+        match client.post_form::<TokenResponse>("/oauth/v2/token", &token_params) {
             Ok(resp) => {
                 return Ok(StoredToken {
                     access_token: resp.access_token,
