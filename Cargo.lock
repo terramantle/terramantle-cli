@@ -406,7 +406,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "clap_complete",
@@ -1933,7 +1933,7 @@ dependencies = [
 
 [[package]]
 name = "tm-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1943,7 +1943,7 @@ dependencies = [
 
 [[package]]
 name = "tm-auth"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "keyring",
@@ -1956,7 +1956,7 @@ dependencies = [
 
 [[package]]
 name = "tm-config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "directories",
  "serde",
