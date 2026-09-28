@@ -42,6 +42,7 @@ TTY-aware status. Full design notes live in the
 
 ## Features
 
+- 🏗️ **Repo scaffolding** — `init`/`upgrade` scaffold a mono/poly repo for modules or workspaces, with GitHub **or** GitLab CI inferred from the `origin` remote. Terraform-style: `init` creates, `upgrade` diffs the desired layout against disk and applies the delta without clobbering your edits.
 - 🔎 **Registry discovery** — `providers ls/show`, `modules search/show`, Trust verdicts inline.
 - 📦 **CI lock-file uploader** — `lock push` with eventually-consistent posture (`--fail-on-atrisk`).
 - 🗄️ **State operations** — `state ls/versions/promote/rollback/unlock`, confirmations + `--force`.
@@ -92,6 +93,8 @@ terramantle lock push              # upload ./.terraform.lock.hcl to the current
 
 ```
 terramantle
+├── init                        # scaffold a repo (manifest + CI + skeleton)
+├── upgrade                     # diff desired scaffold vs disk, apply the delta
 ├── providers
 │   ├── ls                      # providers in use in the org (usage rollup + TRUST)
 │   └── show <ns>/<type>        # versions + trust + used-by workspaces
@@ -128,6 +131,48 @@ terramantle completion bash > /etc/bash_completion.d/terramantle
 terramantle completion zsh  > "${fpath[1]}/_terramantle"
 terramantle completion fish > ~/.config/fish/completions/terramantle.fish
 ```
+
+## Scaffolding (`init` / `upgrade`)
+
+`init` scaffolds a repository; `upgrade` re-scaffolds it idempotently — the same
+create/plan/apply loop you know from `terraform`.
+
+```sh
+cd my-infra-repo && git init          # run from inside a git repo
+terramantle init --artefact modules   # structure=poly, vcs inferred from origin
+#   + terramantle.hcl                  # the repo manifest (your source of truth)
+#   + .github/workflows/terramantle.yml
+#   + .github/CODEOWNERS
+#   + main.tf variables.tf outputs.tf versions.tf README.md   # skeleton
+#   ~ .gitignore                       # terramantle ignore lines merged in
+```
+
+- **Structure** — `--structure mono` (many independently-versioned artefacts,
+  path-prefixed tags) or `poly` (one artefact per repo, the default).
+- **Artefact** — `--artefact modules` or `workspaces` (alias: `states`). Selects
+  which CI pipeline is emitted and which `publish` applies.
+- **VCS** — inferred from `git remote get-url origin` (`github.com` → GitHub
+  Actions, `gitlab.*` → GitLab CI). Override with `--vcs`.
+- **CI knobs** — `--ci-auth oidc|bot`, `--sign cosign|gpg|none`, `--tf 1.7,1.9`,
+  `--no-tofu`, `--no-lint`, `--no-scan`, `--no-docs`, `--versioning conventional|manual`.
+  Disabled features are omitted from the emitted pipeline, not left commented.
+- `--yes` runs headless (CI / no prompts).
+
+Edit `terramantle.hcl`, then re-render:
+
+```sh
+terramantle upgrade --diff   # show the plan (+ ~ ! -), change nothing
+terramantle upgrade          # apply after a confirmation prompt (--yes to skip)
+```
+
+`upgrade` is a real diff, tracked in `.terramantle/manifest.lock`:
+
+- `+` create · `~` update a file you never touched · `-` prune a file no longer
+  in the manifest.
+- `!` **drift** — a managed file you hand-edited is **never clobbered**: the new
+  version is written alongside as `<file>.terramantle-new` for you to merge (or
+  re-run with `--force` to overwrite). Skeleton files (`*.tf`, `README.md`) are
+  yours after creation and are never rewritten or pruned.
 
 ## Authentication
 

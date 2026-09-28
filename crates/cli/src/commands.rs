@@ -38,6 +38,8 @@ fn resolved(cli: &Cli) -> Result<ResolvedConfig, Box<dyn std::error::Error>> {
 
 pub fn dispatch(cli: &Cli) -> CmdResult {
     match &cli.command {
+        Command::Init(args) => crate::scaffold::init(cli, args),
+        Command::Upgrade(args) => crate::scaffold::upgrade(cli, args),
         Command::Context { command } => context(command, &cli.global),
         Command::Config { command } => config(command, cli),
         Command::Completion { shell } => {

@@ -16,6 +16,7 @@ path = "src/main.rs"
 tm-config = { path = "../tm-config" }
 tm-api = { path = "../tm-api" }
 tm-auth = { path = "../tm-auth" }
+tm-scaffold = { path = "../tm-scaffold" }
 
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"

@@ -7,6 +7,7 @@ mod confirm;
 mod discovery;
 mod lock;
 mod output;
+mod scaffold;
 mod state;
 
 use clap::Parser;

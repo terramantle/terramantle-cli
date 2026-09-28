@@ -6,6 +6,7 @@
 use clap::{Args, Parser, Subcommand};
 use clap_complete::Shell;
 use tm_config::OutputFormat;
+use tm_scaffold::{Artefact, CiAuth, Signing, Structure, VcsProvider, Versioning};
 
 /// Terramantle CLI — discover the registry, push provider lock files, operate state.
 #[derive(Debug, Parser)]
@@ -63,6 +64,10 @@ pub struct GlobalArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Scaffold a repo (manifest + CI + skeleton) for a chosen structure/artefact.
+    Init(InitArgs),
+    /// Re-scaffold: diff the desired layout against disk and apply the delta.
+    Upgrade(UpgradeArgs),
     /// Providers in use in the org.
     Providers {
         #[command(subcommand)]
@@ -245,4 +250,74 @@ pub enum ContextCommand {
 pub enum ConfigCommand {
     /// Show the effective resolved config (secrets redacted).
     View,
+}
+
+/// `terramantle init` — scaffold a repo (SCAFFOLD-PUBLISH-AUTH.md §2). Each prompt
+/// has a flag override; `--yes`/non-TTY runs headless from flags + detected
+/// defaults. Enum values parse via each type's `FromStr` (e.g. `--artefact states`
+/// is accepted as an alias for `workspaces`).
+#[derive(Debug, Args)]
+pub struct InitArgs {
+    /// Repo layout: `mono` (many artefacts) or `poly` (one). Default: poly.
+    #[arg(long)]
+    pub structure: Option<Structure>,
+    /// Artefact type: `modules` or `workspaces` (alias: `states`). Prompted if omitted.
+    #[arg(long)]
+    pub artefact: Option<Artefact>,
+    /// VCS provider. Inferred from the `origin` remote when omitted.
+    #[arg(long)]
+    pub vcs: Option<VcsProvider>,
+    /// Terraform version matrix (comma-separated), e.g. `--tf 1.7,1.9`.
+    #[arg(long, value_delimiter = ',')]
+    pub tf: Option<Vec<String>>,
+    /// Also run pipelines against OpenTofu (default on; `--no-tofu` to drop).
+    #[arg(long)]
+    pub no_tofu: bool,
+    /// Drop the tflint step.
+    #[arg(long)]
+    pub no_lint: bool,
+    /// Drop the terramantle security-scan gate.
+    #[arg(long)]
+    pub no_scan: bool,
+    /// Drop terraform-docs README regeneration.
+    #[arg(long)]
+    pub no_docs: bool,
+    /// Module signing strategy: `cosign` (default) | `gpg` | `none`.
+    #[arg(long)]
+    pub sign: Option<Signing>,
+    /// CI auth grant: `oidc` (default, keyless) | `bot` (client-credentials).
+    #[arg(long = "ci-auth")]
+    pub ci_auth: Option<CiAuth>,
+    /// Versioning: `conventional` (default) | `manual`.
+    #[arg(long)]
+    pub versioning: Option<Versioning>,
+    /// Assume defaults and never prompt (headless / CI).
+    #[arg(long)]
+    pub yes: bool,
+}
+
+/// `terramantle upgrade` — idempotent re-scaffold (SCAFFOLD-PUBLISH-AUTH.md §3).
+#[derive(Debug, Args)]
+pub struct UpgradeArgs {
+    /// Print the plan and exit 0 without applying.
+    #[arg(long)]
+    pub diff: bool,
+    /// Apply without the confirmation prompt.
+    #[arg(long)]
+    pub yes: bool,
+    /// Overwrite user-edited (drifted) files instead of writing `.terramantle-new`.
+    #[arg(long)]
+    pub force: bool,
+    /// Restrict the re-scaffold to one output category.
+    #[arg(long, value_enum)]
+    pub only: Option<OnlyFilter>,
+}
+
+/// `--only` category filter for `upgrade`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum OnlyFilter {
+    /// The CI pipeline + CODEOWNERS (the managed, re-rendered files).
+    Ci,
+    /// The artefact skeleton (scaffold-once files).
+    Skeleton,
 }

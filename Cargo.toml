@@ -5,6 +5,7 @@ members = [
     "crates/tm-config",
     "crates/tm-api",
     "crates/tm-auth",
+    "crates/tm-scaffold",
 ]
 
 [workspace.package]
