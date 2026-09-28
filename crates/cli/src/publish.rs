@@ -3,8 +3,8 @@
 //!
 //! This is the thin IO shell over [`tm_release`]: change detection, versioning,
 //! and deterministic packaging live in that crate (unit-tested, network-free);
-//! here we only read the manifest, drive external tools (terraform-docs, cosign,
-//! gpg, git), call the registry, and narrate.
+//! here we only read the manifest, drive external tools (terraform-docs, git),
+//! call the registry, and narrate.
 //!
 //! The load-bearing *decisions* — which artefacts to target and which version to
 //! stamp — are kept in pure functions ([`select_targets`], [`plan_version`]) so
@@ -18,10 +18,10 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tm_release::{
-    apply_bump, package_dir, plan_all, sha256sums_line, tag_name, ArtefactPlan, BumpLevel, GitRepo,
-    PackageOptions, Version,
+    apply_bump, package_dir, plan_all, tag_name, ArtefactPlan, BumpLevel, GitRepo, PackageOptions,
+    Version,
 };
-use tm_scaffold::{Artefact, Manifest, Signing};
+use tm_scaffold::{Artefact, Manifest};
 
 use crate::auth;
 use crate::cli::{BumpArg, Cli, DocsMode, ModulePublishArgs};
@@ -249,7 +249,6 @@ struct PublishRow {
     sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
-    signed: bool,
 }
 
 /// The `-o json` summary for `modules publish`.
@@ -311,8 +310,6 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         return finish_publish(cli, args.dry_run, provider, Vec::new());
     }
 
-    // Sign strategy: flag override, else the manifest's `ci.sign` default.
-    let sign_mode = args.sign.unwrap_or(manifest.ci.sign);
     let run_docs = !matches!(args.docs, Some(DocsMode::Skip)) && manifest.ci.terraform_docs;
 
     // The client + org are only needed for a real upload; a dry-run stays offline.
@@ -330,7 +327,6 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
 
     let mut rows: Vec<PublishRow> = Vec::new();
     let mut exit = 0;
-    let mut signed_any = false;
 
     for plan in targets {
         let Some(version) = plan_version(plan, version_override.as_ref(), bump_override) else {
@@ -343,7 +339,6 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
                 tag: None,
                 sha256: None,
                 reason: Some("no bump".to_string()),
-                signed: false,
             });
             continue;
         };
@@ -367,12 +362,8 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         let tarball_name = format!("{}-{version}.tar.gz", plan.name);
         eprintln!("    packaged {tarball_name} · sha256 {sha}");
 
-        // Dry-run must never touch signing infra (cosign keyless would trigger an
-        // interactive sigstore flow) or the network — report intent and stop.
+        // Dry-run stays offline — report intent and stop.
         if args.dry_run {
-            if sign_mode != Signing::None {
-                eprintln!("    dry-run · would sign SHA256SUMS with {sign_mode}");
-            }
             eprintln!("    dry-run · would upload + tag");
             rows.push(PublishRow {
                 name: plan.name.clone(),
@@ -382,13 +373,9 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
                 tag: Some(tag),
                 sha256: Some(sha),
                 reason: None,
-                signed: false,
             });
             continue;
         }
-
-        let signed = sign_sums(&dir, &tarball_name, &sha, sign_mode);
-        signed_any |= signed;
 
         let (client, org) = client_org
             .as_ref()
@@ -416,7 +403,6 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
                     tag: Some(tag),
                     sha256: Some(sha),
                     reason: None,
-                    signed,
                 });
             }
             Err(e) => {
@@ -424,12 +410,6 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
                 exit = e.exit_code();
             }
         }
-    }
-
-    if signed_any {
-        eprintln!(
-            "note: signatures were emitted locally; registry-side signature/cert storage is pending (design §8.1/§8.6)"
-        );
     }
 
     finish_publish(cli, args.dry_run, provider, rows)
@@ -473,69 +453,6 @@ fn regen_docs(root: &Path, dir: &Path) {
     match status {
         Ok(s) if s.success() => eprintln!("    regenerated README.md"),
         _ => eprintln!("    warning: terraform-docs failed; leaving README.md as-is"),
-    }
-}
-
-/// Write `SHA256SUMS` beside the module and (optionally) sign it. Signing is
-/// best-effort out-of-band supply-chain signing (§6.1): a missing signer tool
-/// warns rather than fails. Returns whether a signature was produced.
-fn sign_sums(dir: &Path, tarball_name: &str, sha: &str, mode: Signing) -> bool {
-    let sums_path = dir.join("SHA256SUMS");
-    if std::fs::write(&sums_path, sha256sums_line(tarball_name, sha)).is_err() {
-        eprintln!("    warning: could not write {}", sums_path.display());
-        return false;
-    }
-    match mode {
-        Signing::None => false,
-        Signing::Cosign => {
-            if !on_path("cosign") {
-                eprintln!(
-                    "    cosign not on PATH — SHA256SUMS written unsigned (--sign none to silence)"
-                );
-                return false;
-            }
-            let sig = dir.join("SHA256SUMS.sig");
-            let cert = dir.join("SHA256SUMS.pem");
-            let ok = Command::new("cosign")
-                .arg("sign-blob")
-                .arg("--yes")
-                .arg(&sums_path)
-                .arg("--output-signature")
-                .arg(&sig)
-                .arg("--output-certificate")
-                .arg(&cert)
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false);
-            if ok {
-                eprintln!("    cosign-signed SHA256SUMS → {}", sig.display());
-            } else {
-                eprintln!("    warning: cosign sign-blob failed");
-            }
-            ok
-        }
-        Signing::Gpg => {
-            if !on_path("gpg") {
-                eprintln!(
-                    "    gpg not on PATH — SHA256SUMS written unsigned (--sign none to silence)"
-                );
-                return false;
-            }
-            let sig = dir.join("SHA256SUMS.asc");
-            let ok = Command::new("gpg")
-                .args(["--batch", "--yes", "--armor", "--detach-sign", "--output"])
-                .arg(&sig)
-                .arg(&sums_path)
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false);
-            if ok {
-                eprintln!("    gpg-signed SHA256SUMS → {}", sig.display());
-            } else {
-                eprintln!("    warning: gpg detach-sign failed");
-            }
-            ok
-        }
     }
 }
 

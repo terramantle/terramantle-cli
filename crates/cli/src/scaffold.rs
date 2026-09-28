@@ -109,7 +109,6 @@ fn build_manifest(cli: &Cli, args: &InitArgs, root: &Path) -> Result<Manifest, S
         lint: !args.no_lint,
         security_scan: !args.no_scan,
         terraform_docs: !args.no_docs,
-        sign: args.sign.unwrap_or(CiConfig::default().sign),
         auth: args.ci_auth.unwrap_or(CiConfig::default().auth),
         versioning: args.versioning.unwrap_or(CiConfig::default().versioning),
         terraform_versions: args
@@ -163,11 +162,9 @@ pub fn init(cli: &Cli, args: &InitArgs) -> CmdResult {
     })?;
 
     let desired = desired_files(&manifest);
-    let mut lock = tm_scaffold::LockFile::default();
-    let plan = compute(&desired, &lock, disk_reader(&root));
-    let outcome = plan.apply(&root, &mut lock, false)?;
+    let plan = compute(&desired, disk_reader(&root));
+    let outcome = plan.apply(&root)?;
     apply_gitignore(&root)?;
-    lock.save(&root)?;
 
     let mut err = std::io::stderr();
     let _ = writeln!(
@@ -214,8 +211,7 @@ pub fn upgrade(cli: &Cli, args: &UpgradeArgs) -> CmdResult {
         });
     }
 
-    let mut lock = tm_scaffold::LockFile::load(&root)?;
-    let mut plan = compute(&desired, &lock, disk_reader(&root));
+    let mut plan = compute(&desired, disk_reader(&root));
     // With --only we scope to a subset, so suppress prune (the excluded managed
     // files would otherwise look "no longer desired").
     if args.only.is_some() {
@@ -243,26 +239,11 @@ pub fn upgrade(cli: &Cli, args: &UpgradeArgs) -> CmdResult {
         Err(code) => return Ok(code),
     }
 
-    let outcome = plan.apply(&root, &mut lock, args.force)?;
+    let outcome = plan.apply(&root)?;
     apply_gitignore(&root)?;
-    lock.save(&root)?;
 
     let mut err = std::io::stderr();
     narrate_outcome(&mut err, &outcome);
-    if !outcome.drifted.is_empty() {
-        let _ = writeln!(
-            err,
-            "\n{} file(s) were edited since generation and were NOT overwritten.",
-            outcome.drifted.len()
-        );
-        let _ = writeln!(
-            err,
-            "Review the .terramantle-new side-cars and merge, or re-run with --force:"
-        );
-        for (orig, side) in &outcome.drifted {
-            let _ = writeln!(err, "  ! {} → {}", orig.display(), side.display());
-        }
-    }
     Ok(0)
 }
 
@@ -286,11 +267,7 @@ fn narrate_outcome<W: Write>(w: &mut W, outcome: &tm_scaffold::ApplyOutcome) {
     lines('+', &outcome.added);
     lines('~', &outcome.updated);
     lines('-', &outcome.pruned);
-    if outcome.added.is_empty()
-        && outcome.updated.is_empty()
-        && outcome.pruned.is_empty()
-        && outcome.drifted.is_empty()
-    {
+    if outcome.added.is_empty() && outcome.updated.is_empty() && outcome.pruned.is_empty() {
         let _ = writeln!(w, "  (nothing to do)");
     }
 }

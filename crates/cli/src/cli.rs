@@ -6,7 +6,7 @@
 use clap::{Args, Parser, Subcommand};
 use clap_complete::Shell;
 use tm_config::OutputFormat;
-use tm_scaffold::{Artefact, CiAuth, Signing, Structure, VcsProvider, Versioning};
+use tm_scaffold::{Artefact, CiAuth, Structure, VcsProvider, Versioning};
 
 use crate::auth::EnvFormat;
 
@@ -153,7 +153,7 @@ pub enum ModulesCommand {
         #[arg(long)]
         all: bool,
     },
-    /// Package · terraform-docs · hash · sign · upload · tag changed modules.
+    /// Package · terraform-docs · hash · upload · tag changed modules.
     Publish(ModulePublishArgs),
 }
 
@@ -184,13 +184,10 @@ pub struct ModulePublishArgs {
     /// Optional registry description for the published version.
     #[arg(long, value_name = "TEXT")]
     pub description: Option<String>,
-    /// Signing strategy: cosign|gpg|none (default from manifest `ci.sign`).
-    #[arg(long)]
-    pub sign: Option<Signing>,
     /// Skip terraform-docs README regeneration (`--docs skip`).
     #[arg(long = "docs", value_enum)]
     pub docs: Option<DocsMode>,
-    /// Package + hash + sign only; print what WOULD upload/tag. No network, no tag.
+    /// Package + hash only; print what WOULD upload/tag. No network, no tag.
     #[arg(long)]
     pub dry_run: bool,
     /// CI mode: non-interactive + machine output.
@@ -395,9 +392,6 @@ pub struct InitArgs {
     /// Drop terraform-docs README regeneration.
     #[arg(long)]
     pub no_docs: bool,
-    /// Module signing strategy: `cosign` (default) | `gpg` | `none`.
-    #[arg(long)]
-    pub sign: Option<Signing>,
     /// CI auth grant: `oidc` (default, keyless) | `bot` (client-credentials).
     #[arg(long = "ci-auth")]
     pub ci_auth: Option<CiAuth>,
@@ -418,9 +412,6 @@ pub struct UpgradeArgs {
     /// Apply without the confirmation prompt.
     #[arg(long)]
     pub yes: bool,
-    /// Overwrite user-edited (drifted) files instead of writing `.terramantle-new`.
-    #[arg(long)]
-    pub force: bool,
     /// Restrict the re-scaffold to one output category.
     #[arg(long, value_enum)]
     pub only: Option<OnlyFilter>,

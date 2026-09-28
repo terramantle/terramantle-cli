@@ -7,20 +7,18 @@
 //! * [`manifest`] — the `terramantle.hcl` model, rendered on `init`, parsed on `upgrade`.
 //! * [`vcs`] — infer GitHub vs GitLab from the `origin` remote.
 //! * [`render`] — render the desired file set (CI pipeline, CODEOWNERS, skeleton) from a [`Manifest`].
-//! * [`lockfile`] — the `.terramantle/manifest.lock` that makes `upgrade` a *diff*.
-//! * [`plan`] — the terraform-plan-style desired-vs-disk diff engine (`+ ~ ! -`).
+//! * [`plan`] — the lock-free, terraform-plan-style desired-vs-disk diff engine (`+ ~ -`),
+//!   using each managed file's provenance header (not a lock file) to recognise ownership.
 
 pub mod error;
-pub mod lockfile;
 pub mod manifest;
 pub mod plan;
 pub mod render;
 pub mod vcs;
 
 pub use error::ScaffoldError;
-pub use lockfile::LockFile;
 pub use manifest::{
-    Artefact, CiAuth, CiConfig, Discovery, Manifest, Signing, Structure, VcsProvider, Versioning,
+    Artefact, CiAuth, CiConfig, Discovery, Manifest, Structure, VcsProvider, Versioning,
 };
 pub use plan::{compute, Action, ApplyOutcome, Plan, PlanEntry};
 pub use render::{desired_files, merge_gitignore, FileClass, GeneratedFile};

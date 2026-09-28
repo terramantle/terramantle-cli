@@ -1,43 +1,48 @@
 //! The `upgrade` diff engine (SCAFFOLD-PUBLISH-AUTH.md §3) — a terraform-plan-style
 //! reconciliation of the desired file set against what is on disk.
 //!
-//! The core, [`compute`], is pure: it takes the rendered desired files, the lock,
-//! and an injected "read this path" closure, and returns a [`Plan`] of `+ ~ ! -`
-//! actions. [`Plan::apply`] performs the IO. Splitting them keeps every branch of
-//! the drift model unit-testable without a real filesystem.
+//! The core, [`compute`], is pure: it takes the rendered desired files and an
+//! injected "read this path" closure, and returns a [`Plan`] of `+ ~ -` actions.
+//! [`Plan::apply`] performs the IO. Splitting them keeps every branch unit-testable
+//! without a real filesystem.
 //!
-//! Per managed file we compare three hashes — desired (freshly rendered), disk,
-//! and the lock's "last generated":
+//! There is **no lock file**. Ownership is carried by the provenance header every
+//! managed file starts with (`# managed by terramantle · template=…`), so `upgrade`
+//! is a stateless re-render:
 //!
-//! | on disk | disk == desired | disk == last-generated | action           |
-//! |---------|-----------------|------------------------|------------------|
-//! | absent  | —               | —                      | **Add** `+`      |
-//! | present | yes             | —                      | **Unchanged**    |
-//! | present | no              | yes (user untouched)   | **UpdateClean** `~` |
-//! | present | no              | no (user edited)       | **UpdateDrifted** `!` |
+//! | file class | on disk | vs desired | action        |
+//! |------------|---------|------------|---------------|
+//! | managed    | absent  | —          | **Add** `+`   |
+//! | managed    | present | equal      | **Unchanged** |
+//! | managed    | present | differs    | **Update** `~` (overwrite) |
+//! | once       | absent  | —          | **Add** `+`   |
+//! | once       | present | —          | **Unchanged** (never touched) |
 //!
-//! Scaffold-once files are only ever **Add** (absent) or **Unchanged** (present) —
-//! the user owns them after creation. A managed file recorded in the lock but no
-//! longer desired is **Prune** `-`.
+//! A file carrying the provenance marker that is no longer desired (e.g. the other
+//! VCS's pipeline after a `vcs` switch) is **Prune** `-`. Scaffold-once files carry
+//! no header, so they are invisible to prune — the user owns them.
 
 use std::path::{Path, PathBuf};
 
 use crate::error::ScaffoldError;
-use crate::lockfile::{key_of, sha256_hex, LockFile};
-use crate::render::{FileClass, GeneratedFile};
+use crate::render::{candidate_managed_paths, FileClass, GeneratedFile, PROVENANCE_MARKER};
+
+/// Normalise a path to a forward-slash key so comparisons are stable across
+/// platforms.
+fn key_of(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
 
 /// The reconciliation action for one path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     /// Desired file absent on disk → create.
     Add,
-    /// Present, untouched since last generation → safe rewrite.
-    UpdateClean,
-    /// Present but user-edited → write `<path>.terramantle-new`, do not clobber.
-    UpdateDrifted,
-    /// Present and already matches desired → skip.
+    /// Managed file present but differing from desired → overwrite.
+    Update,
+    /// Present and already matches desired (or a once-file that exists) → skip.
     Unchanged,
-    /// Managed, previously generated, no longer desired → remove.
+    /// Carries our provenance marker but is no longer desired → remove.
     Prune,
 }
 
@@ -46,15 +51,13 @@ impl Action {
     pub fn glyph(self) -> char {
         match self {
             Action::Add => '+',
-            Action::UpdateClean => '~',
-            Action::UpdateDrifted => '!',
+            Action::Update => '~',
             Action::Unchanged => '=',
             Action::Prune => '-',
         }
     }
 
-    /// Whether this action mutates the working tree when applied (ignoring the
-    /// side-car `.terramantle-new` that `UpdateDrifted` always writes).
+    /// Whether this action leaves the working tree untouched.
     pub fn is_noop(self) -> bool {
         matches!(self, Action::Unchanged)
     }
@@ -82,40 +85,26 @@ pub struct Plan {
 pub struct ApplyOutcome {
     pub added: Vec<PathBuf>,
     pub updated: Vec<PathBuf>,
-    /// `(original, side-car)` pairs written for drifted files.
-    pub drifted: Vec<(PathBuf, PathBuf)>,
     pub pruned: Vec<PathBuf>,
 }
 
 /// Compute the plan. `read` returns the current on-disk content of a
 /// repo-root-relative path, or `None` if it does not exist.
-pub fn compute(
-    desired: &[GeneratedFile],
-    lock: &LockFile,
-    read: impl Fn(&Path) -> Option<String>,
-) -> Plan {
+pub fn compute(desired: &[GeneratedFile], read: impl Fn(&Path) -> Option<String>) -> Plan {
     let mut entries = Vec::new();
     let desired_keys: std::collections::BTreeSet<String> =
         desired.iter().map(|f| key_of(&f.path)).collect();
 
     for f in desired {
-        let desired_hash = sha256_hex(f.content.as_bytes());
         let action = match read(&f.path) {
             None => Action::Add,
             Some(disk) => {
-                if f.class == FileClass::Once {
-                    // User owns once-files after creation: never rewrite.
+                // Once-files are the user's after creation; a managed file is
+                // overwritten whenever it diverges from the freshly rendered bytes.
+                if f.class == FileClass::Once || disk == f.content {
                     Action::Unchanged
                 } else {
-                    let disk_hash = sha256_hex(disk.as_bytes());
-                    if disk_hash == desired_hash {
-                        Action::Unchanged
-                    } else {
-                        match lock.get(&f.path) {
-                            Some(e) if e.sha256 == disk_hash => Action::UpdateClean,
-                            _ => Action::UpdateDrifted,
-                        }
-                    }
+                    Action::Update
                 }
             }
         };
@@ -128,19 +117,21 @@ pub fn compute(
         });
     }
 
-    // Prune: managed files the lock remembers but the manifest no longer wants.
-    for path in lock.managed_paths() {
+    // Prune: any file carrying our provenance marker that is no longer desired.
+    for path in candidate_managed_paths() {
         if desired_keys.contains(&key_of(&path)) {
             continue;
         }
-        if read(&path).is_some() {
-            entries.push(PlanEntry {
-                path,
-                action: Action::Prune,
-                template: String::new(),
-                class: FileClass::Managed,
-                desired: None,
-            });
+        if let Some(content) = read(&path) {
+            if content.contains(PROVENANCE_MARKER) {
+                entries.push(PlanEntry {
+                    path,
+                    action: Action::Prune,
+                    template: String::new(),
+                    class: FileClass::Managed,
+                    desired: None,
+                });
+            }
         }
     }
 
@@ -159,22 +150,20 @@ impl Plan {
         self.changes().next().is_none()
     }
 
-    /// Count of each action, for the summary line.
-    pub fn counts(&self) -> (usize, usize, usize, usize) {
+    /// Count of (add, update, prune) for the summary line.
+    pub fn counts(&self) -> (usize, usize, usize) {
         let mut add = 0;
         let mut update = 0;
-        let mut drift = 0;
         let mut prune = 0;
         for e in &self.entries {
             match e.action {
                 Action::Add => add += 1,
-                Action::UpdateClean => update += 1,
-                Action::UpdateDrifted => drift += 1,
+                Action::Update => update += 1,
                 Action::Prune => prune += 1,
                 Action::Unchanged => {}
             }
         }
-        (add, update, drift, prune)
+        (add, update, prune)
     }
 
     /// Render a terraform-plan-style summary (one line per change + a total).
@@ -183,10 +172,7 @@ impl Plan {
         for e in self.changes() {
             let note = match e.action {
                 Action::Add => "create",
-                Action::UpdateClean => "update",
-                Action::UpdateDrifted => {
-                    "drifted — write .terramantle-new (use --force to overwrite)"
-                }
+                Action::Update => "update",
                 Action::Prune => "remove (no longer in manifest)",
                 Action::Unchanged => "",
             };
@@ -197,52 +183,31 @@ impl Plan {
                 note
             ));
         }
-        let (a, u, d, p) = self.counts();
-        if a + u + d + p == 0 {
+        let (a, u, p) = self.counts();
+        if a + u + p == 0 {
             out.push_str("No changes. Scaffold is up to date.\n");
         } else {
             out.push_str(&format!(
-                "\nPlan: {a} to add, {u} to update, {d} drifted, {p} to remove.\n"
+                "\nPlan: {a} to add, {u} to update, {p} to remove.\n"
             ));
         }
         out
     }
 
-    /// Apply the plan under `root`, mutating the lock in place. `force` overwrites
-    /// drifted files instead of writing a side-car.
-    pub fn apply(
-        &self,
-        root: &Path,
-        lock: &mut LockFile,
-        force: bool,
-    ) -> Result<ApplyOutcome, ScaffoldError> {
+    /// Apply the plan under `root`. Managed files are (over)written; scaffold-once
+    /// files are only created when absent; pruned files are removed.
+    pub fn apply(&self, root: &Path) -> Result<ApplyOutcome, ScaffoldError> {
         let mut out = ApplyOutcome::default();
         for e in &self.entries {
             let abs = root.join(&e.path);
             match e.action {
-                Action::Add | Action::UpdateClean => {
-                    let content = e.desired.as_deref().unwrap_or_default();
-                    write_file(&abs, content)?;
-                    record_from_entry(lock, e);
-                    if e.action == Action::Add {
-                        out.added.push(e.path.clone());
-                    } else {
-                        out.updated.push(e.path.clone());
-                    }
+                Action::Add => {
+                    write_file(&abs, e.desired.as_deref().unwrap_or_default())?;
+                    out.added.push(e.path.clone());
                 }
-                Action::UpdateDrifted => {
-                    let content = e.desired.as_deref().unwrap_or_default();
-                    if force {
-                        write_file(&abs, content)?;
-                        record_from_entry(lock, e);
-                        out.updated.push(e.path.clone());
-                    } else {
-                        let side = sidecar(&e.path);
-                        write_file(&root.join(&side), content)?;
-                        // Lock unchanged: the original keeps its old recorded hash
-                        // so re-running still detects the drift.
-                        out.drifted.push((e.path.clone(), side));
-                    }
+                Action::Update => {
+                    write_file(&abs, e.desired.as_deref().unwrap_or_default())?;
+                    out.updated.push(e.path.clone());
                 }
                 Action::Prune => {
                     match std::fs::remove_file(&abs) {
@@ -250,37 +215,13 @@ impl Plan {
                         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                         Err(source) => return Err(ScaffoldError::Write { path: abs, source }),
                     }
-                    lock.forget(&e.path);
                     out.pruned.push(e.path.clone());
                 }
-                Action::Unchanged => {
-                    // Adopt into the lock if it predates it, so future upgrades
-                    // can tell clean from drifted.
-                    if lock.get(&e.path).is_none() {
-                        record_from_entry(lock, e);
-                    }
-                }
+                Action::Unchanged => {}
             }
         }
         Ok(out)
     }
-}
-
-fn sidecar(path: &Path) -> PathBuf {
-    let mut s = path.as_os_str().to_os_string();
-    s.push(".terramantle-new");
-    PathBuf::from(s)
-}
-
-fn record_from_entry(lock: &mut LockFile, e: &PlanEntry) {
-    let gen = GeneratedFile {
-        path: e.path.clone(),
-        content: e.desired.clone().unwrap_or_default(),
-        template: e.template.clone(),
-        template_version: crate::render::TEMPLATE_VERSION,
-        class: e.class,
-    };
-    lock.record(&gen);
 }
 
 fn write_file(abs: &Path, content: &str) -> Result<(), ScaffoldError> {
@@ -332,71 +273,41 @@ mod tests {
 
     #[test]
     fn absent_file_is_add() {
-        let desired = vec![managed("ci.yml", "v1")];
-        let plan = compute(&desired, &LockFile::default(), fs(&[]));
-        assert_eq!(action_for(&plan, "ci.yml").unwrap().action, Action::Add);
+        let desired = vec![managed(".github/workflows/terramantle.yml", "v1")];
+        let plan = compute(&desired, fs(&[]));
+        assert_eq!(
+            action_for(&plan, ".github/workflows/terramantle.yml")
+                .unwrap()
+                .action,
+            Action::Add
+        );
     }
 
     #[test]
     fn matching_disk_is_unchanged() {
-        let desired = vec![managed("ci.yml", "v1")];
-        let plan = compute(&desired, &LockFile::default(), fs(&[("ci.yml", "v1")]));
+        let desired = vec![managed(".gitlab-ci.yml", "v1")];
+        let plan = compute(&desired, fs(&[(".gitlab-ci.yml", "v1")]));
         assert_eq!(
-            action_for(&plan, "ci.yml").unwrap().action,
+            action_for(&plan, ".gitlab-ci.yml").unwrap().action,
             Action::Unchanged
         );
         assert!(plan.is_empty_of_changes());
     }
 
     #[test]
-    fn untouched_since_last_gen_is_clean_update() {
-        // disk == recorded (old gen), desired differs → safe rewrite.
-        let mut lock = LockFile::default();
-        lock.record(&managed("ci.yml", "old"));
-        let desired = vec![managed("ci.yml", "new")];
-        let plan = compute(&desired, &lock, fs(&[("ci.yml", "old")]));
+    fn differing_managed_file_is_update() {
+        let desired = vec![managed(".gitlab-ci.yml", "new")];
+        let plan = compute(&desired, fs(&[(".gitlab-ci.yml", "old or hand-edited")]));
         assert_eq!(
-            action_for(&plan, "ci.yml").unwrap().action,
-            Action::UpdateClean
-        );
-    }
-
-    #[test]
-    fn user_edited_is_drifted() {
-        // disk != recorded and != desired → user edited it.
-        let mut lock = LockFile::default();
-        lock.record(&managed("ci.yml", "old"));
-        let desired = vec![managed("ci.yml", "new")];
-        let plan = compute(&desired, &lock, fs(&[("ci.yml", "hand-edited")]));
-        assert_eq!(
-            action_for(&plan, "ci.yml").unwrap().action,
-            Action::UpdateDrifted
-        );
-    }
-
-    #[test]
-    fn no_lock_but_present_and_differs_is_drifted() {
-        // Adopting a repo that predates the lock: don't clobber.
-        let desired = vec![managed("ci.yml", "new")];
-        let plan = compute(
-            &desired,
-            &LockFile::default(),
-            fs(&[("ci.yml", "preexisting")]),
-        );
-        assert_eq!(
-            action_for(&plan, "ci.yml").unwrap().action,
-            Action::UpdateDrifted
+            action_for(&plan, ".gitlab-ci.yml").unwrap().action,
+            Action::Update
         );
     }
 
     #[test]
     fn once_file_present_is_never_touched() {
         let desired = vec![once("main.tf", "new-scaffold")];
-        let plan = compute(
-            &desired,
-            &LockFile::default(),
-            fs(&[("main.tf", "user code")]),
-        );
+        let plan = compute(&desired, fs(&[("main.tf", "user code")]));
         assert_eq!(
             action_for(&plan, "main.tf").unwrap().action,
             Action::Unchanged
@@ -406,115 +317,88 @@ mod tests {
     #[test]
     fn once_file_absent_is_add() {
         let desired = vec![once("main.tf", "scaffold")];
-        let plan = compute(&desired, &LockFile::default(), fs(&[]));
+        let plan = compute(&desired, fs(&[]));
         assert_eq!(action_for(&plan, "main.tf").unwrap().action, Action::Add);
     }
 
     #[test]
-    fn dropped_managed_file_is_pruned_but_once_is_not() {
-        let mut lock = LockFile::default();
-        lock.record(&managed("old-ci.yml", "x"));
-        lock.record(&once("main.tf", "y"));
-        let desired = vec![managed("ci.yml", "v1")];
+    fn stale_managed_file_with_marker_is_pruned() {
+        // Switched github → gitlab: the old GitHub pipeline still carries our
+        // provenance marker and is no longer desired → prune.
+        let stale = format!("# {PROVENANCE_MARKER}github/modules · v=1\njobs: {{}}\n");
+        let desired = vec![managed(".gitlab-ci.yml", "v1")];
         let plan = compute(
             &desired,
-            &lock,
-            fs(&[("old-ci.yml", "x"), ("main.tf", "y")]),
+            fs(&[
+                (".gitlab-ci.yml", "v1"),
+                (".github/workflows/terramantle.yml", &stale),
+            ]),
         );
         assert_eq!(
-            action_for(&plan, "old-ci.yml").unwrap().action,
+            action_for(&plan, ".github/workflows/terramantle.yml")
+                .unwrap()
+                .action,
             Action::Prune
         );
-        // once file recorded in lock is never a prune candidate
-        assert!(action_for(&plan, "main.tf").is_none());
     }
 
     #[test]
-    fn apply_writes_adds_and_records_lock() {
-        let dir = tempfile::tempdir().unwrap();
-        let desired = vec![managed(".github/workflows/terramantle.yml", "pipeline")];
-        let plan = compute(&desired, &LockFile::default(), |_| None);
-        let mut lock = LockFile::default();
-        let out = plan.apply(dir.path(), &mut lock, false).unwrap();
-        assert_eq!(out.added.len(), 1);
-        let written =
-            std::fs::read_to_string(dir.path().join(".github/workflows/terramantle.yml")).unwrap();
-        assert_eq!(written, "pipeline");
-        assert!(lock
-            .get(&PathBuf::from(".github/workflows/terramantle.yml"))
-            .is_some());
+    fn foreign_file_without_marker_is_not_pruned() {
+        // A user's own .github/workflows file that we never generated (no marker)
+        // must not be pruned — but our candidate scan only checks known managed
+        // paths, and even there requires the marker.
+        let desired = vec![managed(".gitlab-ci.yml", "v1")];
+        let plan = compute(
+            &desired,
+            fs(&[
+                (".gitlab-ci.yml", "v1"),
+                (
+                    ".github/workflows/terramantle.yml",
+                    "name: my own pipeline\n",
+                ),
+            ]),
+        );
+        assert!(action_for(&plan, ".github/workflows/terramantle.yml").is_none());
     }
 
     #[test]
-    fn apply_drifted_writes_sidecar_not_original() {
+    fn apply_writes_add_and_update_and_prune() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("ci.yml"), "hand-edited").unwrap();
-        let mut lock = LockFile::default();
-        lock.record(&managed("ci.yml", "old"));
-        let desired = vec![managed("ci.yml", "new")];
-        let plan = compute(&desired, &lock, |p| {
+        // seed a stale marked file to prune + a to-be-updated file
+        std::fs::create_dir_all(dir.path().join(".github/workflows")).unwrap();
+        let stale = format!("# {PROVENANCE_MARKER}github/modules · v=1\n");
+        std::fs::write(dir.path().join(".github/workflows/terramantle.yml"), &stale).unwrap();
+        std::fs::write(dir.path().join(".gitlab-ci.yml"), "old").unwrap();
+
+        let desired = vec![managed(".gitlab-ci.yml", "new")];
+        let plan = compute(&desired, |p| {
             std::fs::read_to_string(dir.path().join(p)).ok()
         });
-        let out = plan.apply(dir.path(), &mut lock, false).unwrap();
-        assert_eq!(out.drifted.len(), 1);
-        // original untouched, sidecar has the new content
+        let out = plan.apply(dir.path()).unwrap();
+
         assert_eq!(
-            std::fs::read_to_string(dir.path().join("ci.yml")).unwrap(),
-            "hand-edited"
-        );
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("ci.yml.terramantle-new")).unwrap(),
+            std::fs::read_to_string(dir.path().join(".gitlab-ci.yml")).unwrap(),
             "new"
         );
-        // lock still records the OLD hash so drift persists until resolved
+        assert!(!dir
+            .path()
+            .join(".github/workflows/terramantle.yml")
+            .exists());
+        assert_eq!(out.updated, vec![PathBuf::from(".gitlab-ci.yml")]);
         assert_eq!(
-            lock.get(&PathBuf::from("ci.yml")).unwrap().sha256,
-            sha256_hex(b"old")
+            out.pruned,
+            vec![PathBuf::from(".github/workflows/terramantle.yml")]
         );
-    }
-
-    #[test]
-    fn apply_force_overwrites_drifted() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("ci.yml"), "hand-edited").unwrap();
-        let mut lock = LockFile::default();
-        lock.record(&managed("ci.yml", "old"));
-        let desired = vec![managed("ci.yml", "new")];
-        let plan = compute(&desired, &lock, |p| {
-            std::fs::read_to_string(dir.path().join(p)).ok()
-        });
-        plan.apply(dir.path(), &mut lock, true).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("ci.yml")).unwrap(),
-            "new"
-        );
-        assert!(!dir.path().join("ci.yml.terramantle-new").exists());
-        assert_eq!(
-            lock.get(&PathBuf::from("ci.yml")).unwrap().sha256,
-            sha256_hex(b"new")
-        );
-    }
-
-    #[test]
-    fn apply_prune_removes_and_forgets() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("old.yml"), "x").unwrap();
-        let mut lock = LockFile::default();
-        lock.record(&managed("old.yml", "x"));
-        let plan = compute(&[], &lock, |p| {
-            std::fs::read_to_string(dir.path().join(p)).ok()
-        });
-        plan.apply(dir.path(), &mut lock, false).unwrap();
-        assert!(!dir.path().join("old.yml").exists());
-        assert!(lock.get(&PathBuf::from("old.yml")).is_none());
     }
 
     #[test]
     fn plan_render_mentions_counts() {
-        let desired = vec![managed("a.yml", "1"), managed("b.yml", "2")];
-        let plan = compute(&desired, &LockFile::default(), fs(&[]));
+        let desired = vec![
+            managed(".github/workflows/terramantle.yml", "1"),
+            once("main.tf", "2"),
+        ];
+        let plan = compute(&desired, fs(&[]));
         let r = plan.render();
         assert!(r.contains("2 to add"));
-        assert!(r.contains("+ a.yml"));
     }
 }

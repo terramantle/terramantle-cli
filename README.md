@@ -44,7 +44,7 @@ TTY-aware status. Full design notes live in the
 
 - 🏗️ **Repo scaffolding** — `init`/`upgrade` scaffold a mono/poly repo for modules or workspaces, with GitHub **or** GitLab CI inferred from the `origin` remote. Terraform-style: `init` creates, `upgrade` diffs the desired layout against disk and applies the delta without clobbering your edits.
 - 🔎 **Registry discovery** — `providers ls/show`, `modules search/show`, Trust verdicts inline.
-- 🚀 **Publish** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz` + SHA256SUMS, cosign/gpg signing, path-prefixed tags) and `state publish` (per-workspace lock-file upload + posture).
+- 🚀 **Publish** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz`, path-prefixed tags) and `state publish` (per-workspace lock-file upload + posture).
 - 📦 **CI lock-file uploader** — `lock push` with eventually-consistent posture (`--fail-on-atrisk`).
 - 🗄️ **State operations** — `state ls/versions/promote/rollback/unlock`, confirmations + `--force`.
 - 🔐 **Five auth modes, zero hardcoding** — GitHub/GitLab OIDC, device login, bot client-credentials, raw token; OIDC config is fetched from a discovery endpoint at runtime.
@@ -103,7 +103,7 @@ terramantle
 │   ├── search <query>          # registry search
 │   ├── show <ns>/<name>/<provider>
 │   ├── changed [--all]         # changed modules + proposed next semver (CI-consumable)
-│   └── publish [--all] […]     # package · terraform-docs · hash · sign · upload · tag
+│   └── publish [--all] […]     # package · terraform-docs · hash · upload · tag
 ├── lock
 │   └── push [path]             # upload .terraform.lock.hcl (default ./)
 ├── state
@@ -159,26 +159,28 @@ terramantle init --artefact modules   # structure=poly, vcs inferred from origin
   which CI pipeline is emitted and which `publish` applies.
 - **VCS** — inferred from `git remote get-url origin` (`github.com` → GitHub
   Actions, `gitlab.*` → GitLab CI). Override with `--vcs`.
-- **CI knobs** — `--ci-auth oidc|bot`, `--sign cosign|gpg|none`, `--tf 1.7,1.9`,
-  `--no-tofu`, `--no-lint`, `--no-scan`, `--no-docs`, `--versioning conventional|manual`.
+- **CI knobs** — `--ci-auth oidc|bot`, `--tf 1.7,1.9`, `--no-tofu`, `--no-lint`,
+  `--no-scan`, `--no-docs`, `--versioning conventional|manual`.
   Disabled features are omitted from the emitted pipeline, not left commented.
 - `--yes` runs headless (CI / no prompts).
 
 Edit `terramantle.hcl`, then re-render:
 
 ```sh
-terramantle upgrade --diff   # show the plan (+ ~ ! -), change nothing
+terramantle upgrade --diff   # show the plan (+ ~ -), change nothing
 terramantle upgrade          # apply after a confirmation prompt (--yes to skip)
 ```
 
-`upgrade` is a real diff, tracked in `.terramantle/manifest.lock`:
+`upgrade` is a stateless re-render — **no lock file**. Ownership is carried by the
+provenance header every managed file starts with (`# managed by terramantle …`):
 
-- `+` create · `~` update a file you never touched · `-` prune a file no longer
-  in the manifest.
-- `!` **drift** — a managed file you hand-edited is **never clobbered**: the new
-  version is written alongside as `<file>.terramantle-new` for you to merge (or
-  re-run with `--force` to overwrite). Skeleton files (`*.tf`, `README.md`) are
-  yours after creation and are never rewritten or pruned.
+- `+` create · `~` update a managed file that differs from the freshly rendered
+  output · `-` prune a marked file no longer in the manifest (e.g. the old VCS's
+  pipeline after you switch `vcs`).
+- Skeleton files (`*.tf`, `README.md`) carry no header, so they are **yours after
+  creation** — never rewritten or pruned. Managed files are overwritten on
+  `upgrade` (the header says "do not edit above this line"); review the plan first
+  with `--diff`.
 
 ## Publishing (`modules publish` / `state publish`)
 
@@ -199,8 +201,8 @@ terramantle modules changed --all -o json
 
 **`modules publish`** packages each target module deterministically (reproducible
 `tar.gz`, zeroed mtimes → stable `sha256`), regenerates its README with
-`terraform-docs` (if on `PATH`), writes `SHA256SUMS`, optionally signs it, uploads
-the version, then creates + pushes the release tag:
+`terraform-docs` (if on `PATH`), uploads the version, then creates + pushes the
+release tag:
 
 ```sh
 terramantle modules publish --provider aws            # changed modules, computed versions
@@ -213,11 +215,8 @@ terramantle modules publish --all --bump minor --provider aws --dry-run
 - **version** — `--version X.Y.Z` (strict semver2; a bad value exits 2) or `--bump
   major|minor|patch`, else the conventional-commit computation; a released module
   with no bump-worthy commits is skipped.
-- **signing** — `--sign cosign|gpg|none` (default from `ci.sign`). Signatures are
-  emitted **locally** as `SHA256SUMS.sig` (+cert); registry-side signature/cert
-  storage is a pending backend surface.
-- **`--dry-run`** packages/hashes/signs and prints what *would* upload + tag, with
-  no network and no tag; **`--ci`** is non-interactive + machine output.
+- **`--dry-run`** packages/hashes and prints what *would* upload + tag, with no
+  network and no tag; **`--ci`** is non-interactive + machine output.
 
 **`state publish`** (workspace repos) fans out over `lock push`: for each workspace
 dir carrying a `.terraform.lock.hcl` it uploads the lock file (with the `origin`

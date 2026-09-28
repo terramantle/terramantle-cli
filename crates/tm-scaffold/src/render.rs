@@ -13,7 +13,7 @@
 
 use std::path::PathBuf;
 
-use crate::manifest::{Artefact, CiAuth, CiConfig, Manifest, Signing, Structure, VcsProvider};
+use crate::manifest::{Artefact, CiAuth, CiConfig, Manifest, Structure, VcsProvider};
 
 /// How `upgrade` treats a generated file. See the module docs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,8 +39,28 @@ pub struct GeneratedFile {
 /// Provenance header version; bump when a managed template's layout changes.
 pub const TEMPLATE_VERSION: u32 = 1;
 
+/// The substring every managed file's provenance header carries. `upgrade` scans
+/// for this to recognise files it owns — the lock-free replacement for a manifest
+/// lock (§3): a marked file no longer in the desired set is pruned.
+pub const PROVENANCE_MARKER: &str = "managed by terramantle · template=";
+
 /// The default registry URL the templates reference (mirrors tm-config).
 const DEFAULT_REGISTRY: &str = "https://registry.terramantle.dev";
+
+/// Every path a managed file could occupy across both VCS providers and artefact
+/// types. `upgrade` checks these for prune candidates (a marked file here that the
+/// current manifest no longer wants — e.g. the other VCS's pipeline after a switch).
+pub fn candidate_managed_paths() -> Vec<PathBuf> {
+    [
+        ".github/workflows/terramantle.yml",
+        ".gitlab-ci.yml",
+        ".github/CODEOWNERS",
+        ".gitlab/CODEOWNERS",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect()
+}
 
 /// Build the full desired file set for a manifest.
 ///
@@ -59,7 +79,7 @@ pub fn desired_files(m: &Manifest) -> Vec<GeneratedFile> {
 fn header(template: &str, class: FileClass) -> String {
     match class {
         FileClass::Managed => format!(
-            "# managed by terramantle · template={template} · v={TEMPLATE_VERSION} · do not edit above this line\n"
+            "# {PROVENANCE_MARKER}{template} · v={TEMPLATE_VERSION} · do not edit above this line\n"
         ),
         FileClass::Once => String::new(),
     }
@@ -146,11 +166,6 @@ fn github_modules(m: &Manifest) -> String {
         s.push_str("      - uses: terraform-linters/setup-tflint@v4\n");
         s.push_str("      - run: tflint --recursive\n");
     }
-    if ci.security_scan {
-        s.push_str(
-            "      - run: terramantle modules changed -o json | terramantle scan --fail-on-atrisk --stdin\n",
-        );
-    }
     s.push('\n');
 
     s.push_str("  publish:\n    needs: validate\n");
@@ -164,9 +179,6 @@ fn github_modules(m: &Manifest) -> String {
             "        with: { find-dir: ., output-file: README.md, output-method: inject }\n",
         );
     }
-    if ci.sign == Signing::Cosign {
-        s.push_str("      - uses: sigstore/cosign-installer@v3\n");
-    }
     s.push_str("      - name: Publish changed modules\n        env:\n");
     s.push_str(&format!("          TERRAMANTLE_ORG: {}\n", m.org));
     if ci.auth == CiAuth::Bot {
@@ -177,10 +189,7 @@ fn github_modules(m: &Manifest) -> String {
             "          TERRAMANTLE_BOT_CLIENT_SECRET: ${{ secrets.TERRAMANTLE_BOT_CLIENT_SECRET }}\n",
         );
     }
-    s.push_str(&format!(
-        "        run: terramantle modules publish --ci{}\n",
-        sign_flag(ci.sign)
-    ));
+    s.push_str("        run: terramantle modules publish --ci\n");
     s
 }
 
@@ -270,11 +279,6 @@ fn gitlab_modules(m: &Manifest) -> String {
     if ci.lint {
         s.push_str("    - tflint --recursive\n");
     }
-    if ci.security_scan {
-        s.push_str(
-            "    - terramantle modules changed -o json | terramantle scan --fail-on-atrisk --stdin\n",
-        );
-    }
     s.push('\n');
 
     s.push_str("publish:\n  stage: publish\n");
@@ -287,10 +291,7 @@ fn gitlab_modules(m: &Manifest) -> String {
             "    - terraform-docs markdown table --output-file README.md --output-mode inject .\n",
         );
     }
-    s.push_str(&format!(
-        "    - terramantle modules publish --ci{}\n",
-        sign_flag(ci.sign)
-    ));
+    s.push_str("    - terramantle modules publish --ci\n");
     s
 }
 
@@ -330,24 +331,10 @@ fn gitlab_workspaces(m: &Manifest) -> String {
     s
 }
 
-fn sign_flag(sign: Signing) -> &'static str {
-    match sign {
-        Signing::Cosign => " --sign cosign",
-        Signing::Gpg => " --sign gpg",
-        Signing::None => "",
-    }
-}
-
 // ---- .gitignore -----------------------------------------------------------
 
 /// The ignore lines every terramantle repo needs.
-pub const GITIGNORE_LINES: &[&str] = &[
-    ".terraform/",
-    ".terramantle/cache/",
-    "*.tfstate",
-    "*.tfstate.*",
-    "*.terramantle-new",
-];
+pub const GITIGNORE_LINES: &[&str] = &[".terraform/", "*.tfstate", "*.tfstate.*"];
 
 /// Idempotently ensure the terramantle ignore lines are present in a `.gitignore`.
 ///
@@ -516,7 +503,8 @@ mod tests {
             .starts_with("# managed by terramantle · template=github/modules"));
         assert!(ci.content.contains("id-token: write")); // oidc default
         assert!(ci.content.contains("TERRAMANTLE_ORG: acme"));
-        assert!(ci.content.contains("--sign cosign"));
+        assert!(ci.content.contains("terramantle modules publish --ci"));
+        assert!(!ci.content.contains("--sign")); // signing removed
     }
 
     #[test]
@@ -542,7 +530,6 @@ mod tests {
         m.ci.security_scan = false;
         m.ci.terraform_docs = false;
         m.ci.tofu = false;
-        m.ci.sign = Signing::None;
         let files = desired_files(&m);
         let ci = files
             .iter()
@@ -606,7 +593,7 @@ mod tests {
     fn gitignore_appends_missing_lines_only() {
         let out = merge_gitignore(Some("node_modules/\n.terraform/\n")).unwrap();
         assert!(out.contains("node_modules/")); // preserved
-        assert!(out.contains(".terramantle/cache/")); // added
+        assert!(out.contains("*.tfstate")); // added
         assert_eq!(out.matches(".terraform/").count(), 1); // not duplicated
         assert!(out.contains("# terramantle"));
     }

@@ -41,15 +41,6 @@ pub enum VcsProvider {
     Gitlab,
 }
 
-/// Signing strategy for `modules publish` (§6.1). `cosign` keyless is the default;
-/// `gpg` is for air-gapped shops; `none` opts out. Ignored for workspaces.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Signing {
-    Cosign,
-    Gpg,
-    None,
-}
-
 /// CI auth grant the generated pipeline uses (§4.1). `oidc` is keyless; `bot`
 /// uses client-credentials from CI secrets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,7 +94,6 @@ macro_rules! str_enum {
 str_enum!(Structure, Mono => "mono", Poly => "poly"; aliases {});
 str_enum!(Artefact, Modules => "modules", Workspaces => "workspaces"; aliases { "states" => Workspaces });
 str_enum!(VcsProvider, Github => "github", Gitlab => "gitlab"; aliases {});
-str_enum!(Signing, Cosign => "cosign", Gpg => "gpg", None => "none"; aliases {});
 str_enum!(CiAuth, Oidc => "oidc", Bot => "bot"; aliases {});
 str_enum!(Versioning, Conventional => "conventional", Manual => "manual"; aliases {});
 
@@ -116,7 +106,6 @@ pub struct CiConfig {
     pub lint: bool,
     pub security_scan: bool,
     pub terraform_docs: bool,
-    pub sign: Signing,
     pub versioning: Versioning,
 }
 
@@ -129,7 +118,6 @@ impl Default for CiConfig {
             lint: true,
             security_scan: true,
             terraform_docs: true,
-            sign: Signing::Cosign,
             versioning: Versioning::Conventional,
         }
     }
@@ -231,7 +219,6 @@ impl Manifest {
         out.push_str(&format!("  lint               = {}\n", ci.lint));
         out.push_str(&format!("  security_scan      = {}\n", ci.security_scan));
         out.push_str(&format!("  terraform_docs     = {}\n", ci.terraform_docs));
-        out.push_str(&format!("  sign               = {:?}\n", ci.sign.as_str()));
         out.push_str(&format!(
             "  versioning         = {:?}\n",
             ci.versioning.as_str()
@@ -296,7 +283,6 @@ struct RawCi {
     lint: bool,
     security_scan: bool,
     terraform_docs: bool,
-    sign: Signing,
     versioning: Versioning,
 }
 
@@ -326,7 +312,6 @@ impl RawManifest {
                 lint: self.ci.lint,
                 security_scan: self.ci.security_scan,
                 terraform_docs: self.ci.terraform_docs,
-                sign: self.ci.sign,
                 versioning: self.ci.versioning,
             },
         })
@@ -367,7 +352,6 @@ mod tests {
             discovery: None,
             ci: CiConfig {
                 lint: false,
-                sign: Signing::None,
                 versioning: Versioning::Manual,
                 terraform_versions: vec!["1.9".into()],
                 ..CiConfig::default()
