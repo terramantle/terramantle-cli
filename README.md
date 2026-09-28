@@ -44,7 +44,7 @@ TTY-aware status. Full design notes live in the
 
 - 🏗️ **Repo scaffolding** — `init`/`upgrade` scaffold a mono/poly repo for modules or workspaces, with GitHub **or** GitLab CI inferred from the `origin` remote. Terraform-style: `init` creates, `upgrade` diffs the desired layout against disk and applies the delta without clobbering your edits.
 - 🔎 **Registry discovery** — `providers ls/show`, `modules search/show`, Trust verdicts inline.
-- 🚀 **Publish** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz`, path-prefixed tags) and `state publish` (per-workspace lock-file upload + posture).
+- 🚀 **Publish & tag** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz`), `repo tag` (mono `<module>@<version>` release tagging) and `state publish` (per-workspace lock-file upload + posture).
 - 📦 **CI lock-file uploader** — `lock push` with eventually-consistent posture (`--fail-on-atrisk`).
 - 🗄️ **State operations** — `state ls/versions/promote/rollback/unlock`, confirmations + `--force`.
 - 🔐 **Five auth modes, zero hardcoding** — GitHub/GitLab OIDC, device login, bot client-credentials, raw token; OIDC config is fetched from a discovery endpoint at runtime.
@@ -113,6 +113,8 @@ terramantle
 │   ├── rollback <workspace> [--to <serial>]  # promote previous (or --to) serial
 │   ├── unlock <workspace>      # force-unlock
 │   └── publish [--all] […]     # upload each workspace's .terraform.lock.hcl + posture
+├── repo
+│   └── tag [--dry-run]         # mono: create + push <module>@<version> release tags
 ├── auth
 │   ├── login                   # device flow (human) / auto in CI
 │   ├── logout
@@ -154,7 +156,7 @@ terramantle init --artefact modules   # structure=poly, vcs inferred from origin
 ```
 
 - **Structure** — `--structure mono` (many independently-versioned artefacts,
-  path-prefixed tags) or `poly` (one artefact per repo, the default).
+  `<module>@<version>` tags) or `poly` (one artefact per repo, the default).
 - **Artefact** — `--artefact modules` or `workspaces` (alias: `states`). Selects
   which CI pipeline is emitted and which `publish` applies.
 - **VCS** — inferred from `git remote get-url origin` (`github.com` → GitHub
@@ -182,11 +184,13 @@ provenance header every managed file starts with (`# managed by terramantle …`
   `upgrade` (the header says "do not edit above this line"); review the plan first
   with `--diff`.
 
-## Publishing (`modules publish` / `state publish`)
+## Publishing (`modules publish` / `state publish` / `repo tag`)
 
 Repo-aware commands read `terramantle.hcl` and act per artefact. For **mono**
-repos each `discovery` match is versioned independently (Go-module-style tags
-`modules/<name>/vX.Y.Z`); **poly** repos version the whole repo (`vX.Y.Z`).
+repos each `discovery` match is versioned independently and tagged
+`<module>@<X.Y.Z>` (e.g. `vpc@1.4.0`); **poly** repos version the whole repo
+(`vX.Y.Z`). A module's **first** release is always `<module>@1.0.0`; every release
+after that is driven by Conventional Commits since the last tag.
 
 **Change detection & versioning** — `modules changed` lists what changed since each
 artefact's last tag and the proposed next semver from Conventional Commits
@@ -201,14 +205,29 @@ terramantle modules changed --all -o json
 
 **`modules publish`** packages each target module deterministically (reproducible
 `tar.gz`, zeroed mtimes → stable `sha256`), regenerates its README with
-`terraform-docs` (if on `PATH`), uploads the version, then creates + pushes the
-release tag:
+`terraform-docs` (if on `PATH`), and uploads the version to the registry:
 
 ```sh
 terramantle modules publish --provider aws            # changed modules, computed versions
 terramantle modules publish --module vpc --version 1.4.0 --provider aws
 terramantle modules publish --all --bump minor --provider aws --dry-run
 ```
+
+**`repo tag`** is the mono release-tagging step (runs on the default branch after
+publish). It works out each module's next version from the `<module>@<semver>`
+tags — first release `<module>@1.0.0`, thereafter Conventional Commits — packages
+the module, then creates + pushes the `<module>@<version>` git tags. It skips
+modules with no release-worthy change and never re-creates an existing tag, so it
+is safe to re-run:
+
+```sh
+terramantle repo tag --dry-run   # show the tags that would be created
+terramantle repo tag             # create + push <module>@<version> tags
+```
+
+> Publishing and tagging are separate steps: `modules publish` uploads the
+> artefact; `repo tag` stamps the git tags. The scaffolded CI runs both, in order,
+> on the default branch.
 
 - **name/provider** — module `name` is the directory basename; `--provider` is
   required (the manifest carries no provider field).

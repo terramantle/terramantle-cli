@@ -10,7 +10,9 @@ use owo_colors::OwoColorize;
 
 use tm_config::{resolve, Context, EnvOverrides, FlagOverrides, ResolvedConfig};
 
-use crate::cli::{Cli, Command, ConfigCommand, ContextCommand, GlobalArgs, LockCommand};
+use crate::cli::{
+    Cli, Command, ConfigCommand, ContextCommand, GlobalArgs, LockCommand, RepoCommand,
+};
 use crate::output::{self, TableView};
 
 /// Result carrying the process exit code to use.
@@ -56,7 +58,14 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
         Command::Modules { command } => crate::discovery::modules(command, cli),
         Command::Lock { command } => lock(command, cli),
         Command::State { command } => crate::state::state(command, cli),
+        Command::Repo { command } => repo(command, cli),
         Command::Auth { command } => crate::auth::dispatch(command, cli),
+    }
+}
+
+fn repo(command: &RepoCommand, cli: &Cli) -> CmdResult {
+    match command {
+        RepoCommand::Tag { dry_run } => crate::publish::repo_tag(cli, *dry_run),
     }
 }
 

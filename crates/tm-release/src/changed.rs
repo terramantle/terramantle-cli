@@ -2,9 +2,9 @@
 //! one's last version, changed files, conventional bump, and proposed next
 //! version (SCAFFOLD-PUBLISH-AUTH.md §5).
 //!
-//! poly → one artefact rooted at `.` with tag prefix `""`. mono → each
+//! poly → one artefact rooted at `.` tagged `v{X.Y.Z}`. mono → each
 //! `discovery.include` glob match (minus `exclude`) is an independently versioned
-//! artefact with tag prefix `{dir}/`.
+//! artefact tagged `{module}@{X.Y.Z}`.
 
 use std::path::Path;
 
@@ -18,9 +18,11 @@ use crate::git::GitRepo;
 use crate::tag::tag_prefix;
 use crate::version::{apply_bump, BumpLevel};
 
-/// The first version stamped when an artefact has never been tagged (§5).
+/// The first version stamped when an artefact has never been tagged: `1.0.0`.
+/// The initial tag is unconditional (`<module>@1.0.0`); only the *next* release
+/// is driven by Conventional Commits since that tag.
 fn initial_version() -> Version {
-    Version::new(0, 1, 0)
+    Version::new(1, 0, 0)
 }
 
 /// One discovered artefact, before change detection: display `name` (directory
@@ -47,7 +49,7 @@ pub struct ArtefactPlan {
     pub changed_file_count: usize,
     /// The folded Conventional-Commit bump since the last tag.
     pub bump: BumpLevel,
-    /// `apply_bump(current, bump)`, or `0.1.0` when never tagged (§5).
+    /// `apply_bump(current, bump)`, or `1.0.0` when never tagged (§5).
     pub next_version: Version,
 }
 
@@ -118,7 +120,7 @@ pub fn plan_all(root: &Path, manifest: &Manifest) -> Result<Vec<ArtefactPlan>, R
     let git = GitRepo::new(root);
     let mut plans = Vec::new();
     for artefact in artefacts(root, manifest)? {
-        let prefix = tag_prefix(manifest.structure, &artefact.rel_dir);
+        let prefix = tag_prefix(manifest.structure, &artefact.name);
         let last = git.highest_tag(&prefix)?;
         let since_tag = last.as_ref().map(|(t, _)| t.as_str());
         let path = git_path(&artefact.rel_dir);
@@ -328,9 +330,9 @@ mod tests {
         fs::write(root.join("modules/bar/main.tf"), b"# bar\n").unwrap();
         commit_all(root, "feat: initial");
 
-        // Tag both artefacts at 1.0.0.
-        git(root, &["tag", "modules/foo/v1.0.0"]);
-        git(root, &["tag", "modules/bar/v1.0.0"]);
+        // Tag both artefacts at 1.0.0 (module@version scheme).
+        git(root, &["tag", "foo@1.0.0"]);
+        git(root, &["tag", "bar@1.0.0"]);
 
         // Change only foo, with a feat commit → minor bump for foo, bar unchanged.
         fs::write(root.join("modules/foo/main.tf"), b"# foo v2\n").unwrap();
@@ -369,6 +371,6 @@ mod tests {
         let new = plans.iter().find(|p| p.name == "new").unwrap();
         assert!(new.changed, "never-tagged is always changed");
         assert_eq!(new.current_version, None);
-        assert_eq!(new.next_version, Version::new(0, 1, 0));
+        assert_eq!(new.next_version, Version::new(1, 0, 0));
     }
 }

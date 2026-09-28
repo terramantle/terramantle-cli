@@ -128,6 +128,42 @@ fn tf_matrix(ci: &CiConfig) -> String {
     format!("[{}]", quoted.join(", "))
 }
 
+/// The release installer for the CLI. The pipelines install `terramantle` from
+/// this (no dedicated GitHub Action or container image) so the exact same
+/// approach works on GitHub Actions and GitLab CI.
+const CLI_INSTALLER_URL: &str =
+    "https://github.com/terramantle/terramantle-cli/releases/latest/download/cli-installer.sh";
+
+/// GitHub step: install the CLI and put it on `PATH` for later steps.
+fn github_install_cli() -> String {
+    format!(
+        "      - name: Install terramantle\n        run: |\n          curl --proto '=https' --tlsv1.2 -LsSf {CLI_INSTALLER_URL} | sh\n          echo \"$HOME/.cargo/bin\" >> \"$GITHUB_PATH\"\n"
+    )
+}
+
+/// GitLab `default:` block. A glibc base image (the CLI is glibc, not musl) with a
+/// `before_script` that installs terraform + the terramantle CLI — no dedicated
+/// terramantle image, so the pipeline is portable and inspectable.
+fn gitlab_default_block() -> String {
+    let mut s = String::new();
+    s.push_str("default:\n");
+    s.push_str("  image: debian:stable-slim\n");
+    s.push_str("  before_script:\n");
+    s.push_str(
+        "    # Install terraform (HashiCorp apt repo) + the terramantle CLI. No dedicated\n",
+    );
+    s.push_str("    # terramantle image/action — the same install works on any glibc runner.\n");
+    s.push_str("    - apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg git lsb-release\n");
+    s.push_str("    - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg\n");
+    s.push_str("    - echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main\" > /etc/apt/sources.list.d/hashicorp.list\n");
+    s.push_str("    - apt-get update && apt-get install -y --no-install-recommends terraform\n");
+    s.push_str(&format!(
+        "    - curl --proto '=https' --tlsv1.2 -LsSf {CLI_INSTALLER_URL} | sh\n"
+    ));
+    s.push_str("    - export PATH=\"$HOME/.cargo/bin:$PATH\"\n\n");
+    s
+}
+
 fn github_modules(m: &Manifest) -> String {
     let ci = &m.ci;
     let mut s = header("github/modules", FileClass::Managed);
@@ -159,7 +195,7 @@ fn github_modules(m: &Manifest) -> String {
     if ci.tofu {
         s.push_str("      - uses: opentofu/setup-opentofu@v1\n");
     }
-    s.push_str("      - uses: terramantle/setup-cli@v1\n");
+    s.push_str(&github_install_cli());
     s.push_str("      - run: terraform fmt -check -recursive\n");
     s.push_str("      - run: terramantle modules changed\n");
     if ci.lint {
@@ -172,7 +208,7 @@ fn github_modules(m: &Manifest) -> String {
     s.push_str("    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n    steps:\n");
     s.push_str("      - uses: actions/checkout@v4\n        with: { fetch-depth: 0 }\n");
     s.push_str("      - uses: hashicorp/setup-terraform@v3\n");
-    s.push_str("      - uses: terramantle/setup-cli@v1\n");
+    s.push_str(&github_install_cli());
     if ci.terraform_docs {
         s.push_str("      - uses: terraform-docs/gh-actions@v1\n");
         s.push_str(
@@ -190,6 +226,9 @@ fn github_modules(m: &Manifest) -> String {
         );
     }
     s.push_str("        run: terramantle modules publish --ci\n");
+    // Stamp the <module>@<version> git tags for what was just published.
+    s.push_str("      - name: Tag released module versions\n");
+    s.push_str("        run: terramantle repo tag\n");
     s
 }
 
@@ -220,7 +259,7 @@ fn github_workspaces(m: &Manifest) -> String {
     s.push_str("  plan:\n    runs-on: ubuntu-latest\n    steps:\n");
     s.push_str("      - uses: actions/checkout@v4\n");
     s.push_str("      - uses: hashicorp/setup-terraform@v3\n");
-    s.push_str("      - uses: terramantle/setup-cli@v1\n");
+    s.push_str(&github_install_cli());
     s.push_str("      - run: terraform init -backend=false\n");
     s.push_str("      - run: terraform fmt -check -recursive\n");
     s.push_str("      - run: terraform validate\n");
@@ -233,7 +272,7 @@ fn github_workspaces(m: &Manifest) -> String {
     s.push_str("    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n    steps:\n");
     s.push_str("      - uses: actions/checkout@v4\n");
     s.push_str("      - uses: hashicorp/setup-terraform@v3\n");
-    s.push_str("      - uses: terramantle/setup-cli@v1\n");
+    s.push_str(&github_install_cli());
     s.push_str("      - name: Upload lock files for every workspace\n        env:\n");
     s.push_str(&format!("          TERRAMANTLE_ORG: {}\n", m.org));
     if ci.auth == CiAuth::Bot {
@@ -263,7 +302,7 @@ fn gitlab_modules(m: &Manifest) -> String {
     );
     s.push_str("# auth=oidc mints a CI JWT (aud=registry); auth=bot uses masked CI variables.\n");
     s.push_str("stages: [validate, publish]\n\n");
-    s.push_str("default:\n  image: ghcr.io/terramantle/cli:1\n\n");
+    s.push_str(&gitlab_default_block());
     s.push_str(&format!("variables:\n  TERRAMANTLE_ORG: {}\n\n", m.org));
     if ci.auth == CiAuth::Oidc {
         s.push_str(&gitlab_oidc_block(m));
@@ -286,12 +325,10 @@ fn gitlab_modules(m: &Manifest) -> String {
         s.push_str("  <<: *oidc\n");
     }
     s.push_str("  rules:\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n  script:\n");
-    if ci.terraform_docs {
-        s.push_str(
-            "    - terraform-docs markdown table --output-file README.md --output-mode inject .\n",
-        );
-    }
     s.push_str("    - terramantle modules publish --ci\n");
+    // `repo tag` pushes <module>@<version> tags; pushing from GitLab CI needs a
+    // token with write_repository (e.g. a project access token wired to `origin`).
+    s.push_str("    - terramantle repo tag\n");
     s
 }
 
@@ -303,7 +340,7 @@ fn gitlab_workspaces(m: &Manifest) -> String {
     );
     s.push_str("# Publishing uploads each workspace's .terraform.lock.hcl to the registry.\n");
     s.push_str("stages: [plan, publish]\n\n");
-    s.push_str("default:\n  image: ghcr.io/terramantle/cli:1\n\n");
+    s.push_str(&gitlab_default_block());
     s.push_str(&format!("variables:\n  TERRAMANTLE_ORG: {}\n\n", m.org));
     if ci.auth == CiAuth::Oidc {
         s.push_str(&gitlab_oidc_block(m));
@@ -505,6 +542,34 @@ mod tests {
         assert!(ci.content.contains("TERRAMANTLE_ORG: acme"));
         assert!(ci.content.contains("terramantle modules publish --ci"));
         assert!(!ci.content.contains("--sign")); // signing removed
+    }
+
+    #[test]
+    fn ci_installs_cli_vcs_agnostically_no_dedicated_action_or_image() {
+        // GitHub: installs via the release installer, not a terramantle Action.
+        let gh = base(Structure::Mono, Artefact::Modules, VcsProvider::Github);
+        let gh_ci = &desired_files(&gh)[0].content;
+        assert!(
+            !gh_ci.contains("terramantle/setup-cli"),
+            "no dedicated action"
+        );
+        assert!(gh_ci.contains("cli-installer.sh"));
+        assert!(gh_ci.contains("$GITHUB_PATH"));
+        assert!(
+            gh_ci.contains("terramantle repo tag"),
+            "release tags the modules"
+        );
+
+        // GitLab: a glibc image + before_script install, not a terramantle container.
+        let gl = base(Structure::Mono, Artefact::Modules, VcsProvider::Gitlab);
+        let gl_ci = &desired_files(&gl)[0].content;
+        assert!(
+            !gl_ci.contains("ghcr.io/terramantle/cli"),
+            "no dedicated image"
+        );
+        assert!(gl_ci.contains("image: debian"));
+        assert!(gl_ci.contains("cli-installer.sh"));
+        assert!(gl_ci.contains("terramantle repo tag"));
     }
 
     #[test]

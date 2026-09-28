@@ -7,7 +7,7 @@
 //! * [`version`] — strict semver2 parse + [`BumpLevel`] increments.
 //! * [`conventional`] — Conventional-Commit → bump classification.
 //! * [`git`] — a thin `git -C <root>` wrapper + pure output parsers.
-//! * [`tag`] — poly `v{X.Y.Z}` / mono `{dir}/v{X.Y.Z}` tag naming.
+//! * [`tag`] — poly `v{X.Y.Z}` / mono `{module}@{X.Y.Z}` tag naming.
 //! * [`changed`] — expand a manifest into artefacts and compute each one's
 //!   last version, changed set, bump, and proposed next version.
 //! * [`package`] — reproducible `tar.gz` + `sha256` of an artefact dir.

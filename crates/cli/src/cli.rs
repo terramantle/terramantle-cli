@@ -90,6 +90,11 @@ pub enum Command {
         #[command(subcommand)]
         command: StateCommand,
     },
+    /// Whole-repo release operations (mono module tagging).
+    Repo {
+        #[command(subcommand)]
+        command: RepoCommand,
+    },
     /// Authentication.
     Auth {
         #[command(subcommand)]
@@ -211,6 +216,18 @@ pub enum BumpArg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum DocsMode {
     Skip,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum RepoCommand {
+    /// Compute each module's next version, package it, then create + push the
+    /// `<module>@<version>` git tags (mono release step; runs on the default
+    /// branch). First release of a module is `<module>@1.0.0`.
+    Tag {
+        /// Compute + package + print the tags that would be created; no tag, no push.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]

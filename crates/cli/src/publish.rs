@@ -344,7 +344,9 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         };
 
         let dir = root.join(&plan.rel_dir);
-        let tag = tag_name(manifest.structure, &plan.rel_dir, &version);
+        // The tag this version maps to — created by `terramantle repo tag`, not
+        // here: publish uploads the artefact, `repo tag` stamps the git tags.
+        let tag = tag_name(manifest.structure, &plan.name, &version);
         eprintln!("==> {} · {version} ({tag})", plan.name);
 
         if run_docs {
@@ -364,7 +366,7 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
 
         // Dry-run stays offline — report intent and stop.
         if args.dry_run {
-            eprintln!("    dry-run · would upload + tag");
+            eprintln!("    dry-run · would upload");
             rows.push(PublishRow {
                 name: plan.name.clone(),
                 path: plan.rel_dir.clone(),
@@ -391,10 +393,9 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         match ack {
             Ok(resp) => {
                 eprintln!(
-                    "    uploaded · status {}",
+                    "    uploaded · status {} (tag {tag} on `terramantle repo tag`)",
                     resp.status.as_deref().unwrap_or("ok")
                 );
-                create_and_push_tag(&root, &tag);
                 rows.push(PublishRow {
                     name: plan.name.clone(),
                     path: plan.rel_dir.clone(),
@@ -491,6 +492,138 @@ fn on_path(bin: &str) -> bool {
         return false;
     };
     std::env::split_paths(&path).any(|dir| dir.join(bin).is_file())
+}
+
+/// Whether an exact git tag already exists locally.
+fn tag_exists(root: &Path, tag: &str) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["tag", "--list", tag])
+        .output()
+        .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
+        .unwrap_or(false)
+}
+
+// ── repo tag (mono release tagging) ───────────────────────────────────────────────
+
+/// One module's `repo tag` outcome (`-o json`).
+#[derive(Debug, Clone, Serialize)]
+struct RepoTagRow {
+    name: String,
+    /// `tagged` | `would-tag` (dry-run) | `exists` (idempotent skip) | `skipped`.
+    action: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sha256: Option<String>,
+}
+
+/// The `-o json` summary for `repo tag`.
+#[derive(Debug, Clone, Serialize)]
+struct RepoTagSummary {
+    dry_run: bool,
+    tags: Vec<RepoTagRow>,
+}
+
+/// `terramantle repo tag [--dry-run]` (SCAFFOLD-PUBLISH-AUTH.md §5).
+///
+/// The mono-repo release tagger, meant to run on the default branch after a
+/// successful publish: for each module it works out the next version from the
+/// `<module>@<semver>` tags (first release → `<module>@1.0.0`, thereafter driven
+/// by Conventional Commits), packages the module deterministically, then creates
+/// and pushes the `<module>@<version>` git tag. Already-existing tags and modules
+/// with no release-worthy change are skipped, so it is safe to re-run.
+pub fn repo_tag(cli: &Cli, dry_run: bool) -> CmdResult {
+    let root = std::env::current_dir()?;
+    let manifest = match load_manifest(&root) {
+        Ok(m) => m,
+        Err(code) => return Ok(code),
+    };
+    if manifest.artefact != Artefact::Modules {
+        eprintln!("error: `repo tag` versions modules; this repo is artefact=workspaces");
+        return Ok(EXIT_USAGE);
+    }
+
+    let plans = match plan_all(&root, &manifest) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return Ok(1);
+        }
+    };
+
+    let mut rows: Vec<RepoTagRow> = Vec::new();
+    for plan in &plans {
+        // Same version computation as publish: first release is 1.0.0, an already
+        // released module with no bump-worthy commits is skipped.
+        let Some(version) = plan_version(plan, None, None) else {
+            eprintln!("==> {} · skipped (no release-worthy commits)", plan.name);
+            rows.push(RepoTagRow {
+                name: plan.name.clone(),
+                action: "skipped",
+                tag: None,
+                sha256: None,
+            });
+            continue;
+        };
+        let tag = tag_name(manifest.structure, &plan.name, &version);
+
+        // Idempotent: never re-tag an existing version (safe re-runs on main).
+        if tag_exists(&root, &tag) {
+            eprintln!("==> {} · {tag} already exists — skipping", plan.name);
+            rows.push(RepoTagRow {
+                name: plan.name.clone(),
+                action: "exists",
+                tag: Some(tag),
+                sha256: None,
+            });
+            continue;
+        }
+
+        // Package the module (the version drives the artefact) before tagging, so a
+        // tag only ever stamps a module that packages cleanly + reproducibly.
+        let dir = root.join(&plan.rel_dir);
+        let (_tarball, sha) = match package_dir(&dir, &PackageOptions::default()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("error: packaging {} failed: {e}", plan.name);
+                return Ok(1);
+            }
+        };
+        eprintln!("==> {} · {version} ({tag}) · sha256 {sha}", plan.name);
+
+        if dry_run {
+            eprintln!("    dry-run · would tag + push {tag}");
+            rows.push(RepoTagRow {
+                name: plan.name.clone(),
+                action: "would-tag",
+                tag: Some(tag),
+                sha256: Some(sha),
+            });
+            continue;
+        }
+
+        create_and_push_tag(&root, &tag);
+        rows.push(RepoTagRow {
+            name: plan.name.clone(),
+            action: "tagged",
+            tag: Some(tag),
+            sha256: Some(sha),
+        });
+    }
+
+    // For json/yaml this prints the machine summary; in table mode it returns
+    // false and the per-module lines narrated above are the output.
+    let format = cli.global.output.unwrap_or_default();
+    output::print_structured(
+        &RepoTagSummary {
+            dry_run,
+            tags: rows,
+        },
+        format,
+    )?;
+    Ok(0)
 }
 
 // ── state publish (§7) ──────────────────────────────────────────────────────────

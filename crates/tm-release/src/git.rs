@@ -53,10 +53,10 @@ impl GitRepo {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     }
 
-    /// List tags matching `<prefix>v*` (e.g. `v*` for poly, `modules/foo/v*` for
-    /// a mono artefact).
+    /// List tags matching `<prefix>*` (e.g. `v*` for poly, `foo@*` for the mono
+    /// module `foo`). The version follows the prefix directly.
     pub fn tags_with_prefix(&self, prefix: &str) -> Result<Vec<String>, ReleaseError> {
-        let pattern = format!("{prefix}v*");
+        let pattern = format!("{prefix}*");
         let out = self.run(&["tag", "--list", &pattern])?;
         Ok(parse_tag_lines(&out))
     }
@@ -113,13 +113,13 @@ pub fn parse_tag_lines(out: &str) -> Vec<String> {
         .collect()
 }
 
-/// Pick the highest semver tag from `tags`, stripping `prefix` + the leading `v`
-/// before parsing. Tags that don't parse as semver2 are ignored.
+/// Pick the highest semver tag from `tags`, stripping `prefix` before parsing the
+/// remainder as semver2 (the prefix already carries the `v`/`@` separator). Tags
+/// that don't parse are ignored.
 pub fn highest_semver_tag(tags: &[String], prefix: &str) -> Option<(String, Version)> {
     tags.iter()
         .filter_map(|tag| {
-            let rest = tag.strip_prefix(prefix)?;
-            let ver = rest.strip_prefix('v')?;
+            let ver = tag.strip_prefix(prefix)?;
             Version::parse(ver).ok().map(|v| (tag.clone(), v))
         })
         .max_by(|a, b| a.1.cmp(&b.1))
@@ -167,28 +167,30 @@ mod tests {
     #[test]
     fn highest_semver_tag_poly() {
         let tags = vec!["v0.1.0".into(), "v1.4.0".into(), "v1.3.9".into()];
-        let (tag, ver) = highest_semver_tag(&tags, "").unwrap();
+        let (tag, ver) = highest_semver_tag(&tags, "v").unwrap();
         assert_eq!(tag, "v1.4.0");
         assert_eq!(ver, Version::new(1, 4, 0));
     }
 
     #[test]
     fn highest_semver_tag_mono_scopes_by_prefix() {
+        // `foo@` must not pick up `bar@` or `foobar@` tags.
         let tags = vec![
-            "modules/foo/v1.0.0".into(),
-            "modules/foo/v1.2.0".into(),
-            "modules/bar/v9.0.0".into(),
+            "foo@1.0.0".into(),
+            "foo@1.2.0".into(),
+            "bar@9.0.0".into(),
+            "foobar@5.0.0".into(),
         ];
-        let (tag, ver) = highest_semver_tag(&tags, "modules/foo/").unwrap();
-        assert_eq!(tag, "modules/foo/v1.2.0");
+        let (tag, ver) = highest_semver_tag(&tags, "foo@").unwrap();
+        assert_eq!(tag, "foo@1.2.0");
         assert_eq!(ver, Version::new(1, 2, 0));
     }
 
     #[test]
     fn highest_semver_tag_none_when_absent() {
-        assert!(highest_semver_tag(&[], "").is_none());
+        assert!(highest_semver_tag(&[], "v").is_none());
         let tags = vec!["nightly".into(), "v".into()];
-        assert!(highest_semver_tag(&tags, "").is_none());
+        assert!(highest_semver_tag(&tags, "v").is_none());
     }
 
     #[test]

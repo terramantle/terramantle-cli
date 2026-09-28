@@ -1,24 +1,25 @@
 //! Tag naming (SCAFFOLD-PUBLISH-AUTH.md §5).
 //!
-//! poly → repo-wide `v{X}.{Y}.{Z}`; mono → path-prefixed, Go-module style
-//! `{dir}/v{X}.{Y}.{Z}`, which lets each artefact version independently.
+//! poly → repo-wide `v{X}.{Y}.{Z}`; mono → `{module}@{X}.{Y}.{Z}`, which lets each
+//! module version independently. `{module}` is the module directory basename.
 
 use semver::Version;
 use tm_scaffold::Structure;
 
-/// The tag *prefix* used to list/scope an artefact's tags: `""` for poly,
-/// `"{dir}/"` for a mono artefact.
-pub fn tag_prefix(structure: Structure, artefact_rel_dir: &str) -> String {
+/// The tag *prefix* used to list/scope a module's tags: `"v"` for poly (the
+/// repo-wide `v*` tags), `"{name}@"` for a mono module (`name` = directory
+/// basename). The version follows the prefix directly.
+pub fn tag_prefix(structure: Structure, name: &str) -> String {
     match structure {
-        Structure::Poly => String::new(),
-        Structure::Mono => format!("{artefact_rel_dir}/"),
+        Structure::Poly => "v".to_string(),
+        Structure::Mono => format!("{name}@"),
     }
 }
 
-/// The full tag name for a version: `v{version}` (poly) or `{dir}/v{version}`
+/// The full tag name for a version: `v{version}` (poly) or `{name}@{version}`
 /// (mono). `version`'s `Display` renders pre-release/build metadata when present.
-pub fn tag_name(structure: Structure, artefact_rel_dir: &str, version: &Version) -> String {
-    format!("{}v{version}", tag_prefix(structure, artefact_rel_dir))
+pub fn tag_name(structure: Structure, name: &str, version: &Version) -> String {
+    format!("{}{version}", tag_prefix(structure, name))
 }
 
 #[cfg(test)]
@@ -28,23 +29,21 @@ mod tests {
     #[test]
     fn poly_tag_is_repo_wide() {
         let v = Version::new(1, 4, 0);
-        assert_eq!(tag_prefix(Structure::Poly, "."), "");
-        assert_eq!(tag_name(Structure::Poly, ".", &v), "v1.4.0");
+        assert_eq!(tag_prefix(Structure::Poly, "anything"), "v");
+        assert_eq!(tag_name(Structure::Poly, "anything", &v), "v1.4.0");
     }
 
     #[test]
-    fn mono_tag_is_path_prefixed() {
+    fn mono_tag_is_module_at_version() {
         let v = Version::new(1, 4, 0);
-        assert_eq!(tag_prefix(Structure::Mono, "modules/foo"), "modules/foo/");
-        assert_eq!(
-            tag_name(Structure::Mono, "modules/foo", &v),
-            "modules/foo/v1.4.0"
-        );
+        assert_eq!(tag_prefix(Structure::Mono, "vpc"), "vpc@");
+        assert_eq!(tag_name(Structure::Mono, "vpc", &v), "vpc@1.4.0");
     }
 
     #[test]
     fn tag_name_includes_prerelease() {
         let v = Version::parse("2.0.0-rc.1").unwrap();
-        assert_eq!(tag_name(Structure::Poly, ".", &v), "v2.0.0-rc.1");
+        assert_eq!(tag_name(Structure::Poly, "x", &v), "v2.0.0-rc.1");
+        assert_eq!(tag_name(Structure::Mono, "db", &v), "db@2.0.0-rc.1");
     }
 }
