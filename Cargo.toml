@@ -6,10 +6,11 @@ members = [
     "crates/tm-api",
     "crates/tm-auth",
     "crates/tm-scaffold",
+    "crates/tm-release",
 ]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 authors = ["Terramantle"]

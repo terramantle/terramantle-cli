@@ -7,6 +7,7 @@ mod confirm;
 mod discovery;
 mod lock;
 mod output;
+mod publish;
 mod scaffold;
 mod state;
 

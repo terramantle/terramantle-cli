@@ -177,6 +177,8 @@ pub fn modules(command: &ModulesCommand, cli: &Cli) -> CmdResult {
     match command {
         ModulesCommand::Search { query, limit, all } => modules_search(cli, query, *limit, *all),
         ModulesCommand::Show { module } => modules_show(cli, module),
+        ModulesCommand::Changed { all } => crate::publish::changed(cli, *all),
+        ModulesCommand::Publish(args) => crate::publish::publish(cli, args),
     }
 }
 

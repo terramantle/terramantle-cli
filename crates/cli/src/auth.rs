@@ -102,7 +102,156 @@ pub fn dispatch(command: &AuthCommand, cli: &Cli) -> CmdResult {
         AuthCommand::Login => login(&ctx),
         AuthCommand::Logout => logout(&ctx),
         AuthCommand::Whoami => whoami(&ctx, cli),
+        AuthCommand::Token => token(&ctx),
+        AuthCommand::Env {
+            format,
+            write,
+            path,
+        } => env_cmd(&ctx, cli, *format, *write, path.as_deref()),
     }
+}
+
+// ── auth token / auth env (SCAFFOLD-PUBLISH-AUTH.md §4.2) ────────────────────────
+
+/// `auth token`: resolve the bearer (auto-refreshing if near expiry, handled by
+/// the resolver) and print **only** the token to stdout, so `$(terramantle auth
+/// token)` is clean. Narration/errors go to stderr; an auth failure exits 5.
+fn token(ctx: &AuthContext) -> CmdResult {
+    match tm_auth::resolve_token(ctx) {
+        Ok(t) => {
+            println!("{t}");
+            Ok(0)
+        }
+        Err(e) => Ok(auth_exit(&e)),
+    }
+}
+
+/// `auth env`: emit `export TERRAMANTLE_TOKEN=…` (+ `_API_URL`, and `_ORG` when
+/// resolved) so `eval "$(terramantle auth env)"` sets the environment. With
+/// `--write` the same values are persisted to a mode-600 dotenv instead.
+fn env_cmd(
+    ctx: &AuthContext,
+    cli: &Cli,
+    format: EnvFormat,
+    write: bool,
+    path: Option<&str>,
+) -> CmdResult {
+    let token = match tm_auth::resolve_token(ctx) {
+        Ok(t) => t,
+        Err(e) => return Ok(auth_exit(&e)),
+    };
+
+    let mut vars: Vec<(String, String)> = vec![
+        ("TERRAMANTLE_TOKEN".to_string(), token),
+        ("TERRAMANTLE_API_URL".to_string(), ctx.api_url.clone()),
+    ];
+    if let Some(org) = config_org(cli)? {
+        vars.push(("TERRAMANTLE_ORG".to_string(), org));
+    }
+
+    if write {
+        // On-disk persistence is always a sourceable POSIX dotenv, regardless of
+        // the print `--format` (§4.2: "a mode-600 dotenv the user can source").
+        let target = dotenv_path(path)?;
+        write_dotenv(&target, &vars)?;
+        eprintln!("wrote {} (mode 600)", target.display());
+        return Ok(0);
+    }
+
+    print!("{}", render_env(&vars, format));
+    Ok(0)
+}
+
+/// The dotenv target path for `--write`: `--path` when given, else
+/// `~/.config/terramantle/token.env`.
+fn dotenv_path(path: Option<&str>) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    match path {
+        Some(p) => Ok(std::path::PathBuf::from(p)),
+        None => {
+            let home = std::env::var("HOME").map_err(|_| "cannot resolve HOME for --write")?;
+            Ok(std::path::Path::new(&home)
+                .join(".config")
+                .join("terramantle")
+                .join("token.env"))
+        }
+    }
+}
+
+/// Write a POSIX `export`-style dotenv at mode 600 (best-effort chmod on unix).
+fn write_dotenv(
+    path: &std::path::Path,
+    vars: &[(String, String)],
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let pairs: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    std::fs::write(path, render_env(&pairs, EnvFormat::Posix))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
+/// Shell dialect for `auth env` rendering (§4.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum EnvFormat {
+    Posix,
+    Fish,
+    Powershell,
+    Json,
+}
+
+/// Render env vars for the requested shell (pure — unit-tested). Values are quoted
+/// per-dialect so `eval`/`source` round-trips even with spaces/quotes.
+pub fn render_env<K: AsRef<str>, V: AsRef<str>>(vars: &[(K, V)], format: EnvFormat) -> String {
+    match format {
+        EnvFormat::Posix => vars
+            .iter()
+            .map(|(k, v)| format!("export {}={}\n", k.as_ref(), posix_quote(v.as_ref())))
+            .collect(),
+        EnvFormat::Fish => vars
+            .iter()
+            .map(|(k, v)| format!("set -gx {} {}\n", k.as_ref(), fish_quote(v.as_ref())))
+            .collect(),
+        EnvFormat::Powershell => vars
+            .iter()
+            .map(|(k, v)| format!("$env:{} = {}\n", k.as_ref(), ps_quote(v.as_ref())))
+            .collect(),
+        EnvFormat::Json => {
+            let map: serde_json::Map<String, serde_json::Value> = vars
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k.as_ref().to_string(),
+                        serde_json::Value::String(v.as_ref().to_string()),
+                    )
+                })
+                .collect();
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&serde_json::Value::Object(map))
+                    .unwrap_or_else(|_| "{}".to_string())
+            )
+        }
+    }
+}
+
+/// POSIX single-quote: wrap in `'…'`, escaping embedded quotes as `'\''`.
+fn posix_quote(v: &str) -> String {
+    format!("'{}'", v.replace('\'', "'\\''"))
+}
+
+/// fish single-quote: only `\` and `'` are special inside `'…'`.
+fn fish_quote(v: &str) -> String {
+    format!("'{}'", v.replace('\\', "\\\\").replace('\'', "\\'"))
+}
+
+/// PowerShell single-quote: a literal `'` is doubled to `''`.
+fn ps_quote(v: &str) -> String {
+    format!("'{}'", v.replace('\'', "''"))
 }
 
 fn login(ctx: &AuthContext) -> CmdResult {
@@ -281,4 +430,59 @@ fn opt(v: Option<&str>) -> String {
 
 fn dash() -> String {
     "—".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vars() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("TERRAMANTLE_TOKEN", "abc.def"),
+            ("TERRAMANTLE_API_URL", "https://reg.example"),
+            ("TERRAMANTLE_ORG", "acme"),
+        ]
+    }
+
+    #[test]
+    fn posix_render_is_evalable() {
+        let out = render_env(&vars(), EnvFormat::Posix);
+        assert!(
+            out.contains("export TERRAMANTLE_TOKEN='abc.def'\n"),
+            "{out}"
+        );
+        assert!(
+            out.contains("export TERRAMANTLE_API_URL='https://reg.example'\n"),
+            "{out}"
+        );
+        assert!(out.contains("export TERRAMANTLE_ORG='acme'\n"), "{out}");
+    }
+
+    #[test]
+    fn posix_escapes_single_quotes() {
+        let out = render_env(&[("K", "a'b")], EnvFormat::Posix);
+        assert_eq!(out, "export K='a'\\''b'\n");
+    }
+
+    #[test]
+    fn fish_render_uses_set_gx() {
+        let out = render_env(&[("K", "v")], EnvFormat::Fish);
+        assert_eq!(out, "set -gx K 'v'\n");
+        let esc = render_env(&[("K", "a'b\\c")], EnvFormat::Fish);
+        assert_eq!(esc, "set -gx K 'a\\'b\\\\c'\n");
+    }
+
+    #[test]
+    fn powershell_render_uses_env_prefix_and_doubles_quotes() {
+        let out = render_env(&[("K", "a'b")], EnvFormat::Powershell);
+        assert_eq!(out, "$env:K = 'a''b'\n");
+    }
+
+    #[test]
+    fn json_render_is_object() {
+        let out = render_env(&vars(), EnvFormat::Json);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["TERRAMANTLE_TOKEN"], "abc.def");
+        assert_eq!(v["TERRAMANTLE_ORG"], "acme");
+    }
 }

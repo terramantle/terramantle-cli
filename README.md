@@ -44,6 +44,7 @@ TTY-aware status. Full design notes live in the
 
 - 🏗️ **Repo scaffolding** — `init`/`upgrade` scaffold a mono/poly repo for modules or workspaces, with GitHub **or** GitLab CI inferred from the `origin` remote. Terraform-style: `init` creates, `upgrade` diffs the desired layout against disk and applies the delta without clobbering your edits.
 - 🔎 **Registry discovery** — `providers ls/show`, `modules search/show`, Trust verdicts inline.
+- 🚀 **Publish** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz` + SHA256SUMS, cosign/gpg signing, path-prefixed tags) and `state publish` (per-workspace lock-file upload + posture).
 - 📦 **CI lock-file uploader** — `lock push` with eventually-consistent posture (`--fail-on-atrisk`).
 - 🗄️ **State operations** — `state ls/versions/promote/rollback/unlock`, confirmations + `--force`.
 - 🔐 **Five auth modes, zero hardcoding** — GitHub/GitLab OIDC, device login, bot client-credentials, raw token; OIDC config is fetched from a discovery endpoint at runtime.
@@ -100,7 +101,9 @@ terramantle
 │   └── show <ns>/<type>        # versions + trust + used-by workspaces
 ├── modules
 │   ├── search <query>          # registry search
-│   └── show <ns>/<name>/<provider>
+│   ├── show <ns>/<name>/<provider>
+│   ├── changed [--all]         # changed modules + proposed next semver (CI-consumable)
+│   └── publish [--all] […]     # package · terraform-docs · hash · sign · upload · tag
 ├── lock
 │   └── push [path]             # upload .terraform.lock.hcl (default ./)
 ├── state
@@ -108,11 +111,14 @@ terramantle
 │   ├── versions <workspace>    # version history (serial, actor, pushed_at)
 │   ├── promote <workspace> <versionId>       # restore a historical version to latest
 │   ├── rollback <workspace> [--to <serial>]  # promote previous (or --to) serial
-│   └── unlock <workspace>      # force-unlock
+│   ├── unlock <workspace>      # force-unlock
+│   └── publish [--all] […]     # upload each workspace's .terraform.lock.hcl + posture
 ├── auth
 │   ├── login                   # device flow (human) / auto in CI
 │   ├── logout
-│   └── whoami                  # identity, org(s), token type + expiry
+│   ├── whoami                  # identity, org(s), token type + expiry
+│   ├── token                   # print the bearer to stdout (for $(terramantle auth token))
+│   └── env [--format …]        # shell exports for eval "$(terramantle auth env)"
 ├── context                     # kubectl-style org/workspace contexts
 │   ├── ls · current · use <name> · set <name> [--org o] [--workspace w]
 ├── config
@@ -174,6 +180,55 @@ terramantle upgrade          # apply after a confirmation prompt (--yes to skip)
   re-run with `--force` to overwrite). Skeleton files (`*.tf`, `README.md`) are
   yours after creation and are never rewritten or pruned.
 
+## Publishing (`modules publish` / `state publish`)
+
+Repo-aware commands read `terramantle.hcl` and act per artefact. For **mono**
+repos each `discovery` match is versioned independently (Go-module-style tags
+`modules/<name>/vX.Y.Z`); **poly** repos version the whole repo (`vX.Y.Z`).
+
+**Change detection & versioning** — `modules changed` lists what changed since each
+artefact's last tag and the proposed next semver from Conventional Commits
+(`feat!`/`BREAKING CHANGE:` → major, `feat:` → minor, `fix:` → patch). It is
+network-free and CI-consumable:
+
+```sh
+terramantle modules changed              # only the changed set
+terramantle modules changed --all -o json
+# [{ "name", "path", "last_version", "bump", "next_version", "changed_files": [...] }]
+```
+
+**`modules publish`** packages each target module deterministically (reproducible
+`tar.gz`, zeroed mtimes → stable `sha256`), regenerates its README with
+`terraform-docs` (if on `PATH`), writes `SHA256SUMS`, optionally signs it, uploads
+the version, then creates + pushes the release tag:
+
+```sh
+terramantle modules publish --provider aws            # changed modules, computed versions
+terramantle modules publish --module vpc --version 1.4.0 --provider aws
+terramantle modules publish --all --bump minor --provider aws --dry-run
+```
+
+- **name/provider** — module `name` is the directory basename; `--provider` is
+  required (the manifest carries no provider field).
+- **version** — `--version X.Y.Z` (strict semver2; a bad value exits 2) or `--bump
+  major|minor|patch`, else the conventional-commit computation; a released module
+  with no bump-worthy commits is skipped.
+- **signing** — `--sign cosign|gpg|none` (default from `ci.sign`). Signatures are
+  emitted **locally** as `SHA256SUMS.sig` (+cert); registry-side signature/cert
+  storage is a pending backend surface.
+- **`--dry-run`** packages/hashes/signs and prints what *would* upload + tag, with
+  no network and no tag; **`--ci`** is non-interactive + machine output.
+
+**`state publish`** (workspace repos) fans out over `lock push`: for each workspace
+dir carrying a `.terraform.lock.hcl` it uploads the lock file (with the `origin`
+remote as provenance) and aggregates posture. `--fail-on-atrisk` gates on the
+eventually-consistent Trust posture (exit 3):
+
+```sh
+terramantle state publish --all
+terramantle state publish prod staging --fail-on-atrisk -o json
+```
+
 ## Authentication
 
 Auto-detected from the environment; override with `--auth-mode` /
@@ -197,6 +252,18 @@ in CI.
 > **Note:** `device` login requires the API operator to have provisioned a public
 > device-flow client (`OIDC_CLI_CLIENT_ID`). If it isn't configured, `auth login`
 > exits with a clear message — use a bot token or CI OIDC in the meantime.
+
+### Dot-sourcing & eval
+
+`auth token` prints **only** the bearer to stdout (refreshing if near expiry; all
+narration goes to stderr), and `auth env` emits shell exports for `eval`:
+
+```sh
+export TERRAMANTLE_TOKEN=$(terramantle auth token)
+eval "$(terramantle auth env)"                    # TOKEN (+ _API_URL, _ORG if resolved)
+terramantle auth env --format fish|powershell|json  # shell-correct quoting
+terramantle auth env --write [--path ~/.config/terramantle/token.env]  # mode-600 dotenv
+```
 
 ## Environment variables
 

@@ -35,6 +35,25 @@ pub fn state(command: &StateCommand, cli: &Cli) -> CmdResult {
             state_rollback(cli, workspace, to.map(|s| s as i64), *yes)
         }
         StateCommand::Unlock { workspace, yes } => state_unlock(cli, workspace, *yes),
+        StateCommand::Publish {
+            workspaces,
+            all,
+            ci: _,
+            fail_on_atrisk,
+            posture_timeout,
+            require_posture,
+            repo_url,
+        } => crate::publish::state_publish(
+            cli,
+            &crate::publish::StatePublishArgs {
+                workspaces,
+                all: *all,
+                fail_on_atrisk: *fail_on_atrisk,
+                posture_timeout: *posture_timeout,
+                require_posture: *require_posture,
+                repo_url: repo_url.as_deref(),
+            },
+        ),
     }
 }
 

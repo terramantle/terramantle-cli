@@ -247,6 +247,23 @@ pub struct ModuleVersionRef {
     pub version: String,
 }
 
+// ── modules: publish ───────────────────────────────────────────────────────────
+// Source: the module-publish endpoint `PUT /v1/modules/{ns}/{name}/{provider}/{version}`
+// (§6 step 5) → `{ ok, version_id, storage_key?, status? }`. Returns 201 on success.
+
+/// Response from a module-version publish.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModulePublishResponse {
+    #[serde(default)]
+    pub ok: bool,
+    #[serde(default)]
+    pub version_id: String,
+    #[serde(default)]
+    pub storage_key: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
 // ── state: workspaces + versions ───────────────────────────────────────────────
 // Source: StateService.ts `WorkspaceSummary`, `VersionSummary`; state.ts handlers
 // wrap them as `{ workspaces: [...] }` / `{ versions: [...] }`.

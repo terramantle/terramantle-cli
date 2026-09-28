@@ -8,6 +8,8 @@ use clap_complete::Shell;
 use tm_config::OutputFormat;
 use tm_scaffold::{Artefact, CiAuth, Signing, Structure, VcsProvider, Versioning};
 
+use crate::auth::EnvFormat;
+
 /// Terramantle CLI — discover the registry, push provider lock files, operate state.
 #[derive(Debug, Parser)]
 #[command(
@@ -145,6 +147,73 @@ pub enum ModulesCommand {
         /// `<ns>/<name>/<provider>`.
         module: String,
     },
+    /// List changed modules + proposed next semver (network-free; CI-consumable).
+    Changed {
+        /// Include unchanged modules too (not just the changed set).
+        #[arg(long)]
+        all: bool,
+    },
+    /// Package · terraform-docs · hash · sign · upload · tag changed modules.
+    Publish(ModulePublishArgs),
+}
+
+/// `terramantle modules publish` (SCAFFOLD-PUBLISH-AUTH.md §6).
+///
+/// **name/provider derivation:** `name` = the artefact directory basename (for a
+/// poly repo, the repo-root directory basename); `provider` = the `--provider`
+/// flag, and — since the manifest carries no provider field — otherwise a hard
+/// error asking the user to pass `--provider`.
+#[derive(Debug, Args)]
+#[command(disable_version_flag = true)]
+pub struct ModulePublishArgs {
+    /// Publish every changed module.
+    #[arg(long)]
+    pub all: bool,
+    /// Restrict to a named module (repeatable).
+    #[arg(long = "module", value_name = "NAME")]
+    pub modules: Vec<String>,
+    /// Explicit semver2 version (manual versioning). A non-semver2 value exits 2.
+    #[arg(long, value_name = "X.Y.Z")]
+    pub version: Option<String>,
+    /// Bump level override applied to the last tag: major|minor|patch.
+    #[arg(long, value_enum)]
+    pub bump: Option<BumpArg>,
+    /// Provider the module targets, e.g. `aws` (required — see command docs).
+    #[arg(long, value_name = "PROVIDER")]
+    pub provider: Option<String>,
+    /// Optional registry description for the published version.
+    #[arg(long, value_name = "TEXT")]
+    pub description: Option<String>,
+    /// Signing strategy: cosign|gpg|none (default from manifest `ci.sign`).
+    #[arg(long)]
+    pub sign: Option<Signing>,
+    /// Skip terraform-docs README regeneration (`--docs skip`).
+    #[arg(long = "docs", value_enum)]
+    pub docs: Option<DocsMode>,
+    /// Package + hash + sign only; print what WOULD upload/tag. No network, no tag.
+    #[arg(long)]
+    pub dry_run: bool,
+    /// CI mode: non-interactive + machine output.
+    #[arg(long)]
+    pub ci: bool,
+    /// Assume yes for any confirmation prompt.
+    #[arg(long)]
+    pub yes: bool,
+}
+
+/// `--bump` level for `modules publish` (maps to `tm_release::BumpLevel`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum BumpArg {
+    Major,
+    Minor,
+    Patch,
+}
+
+/// `--docs` toggle for `modules publish`. Only `skip` is meaningful (the default
+/// — no flag — regenerates docs when terraform-docs is on PATH).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum DocsMode {
+    Skip,
 }
 
 #[derive(Debug, Subcommand)]
@@ -210,6 +279,36 @@ pub enum StateCommand {
         #[arg(long, visible_alias = "force")]
         yes: bool,
     },
+    /// Publish workspaces: upload each `.terraform.lock.hcl` + aggregate posture.
+    ///
+    /// A fan-out over `lock push` (SCAFFOLD-PUBLISH-AUTH.md §7). Workspaces are
+    /// selected as positional names (repeatable), else `--all`/discovery for a
+    /// mono repo, else the single poly repo. (Positional names are used rather
+    /// than a repeatable `--workspace`, which would collide with the global
+    /// `--workspace` flag.)
+    Publish {
+        /// Workspace names to publish (repeatable). Empty ⇒ `--all`/discovery.
+        #[arg(value_name = "WORKSPACE")]
+        workspaces: Vec<String>,
+        /// Publish every discovered workspace (mono repos).
+        #[arg(long)]
+        all: bool,
+        /// CI mode: non-interactive + machine output.
+        #[arg(long)]
+        ci: bool,
+        /// Exit 3 if any pushed provider is at-risk.
+        #[arg(long)]
+        fail_on_atrisk: bool,
+        /// Seconds to poll for posture before giving up (default 15).
+        #[arg(long, value_name = "SECS", default_value_t = 15)]
+        posture_timeout: u64,
+        /// Treat unknown posture (poll timeout) as a failure under the gate.
+        #[arg(long)]
+        require_posture: bool,
+        /// Attribute the push to a git repo URL (X-Git-Repo-URL header).
+        #[arg(long, value_name = "URL")]
+        repo_url: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -220,6 +319,20 @@ pub enum AuthCommand {
     Logout,
     /// Show the current identity.
     Whoami,
+    /// Print the current bearer token to stdout (for `$(terramantle auth token)`).
+    Token,
+    /// Print shell exports for `eval "$(terramantle auth env)"`.
+    Env {
+        /// Output shell dialect.
+        #[arg(long, value_enum, default_value = "posix")]
+        format: EnvFormat,
+        /// Persist a mode-600 dotenv instead of printing to stdout.
+        #[arg(long)]
+        write: bool,
+        /// Path for `--write` (default `~/.config/terramantle/token.env`).
+        #[arg(long, value_name = "FILE")]
+        path: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -320,4 +433,18 @@ pub enum OnlyFilter {
     Ci,
     /// The artefact skeleton (scaffold-once files).
     Skeleton,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::CommandFactory;
+
+    /// clap's own consistency check over the whole command tree. Catches
+    /// conflicts that only surface at parse time — e.g. a subcommand's custom
+    /// `--version` colliding with the propagated auto version flag.
+    #[test]
+    fn command_tree_is_valid() {
+        Cli::command().debug_assert();
+    }
 }

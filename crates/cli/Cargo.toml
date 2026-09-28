@@ -17,6 +17,7 @@ tm-config = { path = "../tm-config" }
 tm-api = { path = "../tm-api" }
 tm-auth = { path = "../tm-auth" }
 tm-scaffold = { path = "../tm-scaffold" }
+tm-release = { path = "../tm-release" }
 
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
