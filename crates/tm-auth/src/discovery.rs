@@ -19,9 +19,21 @@ pub struct OidcConfig {
     pub audience: String,
     #[serde(default)]
     pub vcs_audience: Option<String>,
-    /// Null until the public device-flow client is provisioned in Zitadel.
+    /// Null until the public device-flow client is provisioned in the IdP.
     #[serde(default)]
     pub device_client_id: Option<String>,
+}
+
+/// The subset of RFC 8414 provider metadata the token flows need, fetched from
+/// the issuer's `.well-known/openid-configuration` (the Terramantle discovery
+/// doc points at it via `discovery_url`). These are absolute URLs, so the flows
+/// never hardcode a provider-specific path — correct for Authentik, Zitadel, or
+/// any compliant IdP.
+#[derive(Debug, Clone, Deserialize)]
+pub struct OidcEndpoints {
+    pub token_endpoint: String,
+    #[serde(default)]
+    pub device_authorization_endpoint: Option<String>,
 }
 
 /// The `.well-known/terramantle-cli.json` document.
@@ -61,6 +73,23 @@ pub fn fetch(api_url: &str) -> Result<&'static Discovery, AuthError> {
     Ok(CACHE.get().expect("cache just set"))
 }
 
+/// Process-wide cache for the issuer's RFC 8414 metadata (one issuer per process).
+static OIDC_CACHE: OnceLock<OidcEndpoints> = OnceLock::new();
+
+/// Fetch (or return the cached) OIDC provider metadata from `discovery_url` (an
+/// absolute `.well-known/openid-configuration` URL). Supplies the absolute
+/// token/device endpoints the flows post to.
+pub fn fetch_oidc_endpoints(discovery_url: &str) -> Result<&'static OidcEndpoints, AuthError> {
+    if let Some(e) = OIDC_CACHE.get() {
+        return Ok(e);
+    }
+    let doc: OidcEndpoints = HttpClient::new("")
+        .get_json(discovery_url)
+        .map_err(AuthError::Discovery)?;
+    let _ = OIDC_CACHE.set(doc);
+    Ok(OIDC_CACHE.get().expect("cache just set"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,6 +127,34 @@ mod tests {
         let d: Discovery = serde_json::from_str(json).unwrap();
         assert_eq!(d.oidc.device_client_id.as_deref(), Some("cli-public-123"));
         assert_eq!(d.oidc.vcs_audience, None);
+    }
+
+    #[test]
+    fn deserializes_oidc_endpoints_from_well_known() {
+        // Shape of Authentik's .well-known/openid-configuration (extra fields ignored).
+        let json = r#"{
+            "issuer": "https://sso.terramantle.dev/application/o/terramantle-app/",
+            "authorization_endpoint": "https://sso.terramantle.dev/application/o/authorize/",
+            "token_endpoint": "https://sso.terramantle.dev/application/o/token/",
+            "device_authorization_endpoint": "https://sso.terramantle.dev/application/o/device/"
+        }"#;
+        let e: OidcEndpoints = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            e.token_endpoint,
+            "https://sso.terramantle.dev/application/o/token/"
+        );
+        assert_eq!(
+            e.device_authorization_endpoint.as_deref(),
+            Some("https://sso.terramantle.dev/application/o/device/")
+        );
+    }
+
+    #[test]
+    fn oidc_endpoints_without_device_support() {
+        let json = r#"{ "token_endpoint": "https://iss/token" }"#;
+        let e: OidcEndpoints = serde_json::from_str(json).unwrap();
+        assert_eq!(e.token_endpoint, "https://iss/token");
+        assert_eq!(e.device_authorization_endpoint, None);
     }
 
     #[test]

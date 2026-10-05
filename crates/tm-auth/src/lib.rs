@@ -86,12 +86,17 @@ pub fn resolve_token(ctx: &AuthContext) -> Result<String, AuthError> {
             .ok_or(AuthError::NotAuthenticated),
         AuthMode::ClientCredentials => {
             let disco = discovery::fetch(&ctx.api_url)?;
-            let issuer = disco.issuer(ctx.issuer_override.as_deref()).to_string();
             let audience = disco.audience(ctx.audience_override.as_deref()).to_string();
+            let endpoints = oidc_endpoints(ctx, disco)?;
             let client_id = env("TERRAMANTLE_CLIENT_ID").ok_or(AuthError::NotAuthenticated)?;
             let client_secret =
                 env("TERRAMANTLE_CLIENT_SECRET").ok_or(AuthError::NotAuthenticated)?;
-            flows::client_credentials(disco, &issuer, &audience, &client_id, &client_secret)
+            flows::client_credentials(
+                &endpoints.token_endpoint,
+                &audience,
+                &client_id,
+                &client_secret,
+            )
         }
         AuthMode::GitHub => {
             let disco = discovery::fetch(&ctx.api_url)?;
@@ -139,28 +144,54 @@ fn is_stale(access_token: &str) -> bool {
     }
 }
 
-/// Resolve the device client + issuer from discovery, then exchange the stored
-/// refresh token once and persist the rotation. `None` when refresh isn't
+/// Resolve the issuer's OIDC endpoints (token, device-authorization) from its
+/// RFC 8414 metadata. Uses the Terramantle discovery doc's `discovery_url`, or —
+/// when the issuer is overridden via `TERRAMANTLE_OIDC_ISSUER` — derives
+/// `{issuer}/.well-known/openid-configuration`. This is what keeps the flows free
+/// of hardcoded, provider-specific paths.
+fn oidc_endpoints(
+    ctx: &AuthContext,
+    disco: &discovery::Discovery,
+) -> Result<&'static discovery::OidcEndpoints, AuthError> {
+    match ctx.issuer_override.as_deref() {
+        Some(iss) => {
+            let url = format!(
+                "{}/.well-known/openid-configuration",
+                iss.trim_end_matches('/')
+            );
+            discovery::fetch_oidc_endpoints(&url)
+        }
+        None => discovery::fetch_oidc_endpoints(&disco.oidc.discovery_url),
+    }
+}
+
+/// Resolve the device client + token endpoint from discovery, then exchange the
+/// stored refresh token once and persist the rotation. `None` when refresh isn't
 /// possible (no refresh token, no device client, discovery/exchange failure).
 fn try_refresh(ctx: &AuthContext, stored: &store::StoredToken) -> Option<store::StoredToken> {
     let disco = discovery::fetch(&ctx.api_url).ok()?;
-    let issuer = disco.issuer(ctx.issuer_override.as_deref()).to_string();
     let device_client_id = disco.oidc.device_client_id.clone()?;
-    refresh_once(&ctx.api_url, &issuer, &device_client_id, stored)
+    let endpoints = oidc_endpoints(ctx, disco).ok()?;
+    refresh_once(
+        &ctx.api_url,
+        &endpoints.token_endpoint,
+        &device_client_id,
+        stored,
+    )
 }
 
-/// Exchange a bundle's refresh token once and persist the rotated bundle. Shared
-/// by the proactive path ([`try_refresh`]) and the on-401 hook so rotation +
-/// persistence live in one place. `None` when there's no refresh token or the
-/// exchange/persist fails.
+/// Exchange a bundle's refresh token once at `token_endpoint` and persist the
+/// rotated bundle. Shared by the proactive path ([`try_refresh`]) and the on-401
+/// hook so rotation + persistence live in one place. `None` when there's no
+/// refresh token or the exchange/persist fails.
 fn refresh_once(
     api_url: &str,
-    issuer: &str,
+    token_endpoint: &str,
     device_client_id: &str,
     stored: &store::StoredToken,
 ) -> Option<store::StoredToken> {
     let refresh = stored.refresh_token.as_deref()?;
-    let rotated = flows::refresh_token(issuer, device_client_id, refresh).ok()?;
+    let rotated = flows::refresh_token(token_endpoint, device_client_id, refresh).ok()?;
     // Persist before returning so the rotation survives the process.
     store::save(api_url, &rotated).ok()?;
     Some(rotated)
@@ -171,13 +202,17 @@ fn refresh_once(
 /// (they acquire ambient tokens instead) — see the command wiring.
 pub fn login(ctx: &AuthContext) -> Result<(), AuthError> {
     let disco = discovery::fetch(&ctx.api_url)?;
-    let issuer = disco.issuer(ctx.issuer_override.as_deref()).to_string();
     let device_client_id = disco
         .oidc
         .device_client_id
         .clone()
         .ok_or(AuthError::DeviceUnavailable)?;
-    let token = flows::device_flow(&issuer, &device_client_id)?;
+    let endpoints = oidc_endpoints(ctx, disco)?;
+    let device_auth = endpoints
+        .device_authorization_endpoint
+        .as_deref()
+        .ok_or(AuthError::DeviceUnavailable)?;
+    let token = flows::device_flow(device_auth, &endpoints.token_endpoint, &device_client_id)?;
     store::save(&ctx.api_url, &token)?;
     Ok(())
 }
@@ -216,14 +251,14 @@ fn build_refresh_hook(ctx: &AuthContext) -> Option<RefreshHook> {
     let stored = store::load(&ctx.api_url).ok()??;
     stored.refresh_token.as_ref()?;
     let disco = discovery::fetch(&ctx.api_url).ok()?;
-    let issuer = disco.issuer(ctx.issuer_override.as_deref()).to_string();
     let device_client_id = disco.oidc.device_client_id.clone()?;
+    let token_endpoint = oidc_endpoints(ctx, disco).ok()?.token_endpoint.clone();
     let api_url = ctx.api_url.clone();
 
     Some(Box::new(move || {
         // Re-read on each call so a token rotated by an earlier retry is picked up.
         let stored = store::load(&api_url).ok()??;
-        let rotated = refresh_once(&api_url, &issuer, &device_client_id, &stored)?;
+        let rotated = refresh_once(&api_url, &token_endpoint, &device_client_id, &stored)?;
         Some(rotated.access_token)
     }))
 }

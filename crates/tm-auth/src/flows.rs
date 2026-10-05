@@ -11,7 +11,6 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 use tm_api::{ApiError, HttpClient};
 
-use crate::discovery::Discovery;
 use crate::store::StoredToken;
 use crate::AuthError;
 
@@ -25,20 +24,19 @@ struct TokenResponse {
     refresh_token: Option<String>,
 }
 
-/// Client-credentials exchange (§5, bot flow).
-/// `POST {issuer}/oauth/v2/token` with `grant_type=client_credentials`.
+/// Client-credentials exchange (§5, bot flow): `POST {token_endpoint}` with
+/// `grant_type=client_credentials`. The token endpoint is the absolute URL from
+/// the issuer's OIDC metadata — no provider-specific path is assumed.
 pub fn client_credentials(
-    disco: &Discovery,
-    issuer: &str,
+    token_endpoint: &str,
     audience: &str,
     client_id: &str,
     client_secret: &str,
 ) -> Result<String, AuthError> {
-    let _ = disco;
-    let client = HttpClient::new(issuer);
+    let client = HttpClient::new("");
     let resp: TokenResponse = client
         .post_form(
-            "/oauth/v2/token",
+            token_endpoint,
             &[
                 ("grant_type", "client_credentials"),
                 ("client_id", client_id),
@@ -50,18 +48,18 @@ pub fn client_credentials(
     Ok(resp.access_token)
 }
 
-/// Refresh a device token (§5, deferred from slice 2). `POST {issuer}/oauth/v2/token`
+/// Refresh a device token (§5, deferred from slice 2): `POST {token_endpoint}`
 /// with `grant_type=refresh_token`. Returns the rotated bundle; the refresh token
 /// may itself rotate, so we prefer the new one and fall back to the old.
 pub fn refresh_token(
-    issuer: &str,
+    token_endpoint: &str,
     client_id: &str,
     refresh_token: &str,
 ) -> Result<StoredToken, AuthError> {
-    let client = HttpClient::new(issuer);
+    let client = HttpClient::new("");
     let resp: TokenResponse = client
         .post_form(
-            "/oauth/v2/token",
+            token_endpoint,
             &[
                 ("grant_type", "refresh_token"),
                 ("client_id", client_id),
@@ -143,11 +141,15 @@ struct PollError {
 /// Run the RFC 8628 device flow (§5). Gated by the caller on
 /// `device_client_id != null`. Prints the verification URI + user code to
 /// stderr, then polls until success or expiry. Returns the stored token bundle.
-pub fn device_flow(issuer: &str, device_client_id: &str) -> Result<StoredToken, AuthError> {
-    let client = HttpClient::new(issuer);
+pub fn device_flow(
+    device_authorization_endpoint: &str,
+    token_endpoint: &str,
+    device_client_id: &str,
+) -> Result<StoredToken, AuthError> {
+    let client = HttpClient::new("");
     let auth: DeviceAuth = client
         .post_form(
-            "/oauth/v2/device_authorization",
+            device_authorization_endpoint,
             &[("client_id", device_client_id), ("scope", DEVICE_SCOPE)],
         )
         .map_err(AuthError::TokenExchange)?;
@@ -173,7 +175,7 @@ pub fn device_flow(issuer: &str, device_client_id: &str) -> Result<StoredToken, 
             return Err(AuthError::DeviceExpired);
         }
         sleep(interval);
-        match client.post_form::<TokenResponse>("/oauth/v2/token", &token_params) {
+        match client.post_form::<TokenResponse>(token_endpoint, &token_params) {
             Ok(resp) => {
                 return Ok(StoredToken {
                     access_token: resp.access_token,
