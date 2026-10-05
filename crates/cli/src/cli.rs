@@ -346,6 +346,11 @@ pub enum AuthCommand {
         /// Path for `--write` (default `~/.config/terramantle/token.env`).
         #[arg(long, value_name = "FILE")]
         path: Option<String>,
+        /// Also emit Terraform/OpenTofu credential vars (TF_HTTP_PASSWORD +
+        /// per-host TF_TOKEN_* for the module registry and, when an org is
+        /// resolved, its provider subdomain).
+        #[arg(long)]
+        terraform: bool,
     },
 }
 

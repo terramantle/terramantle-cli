@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 use tm_api::{
-    Client, ModuleDetail, ModuleSearchResponse, ModuleSummary, ProviderOverview, ProviderUsage,
-    UsedBy,
+    Client, ModuleDetail, ModuleSearchResponse, ModuleSummary, OrgMembership, ProviderOverview,
+    ProviderUsage, UsedBy,
 };
 use tm_config::OutputFormat;
 
@@ -136,9 +136,37 @@ pub fn resolve_client_and_org(cli: &Cli) -> Result<(Client, String), Box<dyn std
             Ok((client, org))
         }
         Ok(memberships) if memberships.is_empty() => Err(Box::new(MissingOrg)),
-        Ok(_) => Err(Box::new(AmbiguousOrg)),
+        // Multiple memberships: offer an fzf-style picker on a TTY; otherwise
+        // (CI/piped) stay deterministic and require --org.
+        Ok(memberships) => match prompt_org(&memberships)? {
+            Some(org) => {
+                eprintln!("using org '{org}'");
+                Ok((client, org))
+            }
+            None => Err(Box::new(AmbiguousOrg)),
+        },
         // CI OIDC/bot tokens have no org endpoint (401/403/404) — require --org.
         Err(_) => Err(Box::new(MissingOrg)),
+    }
+}
+
+/// Interactive org picker for the multi-membership case — a fuzzy, type-to-filter
+/// select (`inquire`), rendered on stderr so stdout stays clean for `-o json`.
+///
+/// Returns `Ok(None)` when stdin/stderr isn't a TTY (CI/piped) so the caller
+/// falls back to the deterministic "pass --org" error, and also when the user
+/// cancels (Esc/Ctrl-C) — a cancel is a no-selection, not a hard failure.
+fn prompt_org(memberships: &[OrgMembership]) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    use std::io::IsTerminal;
+    if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
+        return Ok(None);
+    }
+    let options: Vec<String> = memberships.iter().map(|m| m.slug.clone()).collect();
+    match inquire::Select::new("Select org", options).prompt() {
+        Ok(choice) => Ok(Some(choice)),
+        Err(inquire::InquireError::OperationCanceled)
+        | Err(inquire::InquireError::OperationInterrupted) => Ok(None),
+        Err(e) => Err(Box::new(e)),
     }
 }
 

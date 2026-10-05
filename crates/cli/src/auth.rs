@@ -107,7 +107,8 @@ pub fn dispatch(command: &AuthCommand, cli: &Cli) -> CmdResult {
             format,
             write,
             path,
-        } => env_cmd(&ctx, cli, *format, *write, path.as_deref()),
+            terraform,
+        } => env_cmd(&ctx, cli, *format, *write, path.as_deref(), *terraform),
     }
 }
 
@@ -135,18 +136,23 @@ fn env_cmd(
     format: EnvFormat,
     write: bool,
     path: Option<&str>,
+    terraform: bool,
 ) -> CmdResult {
     let token = match tm_auth::resolve_token(ctx) {
         Ok(t) => t,
         Err(e) => return Ok(auth_exit(&e)),
     };
 
+    let org = config_org(cli)?;
     let mut vars: Vec<(String, String)> = vec![
-        ("TERRAMANTLE_TOKEN".to_string(), token),
+        ("TERRAMANTLE_TOKEN".to_string(), token.clone()),
         ("TERRAMANTLE_API_URL".to_string(), ctx.api_url.clone()),
     ];
-    if let Some(org) = config_org(cli)? {
-        vars.push(("TERRAMANTLE_ORG".to_string(), org));
+    if let Some(org) = &org {
+        vars.push(("TERRAMANTLE_ORG".to_string(), org.clone()));
+    }
+    if terraform {
+        vars.extend(terraform_vars(&ctx.api_url, org.as_deref(), &token));
     }
 
     if write {
@@ -160,6 +166,55 @@ fn env_cmd(
 
     print!("{}", render_env(&vars, format));
     Ok(0)
+}
+
+/// Terraform/OpenTofu credential vars for `auth env --terraform`.
+///
+/// Emits (all set to the same resolved bearer):
+///   - `TF_HTTP_PASSWORD` — for the `http` state backend's basic-auth password;
+///   - `TF_TOKEN_<host>` — module-registry host credential (apex, e.g.
+///     `registry.terramantle.dev`, which serves `modules.v1`);
+///   - `TF_TOKEN_<org>.<host>` — the **provider** registry credential, keyed on
+///     the org subdomain (`<slug>.registry.terramantle.dev`), which is the host
+///     tofu actually authenticates to for providers. Only when an org resolves.
+///
+/// Host → env-var encoding follows Terraform's rule, not the server's current
+/// consume-snippet (`[^a-z0-9]→_`): a dot becomes a single `_`, a hyphen becomes
+/// a double `__`, so hyphenated org slugs resolve correctly (`my-org` →
+/// `my__org`). See `tf_token_var`.
+fn terraform_vars(api_url: &str, org: Option<&str>, token: &str) -> Vec<(String, String)> {
+    let host = host_of(api_url);
+    let mut out = vec![
+        ("TF_HTTP_PASSWORD".to_string(), token.to_string()),
+        (tf_token_var(&host), token.to_string()),
+    ];
+    if let Some(org) = org {
+        out.push((tf_token_var(&format!("{org}.{host}")), token.to_string()));
+    }
+    out
+}
+
+/// Extract the bare hostname from an API base URL (`https://host:port/path` →
+/// `host`). Falls back to the input unchanged if there is no scheme separator.
+fn host_of(api_url: &str) -> String {
+    let after_scheme = api_url.split("://").nth(1).unwrap_or(api_url);
+    let authority = after_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(after_scheme);
+    authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, h)| h)
+        .split(':')
+        .next()
+        .unwrap_or(authority)
+        .to_string()
+}
+
+/// `TF_TOKEN_<host>` with Terraform's host encoding: hyphen → `__`, dot → `_`
+/// (hyphens first so the dot pass doesn't touch the inserted underscores).
+fn tf_token_var(host: &str) -> String {
+    format!("TF_TOKEN_{}", host.replace('-', "__").replace('.', "_"))
 }
 
 /// The dotenv target path for `--write`: `--path` when given, else
@@ -476,6 +531,67 @@ mod tests {
     fn powershell_render_uses_env_prefix_and_doubles_quotes() {
         let out = render_env(&[("K", "a'b")], EnvFormat::Powershell);
         assert_eq!(out, "$env:K = 'a''b'\n");
+    }
+
+    #[test]
+    fn host_of_strips_scheme_path_and_port() {
+        assert_eq!(
+            host_of("https://registry.terramantle.dev"),
+            "registry.terramantle.dev"
+        );
+        assert_eq!(
+            host_of("https://registry.terramantle.dev/api/v1"),
+            "registry.terramantle.dev"
+        );
+        assert_eq!(host_of("http://localhost:8787/x"), "localhost");
+        assert_eq!(
+            host_of("registry.terramantle.dev"),
+            "registry.terramantle.dev"
+        );
+    }
+
+    #[test]
+    fn tf_token_var_encodes_dots_and_hyphens() {
+        // dots → single underscore
+        assert_eq!(
+            tf_token_var("registry.terramantle.dev"),
+            "TF_TOKEN_registry_terramantle_dev"
+        );
+        // org subdomain
+        assert_eq!(
+            tf_token_var("acme.registry.terramantle.dev"),
+            "TF_TOKEN_acme_registry_terramantle_dev"
+        );
+        // hyphen → double underscore (Terraform rule; the server snippet gets this wrong)
+        assert_eq!(
+            tf_token_var("my-org.registry.terramantle.dev"),
+            "TF_TOKEN_my__org_registry_terramantle_dev"
+        );
+    }
+
+    #[test]
+    fn terraform_vars_apex_and_org_subdomain() {
+        let v = terraform_vars("https://registry.terramantle.dev", Some("acme"), "tok");
+        let keys: Vec<&str> = v.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(
+            keys,
+            vec![
+                "TF_HTTP_PASSWORD",
+                "TF_TOKEN_registry_terramantle_dev",
+                "TF_TOKEN_acme_registry_terramantle_dev",
+            ]
+        );
+        assert!(v.iter().all(|(_, val)| val == "tok"));
+    }
+
+    #[test]
+    fn terraform_vars_without_org_omits_provider_subdomain() {
+        let v = terraform_vars("https://registry.terramantle.dev", None, "tok");
+        let keys: Vec<&str> = v.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(
+            keys,
+            vec!["TF_HTTP_PASSWORD", "TF_TOKEN_registry_terramantle_dev"]
+        );
     }
 
     #[test]

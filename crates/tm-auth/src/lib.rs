@@ -99,11 +99,71 @@ pub fn resolve_token(ctx: &AuthContext) -> Result<String, AuthError> {
             flows::github_oidc(env, &audience)
         }
         AuthMode::GitLab => flows::gitlab_oidc(env),
-        AuthMode::Device => match store::load(&ctx.api_url)? {
-            Some(t) => Ok(t.access_token),
-            None => Err(AuthError::NotAuthenticated),
-        },
+        AuthMode::Device => {
+            let stored = store::load(&ctx.api_url)?.ok_or(AuthError::NotAuthenticated)?;
+            // Proactively rotate when the cached access token is at/near expiry so
+            // the bearer handed to `auth token`/`auth env` (and thus Terraform)
+            // outlives the handoff. A failed refresh is non-fatal: fall back to the
+            // current token and let the server be the final arbiter.
+            if is_stale(&stored.access_token) {
+                if let Some(rotated) = try_refresh(ctx, &stored) {
+                    return Ok(rotated.access_token);
+                }
+            }
+            Ok(stored.access_token)
+        }
     }
+}
+
+/// Clock skew before `exp` at which a device access token is treated as due for
+/// proactive refresh, so a token handed off (e.g. to Terraform) doesn't expire
+/// mid-use.
+const REFRESH_SKEW_SECS: i64 = 60;
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// Whether a JWT is expired or within [`REFRESH_SKEW_SECS`] of expiring. A token
+/// with no `exp`, or one we can't decode locally, is treated as *not* stale — we
+/// don't block on local parsing; the server remains the final arbiter.
+fn is_stale(access_token: &str) -> bool {
+    match jwt::decode_claims(access_token) {
+        Ok(claims) => claims
+            .exp
+            .is_some_and(|exp| now_unix() + REFRESH_SKEW_SECS >= exp),
+        Err(_) => false,
+    }
+}
+
+/// Resolve the device client + issuer from discovery, then exchange the stored
+/// refresh token once and persist the rotation. `None` when refresh isn't
+/// possible (no refresh token, no device client, discovery/exchange failure).
+fn try_refresh(ctx: &AuthContext, stored: &store::StoredToken) -> Option<store::StoredToken> {
+    let disco = discovery::fetch(&ctx.api_url).ok()?;
+    let issuer = disco.issuer(ctx.issuer_override.as_deref()).to_string();
+    let device_client_id = disco.oidc.device_client_id.clone()?;
+    refresh_once(&ctx.api_url, &issuer, &device_client_id, stored)
+}
+
+/// Exchange a bundle's refresh token once and persist the rotated bundle. Shared
+/// by the proactive path ([`try_refresh`]) and the on-401 hook so rotation +
+/// persistence live in one place. `None` when there's no refresh token or the
+/// exchange/persist fails.
+fn refresh_once(
+    api_url: &str,
+    issuer: &str,
+    device_client_id: &str,
+    stored: &store::StoredToken,
+) -> Option<store::StoredToken> {
+    let refresh = stored.refresh_token.as_deref()?;
+    let rotated = flows::refresh_token(issuer, device_client_id, refresh).ok()?;
+    // Persist before returning so the rotation survives the process.
+    store::save(api_url, &rotated).ok()?;
+    Some(rotated)
 }
 
 /// `auth login`: run the device flow and persist the token to the keyring.
@@ -163,10 +223,7 @@ fn build_refresh_hook(ctx: &AuthContext) -> Option<RefreshHook> {
     Some(Box::new(move || {
         // Re-read on each call so a token rotated by an earlier retry is picked up.
         let stored = store::load(&api_url).ok()??;
-        let refresh = stored.refresh_token.as_deref()?;
-        let rotated = flows::refresh_token(&issuer, &device_client_id, refresh).ok()?;
-        // Persist before returning so the rotation survives the process.
-        store::save(&api_url, &rotated).ok()?;
+        let rotated = refresh_once(&api_url, &issuer, &device_client_id, &stored)?;
         Some(rotated.access_token)
     }))
 }
@@ -180,5 +237,36 @@ mod tests {
         assert_eq!(AuthError::NotAuthenticated.exit_code(), 5);
         assert_eq!(AuthError::DeviceUnavailable.exit_code(), 5);
         assert_eq!(AuthError::DeviceExpired.exit_code(), 5);
+    }
+
+    /// Build an unsigned JWT carrying just `exp` (seconds since epoch).
+    fn jwt_with_exp(exp: i64) -> String {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none"}"#);
+        let body = URL_SAFE_NO_PAD.encode(format!(r#"{{"exp":{exp}}}"#).as_bytes());
+        format!("{header}.{body}.")
+    }
+
+    #[test]
+    fn is_stale_true_when_expired_or_within_skew() {
+        // Already expired.
+        assert!(is_stale(&jwt_with_exp(now_unix() - 10)));
+        // Inside the skew window (expires in < REFRESH_SKEW_SECS).
+        assert!(is_stale(&jwt_with_exp(now_unix() + REFRESH_SKEW_SECS - 5)));
+    }
+
+    #[test]
+    fn is_stale_false_when_fresh_or_unparseable_or_no_exp() {
+        // Comfortably in the future.
+        assert!(!is_stale(&jwt_with_exp(now_unix() + 3600)));
+        // Undecodable → not stale (server is the arbiter, we don't block locally).
+        assert!(!is_stale("not-a-jwt"));
+        // No exp claim → nothing to reason about.
+        assert!(!is_stale(&{
+            use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+            let h = URL_SAFE_NO_PAD.encode(br#"{"alg":"none"}"#);
+            let b = URL_SAFE_NO_PAD.encode(br#"{"sub":"u"}"#);
+            format!("{h}.{b}.")
+        }));
     }
 }
