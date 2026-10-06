@@ -26,7 +26,6 @@ use tm_scaffold::{Artefact, Manifest};
 use crate::auth;
 use crate::cli::{BumpArg, Cli, DocsMode, ModulePublishArgs};
 use crate::commands::CmdResult;
-use crate::discovery::resolve_client_and_org;
 use crate::lock::{self, PollOutcome, PostureRow};
 use crate::output::{self, TableView};
 
@@ -316,12 +315,9 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
     let client_org = if args.dry_run {
         None
     } else {
-        match resolve_client_and_org(cli) {
+        match crate::discovery::client_and_org(cli) {
             Ok(v) => Some(v),
-            Err(e) => {
-                eprintln!("error: {e}");
-                return Ok(EXIT_USAGE);
-            }
+            Err(code) => return Ok(code),
         }
     };
 
@@ -701,12 +697,9 @@ pub fn state_publish(cli: &Cli, args: &StatePublishArgs) -> CmdResult {
         return Ok(EXIT_USAGE);
     }
 
-    let (client, org) = match resolve_client_and_org(cli) {
+    let (client, org) = match crate::discovery::client_and_org(cli) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Ok(EXIT_USAGE);
-        }
+        Err(code) => return Ok(code),
     };
 
     let poly_name = auth::config_workspace(cli)?;

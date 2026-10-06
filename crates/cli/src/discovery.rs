@@ -146,8 +146,29 @@ pub fn resolve_client_and_org(cli: &Cli) -> Result<(Client, String), Box<dyn std
             None => Err(Box::new(AmbiguousOrg)),
         },
         // CI OIDC/bot tokens have no org endpoint (401/403/404) — require --org.
-        Err(_) => Err(Box::new(MissingOrg)),
+        Err(e) if matches!(e.status(), Some(401) | Some(403) | Some(404)) => {
+            Err(Box::new(MissingOrg))
+        }
+        // Anything else (5xx, transport) is a real API failure — surface it
+        // rather than masking it as "no org configured".
+        Err(e) => Err(Box::new(e)),
     }
+}
+
+/// Resolve `(client, org)` or print the error and return the mapped exit code:
+/// auth failures → 5, API failures → their §9 code, missing/ambiguous org → 2.
+/// Shared by every command that needs an authed client scoped to an org.
+pub fn client_and_org(cli: &Cli) -> Result<(Client, String), i32> {
+    resolve_client_and_org(cli).map_err(|e| {
+        eprintln!("error: {e}");
+        if let Some(auth) = e.downcast_ref::<tm_auth::AuthError>() {
+            return auth.exit_code();
+        }
+        if let Some(api) = e.downcast_ref::<tm_api::ApiError>() {
+            return api.exit_code();
+        }
+        EXIT_MISSING_ORG
+    })
 }
 
 /// Interactive org picker for the multi-membership case — a fuzzy, type-to-filter
@@ -213,12 +234,9 @@ pub fn modules(command: &ModulesCommand, cli: &Cli) -> CmdResult {
 // ── providers ls ────────────────────────────────────────────────────────────────
 
 fn providers_ls(cli: &Cli, at_risk_only: bool) -> CmdResult {
-    let (client, org) = match resolve_client_and_org(cli) {
+    let (client, org) = match client_and_org(cli) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Ok(EXIT_MISSING_ORG);
-        }
+        Err(code) => return Ok(code),
     };
 
     let usage = match client.providers_usage(&org) {
@@ -315,12 +333,9 @@ fn providers_show(cli: &Cli, provider: &str) -> CmdResult {
         }
     };
 
-    let (client, org) = match resolve_client_and_org(cli) {
+    let (client, org) = match client_and_org(cli) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Ok(EXIT_MISSING_ORG);
-        }
+        Err(code) => return Ok(code),
     };
 
     let used_by = match client.providers_usage_detail(&org, &ns, &ty) {
@@ -418,8 +433,9 @@ pub fn build_show(
             workspaces,
         })
         .collect();
-    // Newest first: reverse lexical is a good-enough proxy for semver here.
-    rows.sort_by(|a, b| b.version.cmp(&a.version));
+    // Newest first, semver-aware (lexical puts 5.9.0 above 5.10.0); unparsable
+    // versions sort below parsable ones, lexically among themselves.
+    rows.sort_by(|a, b| semver_cmp(&b.version, &a.version));
 
     ProviderShow {
         namespace: ns.to_string(),
@@ -479,12 +495,9 @@ pub fn render_providers_show(show: &ProviderShow, style: Style) -> String {
 // ── modules search ──────────────────────────────────────────────────────────────
 
 fn modules_search(cli: &Cli, query: &str, limit: Option<u64>, all: bool) -> CmdResult {
-    let (client, _org) = match resolve_client_and_org(cli) {
+    let (client, _org) = match client_and_org(cli) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Ok(EXIT_MISSING_ORG);
-        }
+        Err(code) => return Ok(code),
     };
 
     let page_limit = limit.unwrap_or(20);
@@ -497,7 +510,8 @@ fn modules_search(cli: &Cli, query: &str, limit: Option<u64>, all: bool) -> CmdR
         };
         hits.extend(resp.modules);
         match resp.meta.next_offset {
-            Some(next) if all => {
+            // A non-advancing cursor would loop forever — treat it as the end.
+            Some(next) if all && next > offset => {
                 if hits.len() >= SEARCH_ALL_CAP {
                     eprintln!(
                         "note: stopped at {SEARCH_ALL_CAP} results (more available; narrow the query)"
@@ -548,12 +562,9 @@ fn modules_show(cli: &Cli, module: &str) -> CmdResult {
         }
     };
 
-    let (client, _org) = match resolve_client_and_org(cli) {
+    let (client, _org) = match client_and_org(cli) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Ok(EXIT_MISSING_ORG);
-        }
+        Err(code) => return Ok(code),
     };
 
     let detail = match client.module_show(&ns, &name, &provider) {
@@ -606,9 +617,20 @@ pub fn render_module_show(show: &ModuleShow) -> String {
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 /// Map an API error to its §9 exit code, printing the preserved message first.
-fn api_fail(e: &tm_api::ApiError) -> i32 {
+pub fn api_fail(e: &tm_api::ApiError) -> i32 {
     eprintln!("error: {e}");
     e.exit_code()
+}
+
+/// Compare two version strings semver-first: both parse → semver order; a
+/// parsable version ranks above an unparsable one; neither parses → lexical.
+fn semver_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    match (semver::Version::parse(a), semver::Version::parse(b)) {
+        (Ok(va), Ok(vb)) => va.cmp(&vb),
+        (Ok(_), Err(_)) => std::cmp::Ordering::Greater,
+        (Err(_), Ok(_)) => std::cmp::Ordering::Less,
+        (Err(_), Err(_)) => a.cmp(b),
+    }
 }
 
 /// Split `a/b`, with a clear error naming the expected shape.

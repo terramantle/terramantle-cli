@@ -49,10 +49,16 @@ impl Clone for HttpClient {
 
 impl HttpClient {
     /// Build a client for `base_url` (no trailing slash required).
+    ///
+    /// Timeouts are per-phase (connect / read / write), not whole-request, so a
+    /// stalled server can't hang a command while large publishes still stream.
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             agent: ureq::AgentBuilder::new()
                 .user_agent(concat!("terramantle/", env!("CARGO_PKG_VERSION")))
+                .timeout_connect(std::time::Duration::from_secs(10))
+                .timeout_read(std::time::Duration::from_secs(30))
+                .timeout_write(std::time::Duration::from_secs(30))
                 .build(),
             base_url: base_url.into(),
             bearer: RefCell::new(None),
@@ -158,7 +164,8 @@ impl HttpClient {
     /// POST an `application/x-www-form-urlencoded` body to `path` and deserialize
     /// the JSON response. OAuth 2.0 token/device endpoints (RFC 6749/8628) require
     /// form encoding, not JSON - `post_json` would set `application/json`, and the
-    /// issuer then parses no form fields (e.g. Zitadel: "client_id must be provided").
+    /// issuer would then parse no form fields (rejecting with e.g. "client_id must
+    /// be provided").
     pub fn post_form<T: DeserializeOwned>(
         &self,
         path: &str,

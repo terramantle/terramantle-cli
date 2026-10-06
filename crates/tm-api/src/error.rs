@@ -120,7 +120,9 @@ impl ApiError {
     }
 
     /// Map this error to a process exit code per the §9 table. The `error` string
-    /// is authoritative; when the body did not parse we fall back to `1`.
+    /// is authoritative; without one, a 401/403 still maps to the auth exit (5) —
+    /// not every unauthorized response comes from the worker (gateways, OAuth
+    /// issuers, HTML error pages) — and anything else falls back to `1`.
     ///
     /// | `error` | exit |
     /// |---|---|
@@ -129,6 +131,7 @@ impl ApiError {
     /// | `bad_request` | 2 |
     /// | `locked`, `serial_conflict` (409) | 7 |
     /// | `payload_too_large` | 1 |
+    /// | no code, HTTP 401/403 | 5 |
     /// | unmapped / non-JSON | 1 |
     pub fn exit_code(&self) -> i32 {
         match self.error_code() {
@@ -137,8 +140,13 @@ impl ApiError {
             Some("bad_request") => 2,
             Some("locked" | "serial_conflict") => 7,
             Some("payload_too_large") => 1,
-            // Unmapped `error` string or non-JSON/absent body → generic (§9).
-            _ => 1,
+            Some(_) => 1,
+            // No machine-readable code: fall back to the HTTP status for the
+            // auth cases, generic 1 otherwise (§9).
+            None => match self.status() {
+                Some(401) | Some(403) => 5,
+                _ => 1,
+            },
         }
     }
 }
@@ -243,6 +251,16 @@ mod tests {
         let e = status(500, "internal server error");
         assert_eq!(e.error_code(), None);
         assert_eq!(e.exit_code(), 1);
+    }
+
+    #[test]
+    fn codeless_401_and_403_fall_back_to_status_exit_5() {
+        // Not everything that 401s speaks the worker envelope: OAuth issuers,
+        // gateways, HTML error pages.
+        assert_eq!(status(401, "<html>unauthorized</html>").exit_code(), 5);
+        assert_eq!(status(403, "").exit_code(), 5);
+        // But an unmapped explicit code still wins over the status.
+        assert_eq!(status(401, r#"{"error":"weird_code"}"#).exit_code(), 1);
     }
 
     #[test]

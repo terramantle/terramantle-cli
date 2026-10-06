@@ -26,10 +26,14 @@ owo-colors = "4"
 supports-color = "3"
 indicatif = "0.17"
 inquire = "0.7"
+semver = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [package.metadata.dist]
 formula = "terramantle"

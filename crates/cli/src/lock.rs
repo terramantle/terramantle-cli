@@ -359,12 +359,9 @@ pub fn push(cli: &Cli, args: &PushArgs) -> CmdResult {
 
     // Resolve org (path org for the PUT) + build the client once (refresh hook
     // intact). This is the first step that touches auth/network.
-    let (client, org) = match discovery::resolve_client_and_org(cli) {
+    let (client, org) = match discovery::client_and_org(cli) {
         Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Ok(EXIT_MISSING_ORG);
-        }
+        Err(code) => return Ok(code),
     };
 
     // ==> Authenticating (<mode>)

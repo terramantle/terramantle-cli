@@ -251,8 +251,10 @@ terramantle state publish prod staging --fail-on-atrisk -o json
 
 Auto-detected from the environment; override with `--auth-mode` /
 `TERRAMANTLE_AUTH_MODE`. Before any auth, the CLI fetches
-`{api_url}/.well-known/terramantle-cli.json` to discover the OIDC issuer/audience —
-nothing is hardcoded in the binary.
+`{api_url}/.well-known/terramantle-cli.json` to discover the OIDC
+issuer/audience/scopes, then the issuer's standard
+`.well-known/openid-configuration` for the token and device endpoints — nothing
+vendor-specific is hardcoded in the binary; any OIDC-compliant IdP works.
 
 | Mode | Trigger | How |
 |---|---|---|

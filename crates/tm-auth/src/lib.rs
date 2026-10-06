@@ -86,21 +86,25 @@ pub fn resolve_token(ctx: &AuthContext) -> Result<String, AuthError> {
             .ok_or(AuthError::NotAuthenticated),
         AuthMode::ClientCredentials => {
             let disco = discovery::fetch(&ctx.api_url)?;
-            let audience = disco.audience(ctx.audience_override.as_deref()).to_string();
+            let scope = disco.scopes().to_string();
             let endpoints = oidc_endpoints(ctx, disco)?;
             let client_id = env("TERRAMANTLE_CLIENT_ID").ok_or(AuthError::NotAuthenticated)?;
             let client_secret =
                 env("TERRAMANTLE_CLIENT_SECRET").ok_or(AuthError::NotAuthenticated)?;
             flows::client_credentials(
                 &endpoints.token_endpoint,
-                &audience,
+                &scope,
                 &client_id,
                 &client_secret,
             )
         }
         AuthMode::GitHub => {
             let disco = discovery::fetch(&ctx.api_url)?;
-            let audience = disco.audience(ctx.audience_override.as_deref()).to_string();
+            // CI tokens are minted for the VCS audience (falls back to the main
+            // audience when the deployment doesn't distinguish them).
+            let audience = disco
+                .vcs_audience(ctx.audience_override.as_deref())
+                .to_string();
             flows::github_oidc(env, &audience)
         }
         AuthMode::GitLab => flows::gitlab_oidc(env),
@@ -212,7 +216,12 @@ pub fn login(ctx: &AuthContext) -> Result<(), AuthError> {
         .device_authorization_endpoint
         .as_deref()
         .ok_or(AuthError::DeviceUnavailable)?;
-    let token = flows::device_flow(device_auth, &endpoints.token_endpoint, &device_client_id)?;
+    let token = flows::device_flow(
+        device_auth,
+        &endpoints.token_endpoint,
+        &device_client_id,
+        disco.scopes(),
+    )?;
     store::save(&ctx.api_url, &token)?;
     Ok(())
 }

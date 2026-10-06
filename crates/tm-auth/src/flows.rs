@@ -14,8 +14,6 @@ use tm_api::{ApiError, HttpClient};
 use crate::store::StoredToken;
 use crate::AuthError;
 
-const DEVICE_SCOPE: &str = "openid profile email offline_access";
-
 /// A minimal OAuth token response.
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
@@ -26,10 +24,13 @@ struct TokenResponse {
 
 /// Client-credentials exchange (§5, bot flow): `POST {token_endpoint}` with
 /// `grant_type=client_credentials`. The token endpoint is the absolute URL from
-/// the issuer's OIDC metadata — no provider-specific path is assumed.
+/// the issuer's OIDC metadata and the scopes come from discovery — no
+/// provider-specific path or parameter is assumed. The token's audience is the
+/// IdP's business (configured server-side, typically via a scope mapping), not
+/// a request parameter.
 pub fn client_credentials(
     token_endpoint: &str,
-    audience: &str,
+    scope: &str,
     client_id: &str,
     client_secret: &str,
 ) -> Result<String, AuthError> {
@@ -41,7 +42,7 @@ pub fn client_credentials(
                 ("grant_type", "client_credentials"),
                 ("client_id", client_id),
                 ("client_secret", client_secret),
-                ("audience", audience),
+                ("scope", scope),
             ],
         )
         .map_err(AuthError::TokenExchange)?;
@@ -139,18 +140,21 @@ struct PollError {
 }
 
 /// Run the RFC 8628 device flow (§5). Gated by the caller on
-/// `device_client_id != null`. Prints the verification URI + user code to
-/// stderr, then polls until success or expiry. Returns the stored token bundle.
+/// `device_client_id != null`. `scope` comes from discovery (see
+/// [`crate::discovery::Discovery::scopes`]). Prints the verification URI +
+/// user code to stderr, then polls until success or expiry. Returns the stored
+/// token bundle.
 pub fn device_flow(
     device_authorization_endpoint: &str,
     token_endpoint: &str,
     device_client_id: &str,
+    scope: &str,
 ) -> Result<StoredToken, AuthError> {
     let client = HttpClient::new("");
     let auth: DeviceAuth = client
         .post_form(
             device_authorization_endpoint,
-            &[("client_id", device_client_id), ("scope", DEVICE_SCOPE)],
+            &[("client_id", device_client_id), ("scope", scope)],
         )
         .map_err(AuthError::TokenExchange)?;
 
@@ -171,10 +175,11 @@ pub fn device_flow(
     ];
 
     loop {
+        sleep(interval);
+        // Checked after the sleep so we never poll past the server's expiry.
         if Instant::now() >= deadline {
             return Err(AuthError::DeviceExpired);
         }
-        sleep(interval);
         match client.post_form::<TokenResponse>(token_endpoint, &token_params) {
             Ok(resp) => {
                 return Ok(StoredToken {
@@ -185,29 +190,91 @@ pub fn device_flow(
             Err(e) => match poll_disposition(&e) {
                 PollDisposition::KeepWaiting => {}
                 PollDisposition::SlowDown => interval += Duration::from_secs(5),
+                PollDisposition::Expired => return Err(AuthError::DeviceExpired),
                 PollDisposition::Fatal => return Err(AuthError::TokenExchange(e)),
             },
         }
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum PollDisposition {
     KeepWaiting,
     SlowDown,
+    Expired,
     Fatal,
 }
 
-/// Interpret a polling error per RFC 8628: `authorization_pending` and
-/// `slow_down` are non-fatal; anything else aborts.
+/// Interpret a polling error per RFC 8628 §3.5: `authorization_pending` and
+/// `slow_down` are non-fatal, `expired_token` maps to the dedicated expiry
+/// error, anything else (e.g. `access_denied`) aborts.
 fn poll_disposition(err: &ApiError) -> PollDisposition {
     if let ApiError::Status { body, .. } = err {
         if let Ok(PollError { error }) = serde_json::from_str::<PollError>(body) {
             return match error.as_str() {
                 "authorization_pending" => PollDisposition::KeepWaiting,
                 "slow_down" => PollDisposition::SlowDown,
+                "expired_token" => PollDisposition::Expired,
                 _ => PollDisposition::Fatal,
             };
         }
     }
     PollDisposition::Fatal
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn poll_err(status: u16, body: &str) -> ApiError {
+        // Mirror how the HTTP layer surfaces a non-2xx poll response.
+        ApiError::Status {
+            status,
+            url: "https://iss/token".into(),
+            body: body.to_string(),
+            parsed: None,
+        }
+    }
+
+    #[test]
+    fn pending_and_slow_down_keep_polling() {
+        assert_eq!(
+            poll_disposition(&poll_err(400, r#"{"error":"authorization_pending"}"#)),
+            PollDisposition::KeepWaiting
+        );
+        assert_eq!(
+            poll_disposition(&poll_err(400, r#"{"error":"slow_down"}"#)),
+            PollDisposition::SlowDown
+        );
+    }
+
+    #[test]
+    fn expired_token_maps_to_expired() {
+        assert_eq!(
+            poll_disposition(&poll_err(400, r#"{"error":"expired_token"}"#)),
+            PollDisposition::Expired
+        );
+    }
+
+    #[test]
+    fn denial_and_garbage_are_fatal() {
+        assert_eq!(
+            poll_disposition(&poll_err(400, r#"{"error":"access_denied"}"#)),
+            PollDisposition::Fatal
+        );
+        assert_eq!(
+            poll_disposition(&poll_err(502, "<html>bad gateway</html>")),
+            PollDisposition::Fatal
+        );
+    }
+
+    #[test]
+    fn default_interval_is_five_seconds() {
+        let auth: DeviceAuth = serde_json::from_str(
+            r#"{"device_code":"d","user_code":"U-1","verification_uri":"https://iss/device","expires_in":600}"#,
+        )
+        .unwrap();
+        assert_eq!(auth.interval, 5);
+        assert_eq!(auth.verification_uri_complete, None);
+    }
 }

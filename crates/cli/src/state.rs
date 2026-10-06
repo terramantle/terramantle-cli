@@ -17,7 +17,7 @@ use tm_api::{ApiError, Client, LockInfo, PromoteResponse, StateVersion, Workspac
 use crate::cli::{Cli, StateCommand};
 use crate::commands::CmdResult;
 use crate::confirm::{confirm, EXIT_CONFIRM};
-use crate::discovery::{resolve_client_and_org, EXIT_MISSING_ORG};
+use crate::discovery::{api_fail, client_and_org};
 use crate::output::{self, relative_time, Style, TableView, DASH};
 
 // ── dispatch ────────────────────────────────────────────────────────────────
@@ -55,21 +55,6 @@ pub fn state(command: &StateCommand, cli: &Cli) -> CmdResult {
             },
         ),
     }
-}
-
-/// Resolve `(client, org)` or print the error and return the exit code. Shared
-/// entry for every state command.
-fn client_and_org(cli: &Cli) -> Result<(Client, String), i32> {
-    resolve_client_and_org(cli).map_err(|e| {
-        eprintln!("error: {e}");
-        EXIT_MISSING_ORG
-    })
-}
-
-/// Map an API error to its §9 exit code, printing the preserved message first.
-fn api_fail(e: &ApiError) -> i32 {
-    eprintln!("error: {e}");
-    e.exit_code()
 }
 
 // ── state ls ────────────────────────────────────────────────────────────────
