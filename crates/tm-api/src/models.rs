@@ -11,6 +11,13 @@ use serde::{Deserialize, Serialize};
 
 // ── orgs ─────────────────────────────────────────────────────────────────────
 
+/// The `GET /api/orgs` handler wraps rows as `{ orgs: [...] }`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrgListResponse {
+    #[serde(default)]
+    pub orgs: Vec<OrgMembership>,
+}
+
 /// One org membership row from `GET /api/orgs` (§4.1 layer 4). Consolidated here
 /// from the auth slice so both auth and every other command share one type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
