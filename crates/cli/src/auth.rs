@@ -152,7 +152,8 @@ fn env_cmd(
         vars.push(("TERRAMANTLE_ORG".to_string(), org.clone()));
     }
     if terraform {
-        vars.extend(terraform_vars(&ctx.api_url, org.as_deref(), &token));
+        let tf_orgs = terraform_orgs(&ctx.api_url, &token, org.as_deref());
+        vars.extend(terraform_vars(&ctx.api_url, &tf_orgs, &token));
     }
 
     if write {
@@ -168,6 +169,27 @@ fn env_cmd(
     Ok(0)
 }
 
+/// Resolve the set of org slugs to emit `TF_TOKEN_<org>.<host>` for.
+///
+/// For human tokens this queries `GET /api/orgs` and uses **every** org the
+/// caller is a member of, so a single `eval "$(terramantle auth env
+/// --terraform)"` authenticates tofu against all of them. For bot/CI tokens
+/// (no org-list endpoint — org is resolved server-side, per `whoami`) and as a
+/// fallback if the listing call fails, this falls back to the single
+/// `--org`/env/context-resolved org, if any.
+fn terraform_orgs(api_url: &str, token: &str, resolved_org: Option<&str>) -> Vec<String> {
+    let is_human = jwt::decode_claims(token)
+        .map(|c| c.token_type() == TokenType::Human)
+        .unwrap_or(false);
+    if is_human {
+        match fetch_orgs(api_url, token) {
+            Ok(list) => return list.into_iter().map(|m| m.slug).collect(),
+            Err(e) => eprintln!("warning: could not list orgs for terraform vars: {e}"),
+        }
+    }
+    resolved_org.map(str::to_string).into_iter().collect()
+}
+
 /// Terraform/OpenTofu credential vars for `auth env --terraform`.
 ///
 /// Emits (all set to the same resolved bearer):
@@ -176,19 +198,20 @@ fn env_cmd(
 ///     `registry.terramantle.dev`, which serves `modules.v1`);
 ///   - `TF_TOKEN_<org>.<host>` — the **provider** registry credential, keyed on
 ///     the org subdomain (`<slug>.registry.terramantle.dev`), which is the host
-///     tofu actually authenticates to for providers. Only when an org resolves.
+///     tofu actually authenticates to for providers. One per org in `orgs`
+///     (see `terraform_orgs`).
 ///
 /// Host → env-var encoding follows Terraform's rule, not the server's current
 /// consume-snippet (`[^a-z0-9]→_`): a dot becomes a single `_`, a hyphen becomes
 /// a double `__`, so hyphenated org slugs resolve correctly (`my-org` →
 /// `my__org`). See `tf_token_var`.
-fn terraform_vars(api_url: &str, org: Option<&str>, token: &str) -> Vec<(String, String)> {
+fn terraform_vars(api_url: &str, orgs: &[String], token: &str) -> Vec<(String, String)> {
     let host = host_of(api_url);
     let mut out = vec![
         ("TF_HTTP_PASSWORD".to_string(), token.to_string()),
         (tf_token_var(&host), token.to_string()),
     ];
-    if let Some(org) = org {
+    for org in orgs {
         out.push((tf_token_var(&format!("{org}.{host}")), token.to_string()));
     }
     out
@@ -571,7 +594,11 @@ mod tests {
 
     #[test]
     fn terraform_vars_apex_and_org_subdomain() {
-        let v = terraform_vars("https://registry.terramantle.dev", Some("acme"), "tok");
+        let v = terraform_vars(
+            "https://registry.terramantle.dev",
+            &["acme".to_string()],
+            "tok",
+        );
         let keys: Vec<&str> = v.iter().map(|(k, _)| k.as_str()).collect();
         assert_eq!(
             keys,
@@ -586,12 +613,32 @@ mod tests {
 
     #[test]
     fn terraform_vars_without_org_omits_provider_subdomain() {
-        let v = terraform_vars("https://registry.terramantle.dev", None, "tok");
+        let v = terraform_vars("https://registry.terramantle.dev", &[], "tok");
         let keys: Vec<&str> = v.iter().map(|(k, _)| k.as_str()).collect();
         assert_eq!(
             keys,
             vec!["TF_HTTP_PASSWORD", "TF_TOKEN_registry_terramantle_dev"]
         );
+    }
+
+    #[test]
+    fn terraform_vars_loops_over_multiple_orgs() {
+        let v = terraform_vars(
+            "https://registry.terramantle.dev",
+            &["acme".to_string(), "my-org".to_string()],
+            "tok",
+        );
+        let keys: Vec<&str> = v.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(
+            keys,
+            vec![
+                "TF_HTTP_PASSWORD",
+                "TF_TOKEN_registry_terramantle_dev",
+                "TF_TOKEN_acme_registry_terramantle_dev",
+                "TF_TOKEN_my__org_registry_terramantle_dev",
+            ]
+        );
+        assert!(v.iter().all(|(_, val)| val == "tok"));
     }
 
     #[test]
