@@ -20,6 +20,10 @@ use serde::{Deserialize, Serialize};
 
 pub const ENV_PREFIX: &str = "TERRAMANTLE_";
 pub const DEFAULT_API_URL: &str = "https://registry.terramantle.dev";
+
+/// Portal origin used when discovery doesn't advertise a `portal_url` (an older
+/// worker) and nothing overrides it. Keeps `terramantle console` working offline.
+pub const DEFAULT_PORTAL_URL: &str = "https://portal.terramantle.dev";
 pub const DEFAULT_OUTPUT: OutputFormat = OutputFormat::Table;
 
 /// Output rendering format (`-o`/`TERRAMANTLE_OUTPUT`, §6).

@@ -54,6 +54,10 @@ pub struct OidcEndpoints {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Discovery {
     pub api_url: String,
+    /// Browsable human portal origin, for `terramantle console`. Absent on
+    /// deployments whose worker predates the field.
+    #[serde(default)]
+    pub portal_url: Option<String>,
     pub oidc: OidcConfig,
 }
 
@@ -75,6 +79,16 @@ impl Discovery {
         override_audience
             .or(self.oidc.vcs_audience.as_deref())
             .unwrap_or(&self.oidc.audience)
+    }
+
+    /// The portal origin to open in a browser, honouring an explicit override
+    /// (`--url` / `TERRAMANTLE_PORTAL_URL`). Falls back to
+    /// [`tm_config::DEFAULT_PORTAL_URL`] when the deployment doesn't advertise
+    /// one, so the command works against an older worker.
+    pub fn portal_url<'a>(&'a self, override_url: Option<&'a str>) -> &'a str {
+        override_url
+            .or(self.portal_url.as_deref())
+            .unwrap_or(tm_config::DEFAULT_PORTAL_URL)
     }
 
     /// The scopes to request from the token/device endpoints, defaulting to

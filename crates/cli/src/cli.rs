@@ -110,6 +110,8 @@ pub enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    /// Open the Terramantle portal in your browser.
+    Console(ConsoleArgs),
     /// Generate shell completion script.
     Completion {
         /// Shell to generate completions for.
@@ -117,6 +119,19 @@ pub enum Command {
     },
     /// Print version information.
     Version,
+}
+
+#[derive(Debug, Args)]
+pub struct ConsoleArgs {
+    /// Portal path to open, e.g. `org/acme/modules`. Opens the root when omitted.
+    pub path: Option<String>,
+    /// Portal origin to use instead of the discovered one (also
+    /// `TERRAMANTLE_PORTAL_URL`).
+    #[arg(long)]
+    pub url: Option<String>,
+    /// Print the URL instead of launching a browser.
+    #[arg(long)]
+    pub print: bool,
 }
 
 #[derive(Debug, Subcommand)]

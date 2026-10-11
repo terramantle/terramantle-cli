@@ -44,6 +44,7 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
         Command::Upgrade(args) => crate::scaffold::upgrade(cli, args),
         Command::Context { command } => context(command, &cli.global),
         Command::Config { command } => config(command, cli),
+        Command::Console(args) => crate::console::console(args, cli),
         Command::Completion { shell } => {
             let mut cmd = Cli::command();
             let name = cmd.get_name().to_string();

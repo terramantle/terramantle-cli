@@ -4,6 +4,7 @@ mod auth;
 mod cli;
 mod commands;
 mod confirm;
+mod console;
 mod discovery;
 mod lock;
 mod output;

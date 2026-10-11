@@ -121,6 +121,7 @@ terramantle
 │   ├── whoami                  # identity, org(s), token type + expiry
 │   ├── token                   # print the bearer to stdout (for $(terramantle auth token))
 │   └── env [--format …]        # shell exports for eval "$(terramantle auth env)"
+├── console [path]              # open the portal in your default browser
 ├── context                     # kubectl-style org/workspace contexts
 │   ├── ls · current · use <name> · set <name> [--org o] [--workspace w]
 ├── config
@@ -262,7 +263,7 @@ vendor-specific is hardcoded in the binary; any OIDC-compliant IdP works.
 | `gitlab` | `GITLAB_CI=true` | GitLab ID token from `TERRAMANTLE_ID_TOKEN`, same bearer trust path. |
 | `device` | interactive TTY (`auth login`) | OIDC device flow; access/refresh stored in the OS keyring. |
 | `client` | `TERRAMANTLE_CLIENT_ID`/`_SECRET` present | Client-credentials grant (bot). |
-| `token` | `TERRAMANTLE_TOKEN` set | Raw bearer, verbatim; skips all flows (escape hatch / testing). |
+| `token` | `TERRAMANTLE_TOKEN` set | Raw bearer, verbatim; skips all flows (escape hatch / testing). A bearer that has **expired** falls through to the keyring and is refreshed, so `eval "$(terramantle auth env)"` twice in one shell doesn't strand you on a dead token. |
 
 For **human** tokens the org defaults from `GET /api/orgs` when you belong to
 exactly one org. For **CI OIDC / bot** tokens the org is server-resolved from repo
@@ -281,9 +282,30 @@ narration goes to stderr), and `auth env` emits shell exports for `eval`:
 ```sh
 export TERRAMANTLE_TOKEN=$(terramantle auth token)
 eval "$(terramantle auth env)"                    # TOKEN (+ _API_URL, _ORG if resolved)
+eval "$(terramantle auth env --terraform)"        # + TF_HTTP_PASSWORD, TF_TOKEN_<org>.<host>
 terramantle auth env --format fish|powershell|json  # shell-correct quoting
 terramantle auth env --write [--path ~/.config/terramantle/token.env]  # mode-600 dotenv
 ```
+
+Both commands export `TERRAMANTLE_TOKEN`, which would otherwise put the *next*
+invocation in `token` mode holding the previous bearer. They refresh a stale one
+from the keyring instead, so re-running the `eval` after your 12-hour access
+token expires just works. When the session genuinely can't be refreshed (a
+revoked or expired refresh token) they fail with exit 5 and tell you to run
+`auth login`, rather than handing Terraform a bearer that is already dead.
+
+### `console`
+
+```sh
+terramantle console                        # open the portal root
+terramantle console org/acme/modules       # open a specific page
+terramantle console --print                # print the URL instead of launching
+```
+
+The portal origin comes from the deployment's discovery document
+(`portal_url`), falling back to `https://portal.terramantle.dev`. No auth: the
+portal runs its own sign-in. On a headless box the URL is always printed to
+stderr, so a missing browser handler is a warning, not a failure.
 
 ## Environment variables
 
@@ -294,6 +316,7 @@ All `TERRAMANTLE_`-prefixed; URLs have defaults and are overridable.
 | `TERRAMANTLE_API_URL` | `https://registry.terramantle.dev` | API base |
 | `TERRAMANTLE_OIDC_ISSUER` | discovered | OIDC issuer override |
 | `TERRAMANTLE_AUDIENCE` | discovered | token audience override |
+| `TERRAMANTLE_PORTAL_URL` | discovered | portal origin for `console` |
 | `TERRAMANTLE_ORG` | — | org slug |
 | `TERRAMANTLE_WORKSPACE` | — | default workspace |
 | `TERRAMANTLE_CONTEXT` | — | context override |
