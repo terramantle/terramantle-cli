@@ -152,7 +152,7 @@ fn env_cmd(
         vars.push(("TERRAMANTLE_ORG".to_string(), org.clone()));
     }
     if terraform {
-        let tf_orgs = terraform_orgs(&ctx.api_url, &token, org.as_deref());
+        let tf_orgs = terraform_orgs(ctx, &token, org.as_deref());
         vars.extend(terraform_vars(&ctx.api_url, &tf_orgs, &token));
     }
 
@@ -177,12 +177,12 @@ fn env_cmd(
 /// (no org-list endpoint — org is resolved server-side, per `whoami`) and as a
 /// fallback if the listing call fails, this falls back to the single
 /// `--org`/env/context-resolved org, if any.
-fn terraform_orgs(api_url: &str, token: &str, resolved_org: Option<&str>) -> Vec<String> {
+fn terraform_orgs(ctx: &AuthContext, token: &str, resolved_org: Option<&str>) -> Vec<String> {
     let is_human = jwt::decode_claims(token)
         .map(|c| c.token_type() == TokenType::Human)
         .unwrap_or(false);
     if is_human {
-        match fetch_orgs(api_url, token) {
+        match fetch_orgs(ctx, token) {
             Ok(list) => return list.into_iter().map(|m| m.slug).collect(),
             Err(e) => eprintln!("warning: could not list orgs for terraform vars: {e}"),
         }
@@ -385,7 +385,7 @@ fn whoami(ctx: &AuthContext, cli: &Cli) -> CmdResult {
 
     // Human tokens: list orgs from GET /api/orgs. CI OIDC/bot: no org endpoint.
     let orgs = if ttype == TokenType::Human {
-        match fetch_orgs(&ctx.api_url, &token) {
+        match fetch_orgs(ctx, &token) {
             Ok(o) => Some(o),
             Err(e) => {
                 if let Some(code) = auth_status_exit(&e) {
@@ -405,8 +405,13 @@ fn whoami(ctx: &AuthContext, cli: &Cli) -> CmdResult {
 
 /// `GET /api/orgs` → memberships (human tokens only). Never calls `/api/auth/me`.
 /// Delegates to the shared `tm_api::Client` so the model lives in one place.
-fn fetch_orgs(api_url: &str, token: &str) -> Result<Vec<OrgMembership>, ApiError> {
-    Client::new(api_url, token).orgs_list()
+///
+/// Built via `tm_auth::client_with_token` rather than `Client::new` so this call
+/// carries the refresh-on-401 hook every other authed command gets. Without it a
+/// 401 here was terminal, which is how an expired bearer surfaced as an opaque
+/// "could not list orgs" warning instead of quietly refreshing.
+fn fetch_orgs(ctx: &AuthContext, token: &str) -> Result<Vec<OrgMembership>, ApiError> {
+    tm_auth::client_with_token(ctx, token.to_string()).orgs_list()
 }
 
 /// Map a 401/403 from an authed call to exit 5 (§9); other statuses fall

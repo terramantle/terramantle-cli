@@ -52,10 +52,17 @@ pub fn client_credentials(
 /// Refresh a device token (§5, deferred from slice 2): `POST {token_endpoint}`
 /// with `grant_type=refresh_token`. Returns the rotated bundle; the refresh token
 /// may itself rotate, so we prefer the new one and fall back to the old.
+///
+/// `scope` is sent explicitly even though RFC 6749 §6 lets the IdP default to the
+/// originally granted scopes. Relying on that default is a silent-failure risk:
+/// a rotated token that lost the deployment's API scope would also lose the
+/// registry `aud` it stamps, and every subsequent call would 401 with nothing to
+/// distinguish it from a bad credential.
 pub fn refresh_token(
     token_endpoint: &str,
     client_id: &str,
     refresh_token: &str,
+    scope: &str,
 ) -> Result<StoredToken, AuthError> {
     let client = HttpClient::new("");
     let resp: TokenResponse = client
@@ -65,6 +72,7 @@ pub fn refresh_token(
                 ("grant_type", "refresh_token"),
                 ("client_id", client_id),
                 ("refresh_token", refresh_token),
+                ("scope", scope),
             ],
         )
         .map_err(AuthError::TokenExchange)?;
