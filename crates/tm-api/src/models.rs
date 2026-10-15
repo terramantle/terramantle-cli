@@ -15,113 +15,13 @@ use serde::{Deserialize, Serialize};
 // Source: providerFoundry.ts `GET .../providers-usage` (grouped in TS to exactly
 // this shape) and `.../providers-usage/:namespace/:type`.
 
-/// A provider in use across the org, grouped by `(namespace, type)`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderUsage {
-    pub namespace: String,
-    #[serde(rename = "type")]
-    pub type_: String,
-    pub upstream: String,
-    pub workspace_count: u64,
-    #[serde(default)]
-    pub workspace_ids: Vec<String>,
-    #[serde(default)]
-    pub versions: Vec<UsageVersion>,
-}
-
-/// One locked version of a provider in the usage rollup.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct UsageVersion {
-    pub version: String,
-    /// The `constraints` string (nullable in the worker).
-    #[serde(default)]
-    pub constraints: Option<String>,
-    pub workspace_count: u64,
-    /// Constraint-respecting newest version; null when nothing to compare against.
-    #[serde(default)]
-    pub latest_matching: Option<String>,
-    pub outdated: bool,
-}
-
-/// One workspace-usage row for a specific provider
-/// (`.../providers-usage/:namespace/:type`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct UsedBy {
-    pub version: String,
-    pub workspace_id: String,
-    pub workspace_name: String,
-    pub uploaded_at: i64,
-    #[serde(default)]
-    pub uploaded_by: Option<String>,
-    pub locked_at: i64,
-}
-
 // ── providers: overview (severity rollup for the TRUST column) ─────────────────
 // Source: providerScanRead.ts `FoundryOverviewRow`. The handler wraps the array
 // as `{ providers: [...] }` — see `ProvidersOverviewResponse`.
 
-/// One foundry-rule row with the latest scan's severity rollup. Only providers
-/// with a scan rule appear; absence of a row means "no scan rule" → `· unscanned`
-/// (§7 providers ls). Provider-level, not per-version.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderOverview {
-    pub namespace: String,
-    #[serde(rename = "type")]
-    pub type_: String,
-    /// Severity rollup for the newest scanned version in the latest job.
-    #[serde(default)]
-    pub vuln_count: u64,
-    #[serde(default)]
-    pub critical_count: u64,
-    #[serde(default)]
-    pub high_count: u64,
-    // Extra columns modelled loosely — present in FoundryOverviewRow but not load-
-    // bearing for the TRUST derivation; kept optional so a schema change can't break us.
-    #[serde(default)]
-    pub rule_id: Option<String>,
-    #[serde(default)]
-    pub upstream: Option<String>,
-    #[serde(default)]
-    pub version_constraint: Option<String>,
-    #[serde(default)]
-    pub latest_job_id: Option<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub triggered_at: Option<i64>,
-    #[serde(default)]
-    pub completed_at: Option<i64>,
-}
-
-/// The overview handler wraps its rows: `{ providers: [...] }`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProvidersOverviewResponse {
-    #[serde(default)]
-    pub providers: Vec<ProviderOverview>,
-}
-
 // ── providers: available versions (Terraform registry protocol) ────────────────
 // Source: providers.ts `GET /v1/providers/:ns/:type/versions` →
 // filteredVersionsList → the upstream Terraform protocol `{ versions: [...] }`.
-
-/// A Terraform-protocol provider-versions list. Only `version` is load-bearing
-/// for the CLI; `protocols`/`platforms` are modelled loosely.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderVersionsResponse {
-    #[serde(default)]
-    pub versions: Vec<ProviderVersion>,
-}
-
-/// One available provider version (Terraform protocol row).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderVersion {
-    pub version: String,
-    #[serde(default)]
-    pub protocols: Vec<String>,
-    /// Left untyped — platform objects vary and the CLI does not render them.
-    #[serde(default)]
-    pub platforms: Vec<serde_json::Value>,
-}
 
 // ── modules ────────────────────────────────────────────────────────────────────
 // Source: ModuleService.ts `SearchResponse`, `RegistryVersionSummary`,
@@ -347,6 +247,24 @@ pub use crate::generated::models::{
     VersionScanRollup, WorkspaceProvider, WorkspaceProvidersResponse,
     WorkspaceProvidersResponseLockFile as LockFileMeta,
 };
+
+// ── providers: now generated ──────────────────────────────────────────────────
+//
+// `ProviderUsage`, `UsageVersion`, `UsedBy`, `ProviderOverview` and
+// `ProvidersOverviewResponse` are gone with the endpoints that fed them: the
+// `provider-foundry` usage and overview routes were removed server-side and
+// answer 410. The unified catalog replaced all three requests with one, and the
+// artefact detail carries the per-version findings and used-by rows the old pair
+// could not express.
+
+/// One managed provider with its versions.
+pub use crate::generated::models::ProviderArtefactDetail;
+/// The org's provider catalog row.
+pub use crate::generated::models::ProviderArtefactSummary;
+/// Which upstream registry an artefact is mirrored or built from.
+pub use crate::generated::models::ProviderUpstream;
+/// The registry protocol's provider version list.
+pub use crate::generated::models::ProviderVersionsResponse;
 
 #[cfg(test)]
 mod tests {

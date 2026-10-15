@@ -4430,6 +4430,30 @@
           }
         }
       },
+      "ProviderVersionUsedBy": {
+        "type": "object",
+        "title": "ProviderVersionUsedBy",
+        "description": "One workspace that locks a given provider version.",
+        "required": [
+          "workspace_id",
+          "workspace_name",
+          "locked_at"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "workspace_id": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string",
+            "description": "Display name — what a client shows; `workspace_id` is the stable key."
+          },
+          "locked_at": {
+            "$ref": "#/components/schemas/Timestamp",
+            "description": "When this workspace's lock file was uploaded pinning this version."
+          }
+        }
+      },
       "ProviderVersionRow": {
         "type": "object",
         "title": "ProviderVersionRow",
@@ -4514,9 +4538,9 @@
           },
           "used_by": {
             "type": "array",
+            "description": "The org's workspaces that lock this version — the base itself or any of its folded\nrevisions, since a substituted serve writes the revision string into the lock file.\nThis is the blast radius of the version, and it is what a client renders beside it.\n",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/ProviderVersionUsedBy"
             }
           },
           "referenced_by_modules": {

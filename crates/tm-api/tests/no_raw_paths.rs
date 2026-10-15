@@ -25,15 +25,12 @@ const SOURCES: &[(&str, &str)] = &[
 /// Every one of these is a path the spec already describes; the entry exists
 /// only because its module has not been migrated to `tm_api::ops` yet.
 const KNOWN_RAW_PATHS: &[(&str, usize)] = &[
-    // 3 are 410 tombstones (providers-usage, providers-usage/{ns}/{type},
-    // providers-overview) and 1 is the spec-deprecated token-scoped version
-    // list. All four go when `providers` migrates.
-    ("providers.rs", 4),
     // Includes `/v1/modules/{ns}/{name}/{provider}`, which is not a route at
-    // all: it 404s while its siblings 401.
+    // all: it 404s while its siblings 401. The last module left to migrate.
     ("modules.rs", 4),
-    // `state.rs` and `orgs.rs` are migrated and deliberately absent: the test
-    // below holds them at zero permanently.
+    // `providers.rs`, `state.rs` and `orgs.rs` are migrated and deliberately
+    // absent: `fully_migrated_modules_have_no_path_literals` holds them at zero
+    // permanently, so they cannot regress.
 ];
 
 /// Count string literals that look like an API path, in PRODUCTION code.

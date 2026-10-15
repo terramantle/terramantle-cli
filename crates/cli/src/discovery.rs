@@ -10,9 +10,11 @@
 use std::collections::BTreeMap;
 
 use serde::Serialize;
+use tm_api::generated::models::{
+    ProviderArtefactDetail, ProviderArtefactSummary, ProviderUpstream, ProviderVersionRow,
+};
 use tm_api::{
-    Client, ModuleDetail, ModuleSearchResponse, ModuleSummary, OrgMembership, ProviderOverview,
-    ProviderUsage, UsedBy, VersionScanRollup,
+    Client, ModuleDetail, ModuleSearchResponse, ModuleSummary, OrgMembership, VersionScanRollup,
 };
 use tm_config::OutputFormat;
 
@@ -27,46 +29,58 @@ const SEARCH_ALL_CAP: usize = 500;
 
 // ── pure TRUST join (rubric 3, no network) ─────────────────────────────────────
 
-/// One rendered `providers ls` row: a (provider, version) pair with its
-/// provider-level TRUST verdict. This is exactly what `-o json` emits.
+/// One row of the `providers ls` table (also the `-o json` shape).
+///
+/// One row per PROVIDER, not per version. The removed `providers-usage`
+/// endpoint returned a per-version usage rollup; the unified catalog that
+/// replaced it is keyed on the artefact, with per-version detail behind
+/// `providers show`. That is a visible change to this table, and an unavoidable
+/// one — the per-version list is not served any more.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProviderRow {
     pub namespace: String,
     #[serde(rename = "type")]
     pub type_: String,
-    pub version: String,
-    /// Constraint-respecting newest (`latest_matching`); `None` shows `—`.
+    /// The org's version constraint, or `—` when it serves every version.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub constraint: Option<String>,
+    /// Newest version this org actually holds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub latest: Option<String>,
-    /// Absolute newest available (overview/usage upstream); wide + json only.
+    /// Newest release upstream; wide + json only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub latest_version: Option<String>,
-    /// Workspaces on *this* version.
+    /// Workspaces whose lock file pins this provider — its blast radius.
     pub workspaces: u64,
+    /// At least one workspace is behind its `latest_matching`.
     pub outdated: bool,
-    /// Provider-level verdict (§7): identical for every version of a provider.
+    /// Provider-level verdict, from the `latest_version` severity counts.
     pub trust: TrustVerdict,
-    /// Upstream registry host (wide + json).
+    /// Upstream registry (wide + json).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream: Option<String>,
 }
 
-/// Derive the provider-level [`TrustVerdict`] for `(namespace, type)` from the
-/// overview index (§7):
-///   * overview row present + any of critical/high/vuln > 0 → `AtRisk`
-///   * overview row present + all zero                       → `Trusted`
-///   * no overview row                                       → `Unscanned`
-pub fn verdict_for(
-    overview: &BTreeMap<(String, String), &ProviderOverview>,
-    ns: &str,
-    ty: &str,
-) -> TrustVerdict {
-    match overview.get(&(ns.to_string(), ty.to_string())) {
-        Some(o) if o.critical_count > 0 || o.high_count > 0 || o.vuln_count > 0 => {
-            TrustVerdict::AtRisk
-        }
-        Some(_) => TrustVerdict::Trusted,
-        None => TrustVerdict::Unscanned,
+/// Derive the provider-level [`TrustVerdict`] from a catalog row.
+///
+/// The counts are `latest_version`'s only — never an older version's, even
+/// where the older one has findings and the latest does not. So a zero means
+/// "the latest version is clean OR has not been scanned", and this payload
+/// cannot tell those apart: `scanned` per version is on `providers show`.
+///
+/// `Unscanned` is therefore reported when the provider holds no version at all;
+/// anything else with zero counts reads as `Trusted`, which is the same
+/// judgement the server's own UI makes from this row.
+pub fn verdict_for_summary(p: &ProviderArtefactSummary) -> TrustVerdict {
+    let critical = p.critical_count.unwrap_or(0);
+    let high = p.high_count.unwrap_or(0);
+    let vulns = p.vuln_count.unwrap_or(0);
+    if critical > 0 || high > 0 || vulns > 0 {
+        TrustVerdict::AtRisk
+    } else if p.latest_version.is_none() {
+        TrustVerdict::Unscanned
+    } else {
+        TrustVerdict::Trusted
     }
 }
 
@@ -90,43 +104,24 @@ pub fn verdict_from_scan(scan: Option<&VersionScanRollup>) -> TrustVerdict {
     }
 }
 
-/// Build the overview lookup index keyed by `(namespace, type)`.
-pub fn index_overview(
-    overview: &[ProviderOverview],
-) -> BTreeMap<(String, String), &ProviderOverview> {
-    overview
+/// Build one row per provider from the catalog list, sorted by
+/// `(namespace, type)`. Pure — the heart of `providers ls` (rubric 3).
+pub fn summary_rows(providers: &[ProviderArtefactSummary]) -> Vec<ProviderRow> {
+    let mut rows: Vec<ProviderRow> = providers
         .iter()
-        .map(|o| ((o.namespace.clone(), o.type_.clone()), o))
-        .collect()
-}
-
-/// Left-join usage ⋈ overview into one row per (provider, version) in use, sorted
-/// by (namespace, type, version). Pure — the heart of `providers ls` (rubric 3).
-pub fn join_rows(usage: &[ProviderUsage], overview: &[ProviderOverview]) -> Vec<ProviderRow> {
-    let idx = index_overview(overview);
-    let mut rows: Vec<ProviderRow> = Vec::new();
-    for u in usage {
-        let trust = verdict_for(&idx, &u.namespace, &u.type_);
-        // Absolute latest, when the overview surfaces it via its upstream link is
-        // not available; usage has no absolute latest, so leave None unless a
-        // wide-only field is derivable. (latest_version stays None here.)
-        for v in &u.versions {
-            rows.push(ProviderRow {
-                namespace: u.namespace.clone(),
-                type_: u.type_.clone(),
-                version: v.version.clone(),
-                latest: v.latest_matching.clone(),
-                latest_version: None,
-                workspaces: v.workspace_count,
-                outdated: v.outdated,
-                trust,
-                upstream: Some(u.upstream.clone()).filter(|s| !s.is_empty()),
-            });
-        }
-    }
-    rows.sort_by(|a, b| {
-        (&a.namespace, &a.type_, &a.version).cmp(&(&b.namespace, &b.type_, &b.version))
-    });
+        .map(|p| ProviderRow {
+            namespace: p.namespace.clone(),
+            type_: p.type_.clone(),
+            constraint: p.version_constraint.clone().filter(|c| !c.is_empty()),
+            latest: p.latest_version.clone(),
+            latest_version: p.upstream_latest_version.clone(),
+            workspaces: p.usage_workspace_count.unwrap_or(0).max(0) as u64,
+            outdated: p.outdated.unwrap_or(false),
+            trust: verdict_for_summary(p),
+            upstream: p.upstream.map(|u| u.to_string()),
+        })
+        .collect();
+    rows.sort_by(|a, b| (&a.namespace, &a.type_).cmp(&(&b.namespace, &b.type_)));
     rows
 }
 
@@ -238,7 +233,22 @@ pub const EXIT_MISSING_ORG: i32 = 2;
 pub fn providers(command: &ProvidersCommand, cli: &Cli) -> CmdResult {
     match command {
         ProvidersCommand::Ls { at_risk } => providers_ls(cli, *at_risk),
-        ProvidersCommand::Show { provider } => providers_show(cli, provider),
+        ProvidersCommand::Show { provider, upstream } => {
+            // clap validates the value, so a parse failure here would be a bug
+            // in the value_parser list rather than user input.
+            let lineage = match upstream.as_deref().map(str::parse::<ProviderUpstream>) {
+                None => None,
+                Some(Ok(u)) => Some(u),
+                Some(Err(_)) => {
+                    eprintln!(
+                        "error: unknown upstream '{}'",
+                        upstream.as_deref().unwrap_or("")
+                    );
+                    return Ok(2);
+                }
+            };
+            providers_show(cli, provider, lineage)
+        }
     }
 }
 
@@ -259,16 +269,14 @@ fn providers_ls(cli: &Cli, at_risk_only: bool) -> CmdResult {
         Err(code) => return Ok(code),
     };
 
-    let usage = match client.providers_usage(&org) {
-        Ok(u) => u,
-        Err(e) => return Ok(api_fail(&e)),
-    };
-    let overview = match client.providers_overview(&org) {
-        Ok(o) => o,
+    // One request where there were two: the unified catalog carries the usage
+    // rollup AND the severity counts the removed `providers-overview` provided.
+    let providers = match client.providers_list(&org) {
+        Ok(p) => p,
         Err(e) => return Ok(api_fail(&e)),
     };
 
-    let mut rows = join_rows(&usage, &overview);
+    let mut rows = summary_rows(&providers);
     if at_risk_only {
         rows.retain(|r| r.trust == TrustVerdict::AtRisk);
     }
@@ -289,7 +297,7 @@ pub fn render_providers_ls(rows: &[ProviderRow], wide: bool, style: Style) -> St
     let mut headers = vec![
         "namespace",
         "type",
-        "version",
+        "constraint",
         "latest",
         "workspaces",
         "outdated",
@@ -304,7 +312,7 @@ pub fn render_providers_ls(rows: &[ProviderRow], wide: bool, style: Style) -> St
         let mut cells = vec![
             r.namespace.clone(),
             r.type_.clone(),
-            r.version.clone(),
+            r.constraint.clone().unwrap_or_else(|| DASH.to_string()),
             r.latest.clone().unwrap_or_else(|| DASH.to_string()),
             r.workspaces.to_string(),
             output::outdated_glyph(r.outdated, style),
@@ -344,7 +352,45 @@ pub struct ProviderShow {
     pub versions: Vec<ShowVersionRow>,
 }
 
-fn providers_show(cli: &Cli, provider: &str) -> CmdResult {
+/// Resolve `namespace/type` to a single catalog artefact, which needs the
+/// `{upstream}` segment the removed detail route did not have.
+///
+/// One org can legitimately manage both the `terraform.io` and `opentofu.org`
+/// lineages of the same `namespace/type`, so this can be genuinely ambiguous.
+/// When it is, the ambiguity is reported with both choices rather than guessed
+/// at: picking one would show a user the wrong supply chain and look right.
+fn resolve_artefact<'a>(
+    providers: &'a [ProviderArtefactSummary],
+    ns: &str,
+    ty: &str,
+    wanted: Option<ProviderUpstream>,
+) -> Result<&'a ProviderArtefactSummary, String> {
+    let matches: Vec<&ProviderArtefactSummary> = providers
+        .iter()
+        .filter(|p| p.namespace == ns && p.type_ == ty)
+        .filter(|p| wanted.is_none_or(|w| p.upstream == Some(w)))
+        .collect();
+
+    match matches.as_slice() {
+        [] if wanted.is_some() => Err(format!("org does not manage {ns}/{ty} from that upstream")),
+        [] => Err(format!("org does not manage {ns}/{ty}")),
+        [only] => Ok(only),
+        several => {
+            let choices: Vec<String> = several
+                .iter()
+                .filter_map(|p| p.upstream.map(|u| u.to_string()))
+                .collect();
+            Err(format!(
+                "{ns}/{ty} is managed from more than one upstream ({}). \
+                 Re-run with --upstream <{}> to say which.",
+                choices.join(", "),
+                choices.join("|")
+            ))
+        }
+    }
+}
+
+fn providers_show(cli: &Cli, provider: &str, upstream: Option<ProviderUpstream>) -> CmdResult {
     let (ns, ty) = match split_two(provider, "<ns>/<type>") {
         Ok(v) => v,
         Err(e) => {
@@ -358,17 +404,37 @@ fn providers_show(cli: &Cli, provider: &str) -> CmdResult {
         Err(code) => return Ok(code),
     };
 
-    let used_by = match client.providers_usage_detail(&org, &ns, &ty) {
-        Ok(u) => u,
+    // The catalog list first, to resolve `{upstream}` for the detail route.
+    let providers = match client.providers_list(&org) {
+        Ok(p) => p,
         Err(e) => return Ok(api_fail(&e)),
     };
-    // /v1/providers/.../versions is authRequired + org-allowlist-filtered (§7 S4).
-    // A 401/403 there → exit 5 with a clear message.
-    let available = match client.provider_versions(&ns, &ty) {
+    let summary = match resolve_artefact(&providers, &ns, &ty, upstream) {
+        Ok(s) => s,
+        Err(msg) => {
+            eprintln!("error: {msg}");
+            return Ok(2);
+        }
+    };
+    let Some(lineage) = summary.upstream else {
+        eprintln!("error: catalog row for {ns}/{ty} has no upstream, so it cannot be addressed");
+        return Ok(1);
+    };
+
+    let detail = match client.provider_detail(&org, lineage, &ns, &ty) {
+        Ok(d) => d,
+        Err(e) => return Ok(api_fail(&e)),
+    };
+
+    // /v1/providers/{org}/.../versions is authRequired + org-allowlist-filtered
+    // (§7 S4). A 401/403 there → exit 5 with a clear message.
+    let available = match client.provider_versions(&org, &ns, &ty) {
+        // `version` is optional in the protocol schema; a row without one names
+        // nothing, so it is dropped rather than rendered as a blank line.
         Ok(v) => v
             .versions
             .into_iter()
-            .map(|v| v.version)
+            .filter_map(|v| v.version)
             .collect::<Vec<_>>(),
         Err(e) => {
             if matches!(e.status(), Some(401) | Some(403)) {
@@ -381,23 +447,16 @@ fn providers_show(cli: &Cli, provider: &str) -> CmdResult {
             return Ok(api_fail(&e));
         }
     };
-    let overview = match client.providers_overview(&org) {
-        Ok(o) => o,
-        Err(e) => return Ok(api_fail(&e)),
-    };
 
-    let idx = index_overview(&overview);
-    let trust = verdict_for(&idx, &ns, &ty);
-    // The overview row carries the upstream/repo host; usage-detail rows do not.
-    let upstream = overview
-        .iter()
-        .find(|o| o.namespace == ns && o.type_ == ty)
-        .and_then(|o| o.upstream.clone());
-    // No dedicated provider-repo field on the wire yet, so `repo` stays None and
-    // the repo line is omitted (§7: "repo if available").
-    let repo = None;
-
-    let show = build_show(&ns, &ty, upstream, repo, trust, &used_by, &available);
+    let show = build_show(
+        &ns,
+        &ty,
+        Some(lineage.to_string()),
+        summary.source_url.clone(),
+        verdict_for_summary(summary),
+        &detail,
+        &available,
+    );
 
     let format = cli.global.output.unwrap_or_default();
     if output::print_structured(&show, format)? {
@@ -409,50 +468,76 @@ fn providers_show(cli: &Cli, provider: &str) -> CmdResult {
     Ok(0)
 }
 
-/// Assemble the [`ProviderShow`] payload from used-by rows + available versions
-/// (pure — used by golden tests). Versions in use carry their workspace list;
-/// available-but-not-in-use versions render with an empty list. Each version's
-/// trust is the same provider-level verdict (§7).
+/// Derive a single version's [`TrustVerdict`] from its own scan row.
+///
+/// This is strictly better than what `providers show` could do before. The old
+/// provider-level overview gave every version of a provider the SAME verdict —
+/// the doc comment on the removed field said so — which meant a clean 5.4.1 and
+/// a critical-carrying 5.0.0 rendered identically. The detail route reports per
+/// version, including an explicit `scanned` flag, so "not scanned" is a real
+/// answer rather than an absence read as zero findings.
+pub fn verdict_for_version(v: &ProviderVersionRow) -> TrustVerdict {
+    if v.scanned == Some(false) {
+        return TrustVerdict::Unscanned;
+    }
+    let bad = v.critical_count.unwrap_or(0) > 0
+        || v.high_count.unwrap_or(0) > 0
+        || v.vuln_count.unwrap_or(0) > 0;
+    if bad {
+        TrustVerdict::AtRisk
+    } else if v.scanned == Some(true) {
+        TrustVerdict::Trusted
+    } else {
+        // No `scanned` flag at all: the server did not say, so neither do we.
+        TrustVerdict::Unscanned
+    }
+}
+
+/// Assemble the [`ProviderShow`] payload from the artefact detail + the
+/// allowlist-filtered available versions (pure — used by golden tests).
+///
+/// Versions carry the workspaces that lock them, and each version's trust is its
+/// OWN verdict rather than one provider-level verdict repeated.
 pub fn build_show(
     ns: &str,
     ty: &str,
     upstream: Option<String>,
     repo: Option<String>,
-    trust: TrustVerdict,
-    used_by: &[UsedBy],
+    provider_trust: TrustVerdict,
+    detail: &ProviderArtefactDetail,
     available: &[String],
 ) -> ProviderShow {
-    // Group workspace names by the version they lock.
-    let mut ws_by_version: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for u in used_by {
-        ws_by_version
-            .entry(u.version.clone())
-            .or_default()
-            .push(u.workspace_name.clone());
-    }
-    for names in ws_by_version.values_mut() {
-        names.sort();
-        names.dedup();
+    // Rows the detail reports, keyed by version.
+    let mut rows: BTreeMap<String, ShowVersionRow> = BTreeMap::new();
+    for v in &detail.versions {
+        let mut workspaces: Vec<String> = v
+            .used_by
+            .iter()
+            .filter_map(|u| u.workspace_name.clone())
+            .collect();
+        workspaces.sort();
+        workspaces.dedup();
+        rows.insert(
+            v.version.clone(),
+            ShowVersionRow {
+                version: v.version.clone(),
+                trust: verdict_for_version(v),
+                workspaces,
+            },
+        );
     }
 
-    // Union of available versions and versions actually in use, so a locked
-    // version missing from the (allowlist-filtered) available list still shows.
-    let mut versions: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    // A version the registry serves but the detail does not list (the two apply
+    // different visibility rules) still shows, with no verdict to report.
     for v in available {
-        versions.entry(v.clone()).or_default();
-    }
-    for (v, names) in &ws_by_version {
-        versions.insert(v.clone(), names.clone());
+        rows.entry(v.clone()).or_insert_with(|| ShowVersionRow {
+            version: v.clone(),
+            trust: TrustVerdict::Unscanned,
+            workspaces: Vec::new(),
+        });
     }
 
-    let mut rows: Vec<ShowVersionRow> = versions
-        .into_iter()
-        .map(|(version, workspaces)| ShowVersionRow {
-            version,
-            trust,
-            workspaces,
-        })
-        .collect();
+    let mut rows: Vec<ShowVersionRow> = rows.into_values().collect();
     // Newest first, semver-aware (lexical puts 5.9.0 above 5.10.0); unparsable
     // versions sort below parsable ones, lexically among themselves.
     rows.sort_by(|a, b| semver_cmp(&b.version, &a.version));
@@ -462,7 +547,7 @@ pub fn build_show(
         type_: ty.to_string(),
         upstream,
         repo,
-        trust,
+        trust: provider_trust,
         versions: rows,
     }
 }
@@ -678,7 +763,6 @@ fn split_three(s: &str) -> Result<(String, String, String), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tm_api::{ProviderOverview, ProviderUsage, UsageVersion, UsedBy};
 
     // ── verdict_from_scan: the posture path's verdict source ──────────────────
 
@@ -728,226 +812,304 @@ mod tests {
         );
     }
 
-    fn overview(ns: &str, ty: &str, crit: u64, high: u64, vuln: u64) -> ProviderOverview {
-        ProviderOverview {
-            namespace: ns.into(),
-            type_: ty.into(),
-            vuln_count: vuln,
-            critical_count: crit,
-            high_count: high,
-            rule_id: None,
-            upstream: Some("registry.terraform.io".into()),
-            version_constraint: None,
-            latest_job_id: None,
-            status: None,
-            triggered_at: None,
-            completed_at: None,
-        }
+    /// A catalog row, built from JSON: `ProviderArtefactSummary` comes from the
+    /// spec and gains columns as the server documents them, so a struct literal
+    /// would need editing for fields these tests do not read.
+    fn summary(ns: &str, ty: &str, crit: i64, high: i64, vuln: i64) -> ProviderArtefactSummary {
+        serde_json::from_value(serde_json::json!({
+            "id": format!("{ns}/{ty}"),
+            "namespace": ns,
+            "type": ty,
+            "upstream": "terraform.io",
+            "serve_mode": "serve",
+            "version_constraint": "~> 5.0",
+            "latest_version": "5.4.1",
+            "upstream_latest_version": "5.5.0",
+            "usage_workspace_count": 3,
+            "outdated": false,
+            "critical_count": crit,
+            "high_count": high,
+            "vuln_count": vuln,
+        }))
+        .expect("catalog row parses")
     }
 
-    fn usage_version(v: &str, ws: u64, latest: &str, outdated: bool) -> UsageVersion {
-        UsageVersion {
-            version: v.into(),
-            constraints: None,
-            workspace_count: ws,
-            latest_matching: Some(latest.into()),
-            outdated,
-        }
+    /// A catalog row holding no versions at all — distinct from one holding a
+    /// clean version.
+    fn summary_without_versions(ns: &str, ty: &str) -> ProviderArtefactSummary {
+        serde_json::from_value(serde_json::json!({
+            "id": format!("{ns}/{ty}"),
+            "namespace": ns, "type": ty, "upstream": "opentofu.org",
+            "serve_mode": "serve", "version_constraint": null,
+        }))
+        .expect("catalog row parses")
     }
 
-    fn usage(ns: &str, ty: &str, versions: Vec<UsageVersion>) -> ProviderUsage {
-        ProviderUsage {
-            namespace: ns.into(),
-            type_: ty.into(),
-            upstream: "registry.terraform.io".into(),
-            workspace_count: versions.iter().map(|v| v.workspace_count).sum(),
-            workspace_ids: vec![],
-            versions,
-        }
+    fn detail(versions: serde_json::Value) -> ProviderArtefactDetail {
+        serde_json::from_value(serde_json::json!({
+            "namespace": "hashicorp", "type": "aws", "upstream": "terraform.io",
+            "versions": versions,
+        }))
+        .expect("artefact detail parses")
     }
 
-    // ── TRUST derivation (rubric 3) ──────────────────────────────────────────
+    // ── provider-level verdict from the catalog row ───────────────────────────
 
     #[test]
-    fn overview_with_high_is_at_risk() {
-        let ov = vec![overview("hashicorp", "aws", 0, 2, 0)];
-        let idx = index_overview(&ov);
-        assert_eq!(verdict_for(&idx, "hashicorp", "aws"), TrustVerdict::AtRisk);
-    }
-
-    #[test]
-    fn overview_with_critical_is_at_risk() {
-        let ov = vec![overview("hashicorp", "aws", 1, 0, 0)];
-        let idx = index_overview(&ov);
-        assert_eq!(verdict_for(&idx, "hashicorp", "aws"), TrustVerdict::AtRisk);
-    }
-
-    #[test]
-    fn overview_with_vuln_is_at_risk() {
-        let ov = vec![overview("hashicorp", "aws", 0, 0, 3)];
-        let idx = index_overview(&ov);
-        assert_eq!(verdict_for(&idx, "hashicorp", "aws"), TrustVerdict::AtRisk);
-    }
-
-    #[test]
-    fn overview_all_zero_is_trusted() {
-        let ov = vec![overview("hashicorp", "random", 0, 0, 0)];
-        let idx = index_overview(&ov);
+    fn summary_with_high_is_at_risk() {
         assert_eq!(
-            verdict_for(&idx, "hashicorp", "random"),
+            verdict_for_summary(&summary("hashicorp", "aws", 0, 2, 2)),
+            TrustVerdict::AtRisk
+        );
+    }
+
+    #[test]
+    fn summary_with_critical_is_at_risk() {
+        assert_eq!(
+            verdict_for_summary(&summary("hashicorp", "aws", 1, 0, 1)),
+            TrustVerdict::AtRisk
+        );
+    }
+
+    #[test]
+    fn summary_with_vuln_only_is_at_risk() {
+        assert_eq!(
+            verdict_for_summary(&summary("hashicorp", "aws", 0, 0, 4)),
+            TrustVerdict::AtRisk
+        );
+    }
+
+    #[test]
+    fn summary_all_zero_is_trusted() {
+        assert_eq!(
+            verdict_for_summary(&summary("hashicorp", "random", 0, 0, 0)),
             TrustVerdict::Trusted
         );
     }
 
+    /// A provider with no version at all is `Unscanned`, not `Trusted`: its zero
+    /// counts are the absence of a subject, not a clean result.
     #[test]
-    fn no_overview_row_is_unscanned_not_trusted() {
-        let ov: Vec<ProviderOverview> = vec![];
-        let idx = index_overview(&ov);
+    fn provider_without_versions_is_unscanned_not_trusted() {
         assert_eq!(
-            verdict_for(&idx, "opentofu", "null"),
+            verdict_for_summary(&summary_without_versions("opentofu", "null")),
             TrustVerdict::Unscanned
         );
     }
 
-    // ── join granularity (one row per (provider, version)) ───────────────────
+    // ── per-version verdict from the detail row ───────────────────────────────
 
-    #[test]
-    fn one_row_per_version_in_use() {
-        let usage = vec![usage(
-            "hashicorp",
-            "aws",
-            vec![
-                usage_version("5.2.0", 4, "5.4.1", true),
-                usage_version("5.1.0", 1, "5.4.1", true),
-            ],
-        )];
-        let overview = vec![overview("hashicorp", "aws", 0, 2, 0)];
-        let rows = join_rows(&usage, &overview);
-        assert_eq!(rows.len(), 2);
-        assert!(rows.iter().all(|r| r.trust == TrustVerdict::AtRisk));
-        // sorted by version ascending
-        assert_eq!(rows[0].version, "5.1.0");
-        assert_eq!(rows[1].version, "5.2.0");
-        assert_eq!(rows[1].workspaces, 4);
-        assert_eq!(rows[1].latest.as_deref(), Some("5.4.1"));
+    fn version_row(v: serde_json::Value) -> ProviderVersionRow {
+        serde_json::from_value(v).expect("version row parses")
     }
 
+    /// The capability the old provider-level overview could not express: two
+    /// versions of one provider with different verdicts.
     #[test]
-    fn unscanned_provider_rows_carry_unscanned_verdict() {
-        let usage = vec![usage(
-            "opentofu",
-            "null",
-            vec![usage_version("3.2.1", 2, "3.2.2", true)],
-        )];
-        let rows = join_rows(&usage, &[]);
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].trust, TrustVerdict::Unscanned);
+    fn versions_get_their_own_verdicts() {
+        let bad = version_row(serde_json::json!({
+            "version": "5.0.0", "scanned": true, "critical_count": 1,
+        }));
+        let good = version_row(serde_json::json!({
+            "version": "5.4.1", "scanned": true, "critical_count": 0, "high_count": 0,
+        }));
+        assert_eq!(verdict_for_version(&bad), TrustVerdict::AtRisk);
+        assert_eq!(verdict_for_version(&good), TrustVerdict::Trusted);
+    }
+
+    /// `scanned: false` is a real answer and must never read as "no findings".
+    #[test]
+    fn unscanned_version_is_not_trusted() {
+        let v = version_row(serde_json::json!({ "version": "5.1.0", "scanned": false }));
+        assert_eq!(verdict_for_version(&v), TrustVerdict::Unscanned);
+        // …and so is a row that does not say either way.
+        let silent = version_row(serde_json::json!({ "version": "5.2.0" }));
+        assert_eq!(verdict_for_version(&silent), TrustVerdict::Unscanned);
+    }
+
+    // ── providers ls rows ─────────────────────────────────────────────────────
+
+    #[test]
+    fn one_row_per_provider() {
+        let rows = summary_rows(&[summary("hashicorp", "aws", 0, 1, 1)]);
+        assert_eq!(rows.len(), 1, "one row per provider, not per version");
+        assert_eq!(rows[0].namespace, "hashicorp");
+        assert_eq!(rows[0].type_, "aws");
+        assert_eq!(rows[0].constraint.as_deref(), Some("~> 5.0"));
+        assert_eq!(rows[0].latest.as_deref(), Some("5.4.1"));
+        assert_eq!(rows[0].latest_version.as_deref(), Some("5.5.0"));
+        assert_eq!(rows[0].workspaces, 3);
+        assert_eq!(rows[0].trust, TrustVerdict::AtRisk);
+        assert_eq!(rows[0].upstream.as_deref(), Some("terraform.io"));
     }
 
     #[test]
     fn rows_sorted_across_providers() {
-        let usage = vec![
-            usage(
-                "opentofu",
-                "null",
-                vec![usage_version("3.2.1", 2, "3.2.2", true)],
-            ),
-            usage(
-                "hashicorp",
-                "random",
-                vec![usage_version("3.6.0", 7, "3.6.0", false)],
-            ),
-        ];
-        let rows = join_rows(&usage, &[]);
-        assert_eq!(rows[0].namespace, "hashicorp");
-        assert_eq!(rows[1].namespace, "opentofu");
+        let rows = summary_rows(&[
+            summary("opentofu", "null", 0, 0, 0),
+            summary("hashicorp", "aws", 0, 0, 0),
+            summary_without_versions("hashicorp", "random"),
+        ]);
+        let keys: Vec<String> = rows
+            .iter()
+            .map(|r| format!("{}/{}", r.namespace, r.type_))
+            .collect();
+        assert_eq!(
+            keys,
+            vec!["hashicorp/aws", "hashicorp/random", "opentofu/null"]
+        );
     }
 
-    // ── json contract round-trip (rubric 2) ──────────────────────────────────
+    /// An empty constraint means "every version" and renders as absent rather
+    /// than as an empty cell.
+    #[test]
+    fn empty_constraint_reads_as_none() {
+        let p: ProviderArtefactSummary = serde_json::from_value(serde_json::json!({
+            "id": "x", "namespace": "n", "type": "t", "upstream": "terraform.io",
+            "serve_mode": "serve", "version_constraint": "",
+        }))
+        .unwrap();
+        assert_eq!(summary_rows(&[p])[0].constraint, None);
+    }
 
     #[test]
     fn provider_rows_json_round_trips() {
-        let rows = join_rows(
-            &[usage(
-                "hashicorp",
-                "aws",
-                vec![usage_version("5.2.0", 4, "5.4.1", true)],
-            )],
-            &[overview("hashicorp", "aws", 0, 2, 0)],
-        );
+        let rows = summary_rows(&[summary("hashicorp", "aws", 0, 0, 0)]);
         let json = serde_json::to_string(&rows).unwrap();
-        let back: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(back[0]["type"], "aws");
-        assert_eq!(back[0]["trust"], "at-risk");
-        assert_eq!(back[0]["workspaces"], 4);
+        assert!(json.contains("\"namespace\":\"hashicorp\""), "{json}");
+        assert!(json.contains("\"type\":\"aws\""), "{json}");
+    }
+
+    // ── upstream resolution ──────────────────────────────────────────────────
+
+    /// One org can manage both lineages of the same provider. Guessing would
+    /// show the wrong supply chain and look right, so it refuses and names both.
+    #[test]
+    fn ambiguous_upstream_is_refused_naming_both() {
+        let tf = summary("hashicorp", "aws", 0, 0, 0);
+        let tofu: ProviderArtefactSummary = serde_json::from_value(serde_json::json!({
+            "id": "2", "namespace": "hashicorp", "type": "aws",
+            "upstream": "opentofu.org", "serve_mode": "serve", "version_constraint": null,
+        }))
+        .unwrap();
+        let err = resolve_artefact(&[tf, tofu], "hashicorp", "aws", None)
+            .expect_err("two lineages must not resolve");
+        assert!(err.contains("terraform.io"), "{err}");
+        assert!(err.contains("opentofu.org"), "{err}");
+        assert!(err.contains("--upstream"), "{err}");
+    }
+
+    /// …and naming the lineage resolves it.
+    #[test]
+    fn explicit_upstream_breaks_the_tie() {
+        let tf = summary("hashicorp", "aws", 0, 0, 0);
+        let tofu: ProviderArtefactSummary = serde_json::from_value(serde_json::json!({
+            "id": "2", "namespace": "hashicorp", "type": "aws",
+            "upstream": "opentofu.org", "serve_mode": "serve", "version_constraint": null,
+        }))
+        .unwrap();
+        let both = [tf, tofu];
+        let got = resolve_artefact(
+            &both,
+            "hashicorp",
+            "aws",
+            Some(ProviderUpstream::OpentofuOrg),
+        )
+        .expect("explicit upstream resolves");
+        assert_eq!(got.upstream, Some(ProviderUpstream::OpentofuOrg));
+    }
+
+    #[test]
+    fn unmanaged_provider_is_reported_not_guessed() {
+        let err = resolve_artefact(&[], "ghost", "gone", None).expect_err("nothing to resolve");
+        assert!(err.contains("ghost/gone"), "{err}");
+    }
+
+    #[test]
+    fn single_match_resolves_without_a_flag() {
+        let only = summary("hashicorp", "aws", 0, 0, 0);
+        assert!(resolve_artefact(&[only], "hashicorp", "aws", None).is_ok());
+    }
+
+    // ── providers show ───────────────────────────────────────────────────────
+
+    /// A locked version the detail lists, with its workspaces, plus a version the
+    /// registry serves that the detail does not list.
+    #[test]
+    fn show_lists_versions_with_their_workspaces() {
+        let d = detail(serde_json::json!([
+            {
+                "version": "5.2.0", "scanned": true, "critical_count": 1,
+                "used_by": [
+                    {"workspace_id": "w1", "workspace_name": "prod", "locked_at": 1},
+                    {"workspace_id": "w2", "workspace_name": "staging", "locked_at": 2},
+                ],
+            },
+            { "version": "5.4.1", "scanned": true, "used_by": [] },
+        ]));
+        let show = build_show(
+            "hashicorp",
+            "aws",
+            Some("terraform.io".into()),
+            None,
+            TrustVerdict::AtRisk,
+            &d,
+            &["5.5.0".to_string()],
+        );
+        // Newest first, semver-aware.
+        let versions: Vec<&str> = show.versions.iter().map(|v| v.version.as_str()).collect();
+        assert_eq!(versions, vec!["5.5.0", "5.4.1", "5.2.0"]);
+
+        let locked = show.versions.iter().find(|v| v.version == "5.2.0").unwrap();
+        assert_eq!(locked.workspaces, vec!["prod", "staging"]);
+        assert_eq!(locked.trust, TrustVerdict::AtRisk);
+
+        // Per-version verdicts differ within one provider — the thing the old
+        // provider-level overview could not express.
+        let clean = show.versions.iter().find(|v| v.version == "5.4.1").unwrap();
+        assert_eq!(clean.trust, TrustVerdict::Trusted);
+
+        // Served but not in the detail: listed, with nothing claimed about it.
+        let extra = show.versions.iter().find(|v| v.version == "5.5.0").unwrap();
+        assert_eq!(extra.trust, TrustVerdict::Unscanned);
+        assert!(extra.workspaces.is_empty());
     }
 
     #[test]
     fn provider_show_json_round_trips() {
-        let used = vec![
-            UsedBy {
-                version: "5.2.0".into(),
-                workspace_id: "w1".into(),
-                workspace_name: "prod".into(),
-                uploaded_at: 0,
-                uploaded_by: None,
-                locked_at: 0,
-            },
-            UsedBy {
-                version: "5.2.0".into(),
-                workspace_id: "w2".into(),
-                workspace_name: "staging".into(),
-                uploaded_at: 0,
-                uploaded_by: None,
-                locked_at: 0,
-            },
-        ];
+        let d = detail(serde_json::json!([
+            { "version": "5.4.1", "scanned": true, "used_by": [] },
+        ]));
         let show = build_show(
             "hashicorp",
             "aws",
-            Some("registry.terraform.io".into()),
-            None,
-            TrustVerdict::AtRisk,
-            &used,
-            &["5.4.1".into(), "5.2.0".into()],
+            Some("terraform.io".into()),
+            Some("https://github.com/hashicorp/terraform-provider-aws".into()),
+            TrustVerdict::Trusted,
+            &d,
+            &[],
         );
         let json = serde_json::to_string(&show).unwrap();
-        let back: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(back["trust"], "at-risk");
-        // 5.4.1 first (newest), no workspaces; 5.2.0 has prod, staging
-        assert_eq!(back["versions"][0]["version"], "5.4.1");
-        assert_eq!(back["versions"][1]["workspaces"][0], "prod");
+        assert!(json.contains("\"upstream\":\"terraform.io\""), "{json}");
+        assert!(json.contains("5.4.1"), "{json}");
     }
 
-    // ── show render + used-by grouping ───────────────────────────────────────
-
     #[test]
-    fn show_groups_workspaces_by_version() {
-        let used = vec![
-            UsedBy {
-                version: "5.2.0".into(),
-                workspace_id: "w1".into(),
-                workspace_name: "prod".into(),
-                uploaded_at: 0,
-                uploaded_by: None,
-                locked_at: 0,
-            },
-            UsedBy {
-                version: "5.2.0".into(),
-                workspace_id: "w2".into(),
-                workspace_name: "staging".into(),
-                uploaded_at: 0,
-                uploaded_by: None,
-                locked_at: 0,
-            },
-        ];
+    fn show_renders_workspaces_and_the_at_risk_summary() {
+        let d = detail(serde_json::json!([{
+            "version": "5.2.0", "scanned": true, "high_count": 2,
+            "used_by": [
+                {"workspace_id": "w1", "workspace_name": "prod", "locked_at": 0},
+                {"workspace_id": "w2", "workspace_name": "staging", "locked_at": 0},
+            ],
+        }]));
         let show = build_show(
             "hashicorp",
             "aws",
             None,
             None,
             TrustVerdict::AtRisk,
-            &used,
+            &d,
             &["5.4.1".into(), "5.2.0".into()],
         );
         let out = render_providers_show(&show, Style::plain());
@@ -966,7 +1128,7 @@ mod tests {
             None,
             None,
             TrustVerdict::Trusted,
-            &[],
+            &detail(serde_json::json!([])),
             &[],
         );
         let out = render_providers_show(&show, Style::plain());
@@ -977,26 +1139,13 @@ mod tests {
 
     #[test]
     fn ls_plain_render_has_headers_and_rows() {
-        let rows = join_rows(
-            &[
-                usage(
-                    "hashicorp",
-                    "aws",
-                    vec![usage_version("5.2.0", 4, "5.4.1", true)],
-                ),
-                usage(
-                    "hashicorp",
-                    "random",
-                    vec![usage_version("3.6.0", 7, "3.6.0", false)],
-                ),
-            ],
-            &[
-                overview("hashicorp", "aws", 0, 2, 0),
-                overview("hashicorp", "random", 0, 0, 0),
-            ],
-        );
+        let rows = summary_rows(&[
+            summary("hashicorp", "aws", 0, 2, 0),
+            summary("hashicorp", "random", 0, 0, 0),
+        ]);
         let out = render_providers_ls(&rows, false, Style::plain());
         assert!(out.contains("NAMESPACE"));
+        assert!(out.contains("CONSTRAINT"), "the per-version column is gone");
         assert!(out.contains("WARN at-risk"));
         assert!(out.contains("OK trusted"));
         assert!(!out.contains('\u{1b}'), "plain render must have no ANSI");

@@ -2,7 +2,7 @@
 # `cargo xtask codegen` reads spec/openapi.json and NEVER the network, so a build
 # is reproducible from this pin alone.
 version = "1.0.0"
-sha256 = "d31e0a2d73a734592bee35ce5fc92fb7f0c096c2c8186db68137e1192c222509"
+sha256 = "56147834123a4303c33dd7f71ba11364aa1670b73bbb3fd65c8203a6da1dc4cd"
 source = "packages/worker/openapi/dist/openapi.json"
-origin = "git:4858599907a7fd43ffd452229ae005850579203c"
+origin = "git:b9f8d1c6f2cc37f1b32fc22c31c692f2ec183b5f"
 paths = 161

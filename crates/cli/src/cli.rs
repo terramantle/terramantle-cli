@@ -136,7 +136,7 @@ pub struct ConsoleArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum ProvidersCommand {
-    /// List providers in use in the org (usage rollup).
+    /// List the org's managed providers.
     Ls {
         /// Only show at-risk providers.
         #[arg(long)]
@@ -146,6 +146,13 @@ pub enum ProvidersCommand {
     Show {
         /// `<ns>/<type>`, e.g. hashicorp/aws.
         provider: String,
+        /// Which upstream lineage, when the org manages more than one.
+        ///
+        /// An org can manage both the terraform.io and opentofu.org lineages of
+        /// the same provider. When it does, `providers show` cannot tell which
+        /// you mean and says so rather than guessing; this is how you answer.
+        #[arg(long, value_parser = ["terraform.io", "opentofu.org", "self_built"])]
+        upstream: Option<String>,
     },
 }
 

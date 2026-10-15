@@ -4410,11 +4410,27 @@ pub struct ProviderVersionRow {
     pub size_bytes: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub usage_workspace_count: ::std::option::Option<i64>,
+    /**The org's workspaces that lock this version — the base itself or any of its folded
+    revisions, since a substituted serve writes the revision string into the lock file.
+    This is the blast radius of the version, and it is what a client renders beside it.
+    */
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub used_by: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub used_by: ::std::vec::Vec<ProviderVersionUsedBy>,
     pub version: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vuln_count: ::std::option::Option<i64>,
+}
+///One workspace that locks a given provider version.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ProviderVersionUsedBy {
+    ///When this workspace's lock file was uploaded pinning this version.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub locked_at: ::std::option::Option<Timestamp>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_id: ::std::option::Option<::std::string::String>,
+    ///Display name — what a client shows; `workspace_id` is the stable key.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_name: ::std::option::Option<::std::string::String>,
 }
 /**The provider registry protocol's version list. Shape is dictated by the protocol: each
 entry carries the protocol versions and platforms that version supports, so the client can
