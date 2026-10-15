@@ -302,37 +302,50 @@ fn providers_ls(cli: &Cli, at_risk_only: bool) -> CmdResult {
 
 /// Render the `providers ls` table (pure — used by golden tests).
 pub fn render_providers_ls(rows: &[ProviderRow], wide: bool, style: Style) -> String {
-    let mut headers = vec![
-        "namespace",
-        "type",
-        "constraint",
-        "latest",
-        "workspaces",
-        "outdated",
-        "trust",
-    ];
-    if wide {
+    // An org can manage the same `namespace/type` from both the terraform.io and
+    // opentofu.org lineages, and `acme-demo` does. Without the UPSTREAM column
+    // those are two identical-looking rows, so it is shown whenever any provider
+    // is ambiguous — not only in `-o wide`. A narrow table is worth keeping, but
+    // not at the price of two rows a reader cannot tell apart.
+    let ambiguous = has_duplicate_addresses(rows);
+    let show_upstream = wide || ambiguous;
+
+    let mut headers = vec!["namespace", "type"];
+    if show_upstream {
         headers.push("upstream");
+    }
+    headers.extend(["constraint", "latest", "workspaces", "outdated", "trust"]);
+    if wide {
         headers.push("latest_version");
     }
+
     let mut view = TableView::new(headers);
     for r in rows {
-        let mut cells = vec![
-            r.namespace.clone(),
-            r.type_.clone(),
+        let mut cells = vec![r.namespace.clone(), r.type_.clone()];
+        if show_upstream {
+            cells.push(r.upstream.clone().unwrap_or_else(|| DASH.to_string()));
+        }
+        cells.extend([
             r.constraint.clone().unwrap_or_else(|| DASH.to_string()),
             r.latest.clone().unwrap_or_else(|| DASH.to_string()),
             r.workspaces.to_string(),
             output::outdated_glyph(r.outdated, style),
             r.trust.render(style),
-        ];
+        ]);
         if wide {
-            cells.push(r.upstream.clone().unwrap_or_else(|| DASH.to_string()));
             cells.push(r.latest_version.clone().unwrap_or_else(|| DASH.to_string()));
         }
         view.row(cells);
     }
     format!("{}\n", view.render())
+}
+
+/// Whether any `namespace/type` appears more than once, i.e. is served from more
+/// than one upstream lineage.
+fn has_duplicate_addresses(rows: &[ProviderRow]) -> bool {
+    let mut seen = std::collections::BTreeSet::new();
+    rows.iter()
+        .any(|r| !seen.insert((r.namespace.as_str(), r.type_.as_str())))
 }
 
 // ── providers show ──────────────────────────────────────────────────────────────
@@ -1183,6 +1196,34 @@ mod tests {
     }
 
     // ── ls render (golden-ish, plain) ────────────────────────────────────────
+
+    /// Two lineages of one provider must not render as two identical rows: the
+    /// UPSTREAM column appears without `-o wide` when any address is ambiguous.
+    #[test]
+    fn ls_shows_upstream_when_a_provider_has_two_lineages() {
+        let tf = summary("hashicorp", "http", 0, 0, 0);
+        let tofu: ProviderArtefactSummary = serde_json::from_value(serde_json::json!({
+            "id": "2", "namespace": "hashicorp", "type": "http",
+            "upstream": "opentofu.org", "serve_mode": "serve", "version_constraint": null,
+        }))
+        .unwrap();
+        let rows = summary_rows(&[tf, tofu]);
+        let out = render_providers_ls(&rows, false, Style::plain());
+        assert!(out.contains("UPSTREAM"), "{out}");
+        assert!(out.contains("terraform.io"), "{out}");
+        assert!(out.contains("opentofu.org"), "{out}");
+    }
+
+    /// …and stays out of the way when nothing is ambiguous.
+    #[test]
+    fn ls_hides_upstream_when_every_provider_is_unique() {
+        let rows = summary_rows(&[
+            summary("hashicorp", "aws", 0, 0, 0),
+            summary("hashicorp", "random", 0, 0, 0),
+        ]);
+        let out = render_providers_ls(&rows, false, Style::plain());
+        assert!(!out.contains("UPSTREAM"), "{out}");
+    }
 
     #[test]
     fn ls_plain_render_has_headers_and_rows() {
