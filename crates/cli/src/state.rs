@@ -83,10 +83,13 @@ pub fn render_ls(workspaces: &[Workspace]) -> String {
     let mut view = TableView::new(["workspace", "serial", "resources", "pushed"]);
     for w in workspaces {
         view.row([
-            w.name.clone(),
+            w.name.clone().unwrap_or_else(dash),
             w.latest_serial.map(|s| s.to_string()).unwrap_or_else(dash),
             w.resource_count.map(|c| c.to_string()).unwrap_or_else(dash),
-            w.pushed_at.map(relative_time).unwrap_or_else(dash),
+            w.pushed_at
+                .as_ref()
+                .map(|t| relative_time(**t))
+                .unwrap_or_else(dash),
         ]);
     }
     format!("{}\n", view.render())
@@ -114,7 +117,10 @@ pub struct VersionRow {
 /// Format one version's ACTOR cell as `actor_type:actor_name` (§6). Missing parts
 /// degrade gracefully: `vcs:—`, `—:rhys`, or `—` when both are absent.
 fn actor_label(v: &StateVersion) -> String {
-    match (v.actor_type.as_deref(), v.actor_name.as_deref()) {
+    // `actor_type` is the spec's `ActorType` enum now rather than free text, so
+    // it is rendered through Display instead of borrowed as a &str.
+    let ty = v.actor_type.map(|t| t.to_string());
+    match (ty.as_deref(), v.actor_name.as_deref()) {
         (None, None) => DASH.to_string(),
         (ty, name) => format!("{}:{}", ty.unwrap_or(DASH), name.unwrap_or(DASH)),
     }
@@ -130,8 +136,10 @@ pub fn build_version_rows(versions: &[StateVersion]) -> Vec<VersionRow> {
             serial: v.serial,
             current: Some(v.serial) == max_serial,
             actor: actor_label(v),
-            pushed_at: v.pushed_at,
-            resources: v.resource_count,
+            // Both are optional in the spec; an unpushed or unclassified version
+            // renders as 0 rather than failing the table.
+            pushed_at: v.pushed_at.as_ref().map_or(0, |t| **t),
+            resources: v.resource_count.unwrap_or(0) as u64,
             note: v.promoted_from_serial.map(|s| format!("promoted from {s}")),
             id: v.id.clone(),
         })
@@ -265,7 +273,7 @@ fn promote_error_exit(e: &ApiError) -> i32 {
 fn print_promote_result(resp: &PromoteResponse, fallback_source: i64) {
     let new_serial = resp.serial.map(|s| s.to_string()).unwrap_or_else(dash);
     let source = resp.source_serial.unwrap_or(fallback_source);
-    if resp.idempotent_replay {
+    if resp.idempotent_replay.unwrap_or(false) {
         eprintln!("already promoted (idempotent replay)");
     }
     eprintln!("promoted serial {source} → new current serial {new_serial}");
@@ -302,7 +310,7 @@ fn promote_prompt(org: &str, workspace: &str, version: &StateVersion) -> String 
          This creates a new current state from a historical version. Resources: {resources}.",
         vid = version.id,
         serial = version.serial,
-        resources = version.resource_count,
+        resources = version.resource_count.map_or_else(dash, |c| c.to_string()),
     )
 }
 
@@ -396,7 +404,7 @@ fn rollback_prompt(
          This promotes historical version {vid} as a new current state. Resources: {resources}.",
         target_serial = target.serial,
         vid = target.id,
-        resources = target.resource_count,
+        resources = target.resource_count.map_or_else(dash, |c| c.to_string()),
     )
 }
 
@@ -419,7 +427,19 @@ fn state_unlock(cli: &Cli, workspace: &str, assume_yes: bool) -> CmdResult {
         Err(e) => return Ok(api_fail(&e)),
     };
 
-    let prompt = unlock_prompt(&org, workspace, &lock);
+    // Force-unlock must echo the EXACT lock id (§7 N4; a bare unlock is a 400),
+    // so a lock we cannot name is a stop, not something to paper over with an
+    // empty string the server would reject with a confusing message.
+    let Some(lock_id) = lock.lock_id.clone() else {
+        eprintln!(
+            "error: workspace '{workspace}' reports a lock with no id, so it cannot be \
+             force-unlocked by id. Re-read the lock with `terramantle state unlock \
+             {workspace}` once the backend settles, or clear it from the portal."
+        );
+        return Ok(1);
+    };
+
+    let prompt = unlock_prompt(&org, workspace, &lock, &lock_id);
     match confirm(&prompt, assume_yes, style) {
         Ok(true) => {}
         Ok(false) => {
@@ -430,12 +450,9 @@ fn state_unlock(cli: &Cli, workspace: &str, assume_yes: bool) -> CmdResult {
     }
 
     // Step 2: DELETE echoing the exact lock id (§7 N4: a bare unlock is a 400).
-    match client.state_unlock(&org, workspace, &lock.lock_id) {
+    match client.state_unlock(&org, workspace, &lock_id) {
         Ok(_) => {
-            eprintln!(
-                "unlocked workspace '{workspace}' (released lock {})",
-                lock.lock_id
-            );
+            eprintln!("unlocked workspace '{workspace}' (released lock {lock_id})");
             Ok(0)
         }
         Err(e) => Ok(unlock_error_exit(&e)),
@@ -443,14 +460,17 @@ fn state_unlock(cli: &Cli, workspace: &str, assume_yes: bool) -> CmdResult {
 }
 
 /// The unlock confirmation prompt, showing the holder (§7/§8).
-fn unlock_prompt(org: &str, workspace: &str, lock: &LockInfo) -> String {
+fn unlock_prompt(org: &str, workspace: &str, lock: &LockInfo, lock_id: &str) -> String {
     let who = lock.who.as_deref().unwrap_or(DASH);
     let op = lock.operation.as_deref().unwrap_or(DASH);
-    let created = lock.created_at.map(relative_time).unwrap_or_else(dash);
+    let created = lock
+        .created_at
+        .as_ref()
+        .map(|t| relative_time(**t))
+        .unwrap_or_else(dash);
     format!(
         "About to force-UNLOCK workspace '{workspace}' (org {org}).\n\
-         Lock {id} held by {who} · operation {op} · created {created}.",
-        id = lock.lock_id,
+         Lock {lock_id} held by {who} · operation {op} · created {created}.",
     )
 }
 
@@ -476,25 +496,20 @@ fn dash() -> String {
 mod tests {
     use super::*;
 
+    /// Built from JSON: the generated row has 23 fields and comes from the spec,
+    /// so a struct literal here would need editing every time the server
+    /// documents another column. Only these three matter to the rendering.
     fn version(id: &str, serial: i64, resources: u64) -> StateVersion {
-        StateVersion {
-            id: id.into(),
-            serial,
-            resource_count: resources,
-            lineage: None,
-            pushed_by: None,
-            pushed_at: 0,
-            scan_status: None,
-            critical_count: 0,
-            high_count: 0,
-            promoted_from_serial: None,
-            actor_type: None,
-            actor_name: None,
-        }
+        serde_json::from_value(serde_json::json!({
+            "id": id, "serial": serial, "resource_count": resources, "pushed_at": 0,
+        }))
+        .expect("version row parses")
     }
 
+    /// `actor_type` is the spec's `ActorType` enum, so an unknown value is a
+    /// parse error rather than a string that renders and means nothing.
     fn with_actor(mut v: StateVersion, ty: Option<&str>, name: Option<&str>) -> StateVersion {
-        v.actor_type = ty.map(str::to_string);
+        v.actor_type = ty.map(|t| t.parse().expect("a documented actor type"));
         v.actor_name = name.map(str::to_string);
         v
     }
@@ -525,8 +540,8 @@ mod tests {
     #[test]
     fn actor_degrades_gracefully() {
         assert_eq!(actor_label(&version("v", 1, 0)), "—");
-        let bot = with_actor(version("v", 1, 0), Some("bot"), Some("nightly"));
-        assert_eq!(actor_label(&bot), "bot:nightly");
+        let bot = with_actor(version("v", 1, 0), Some("bot_token"), Some("nightly"));
+        assert_eq!(actor_label(&bot), "bot_token:nightly");
         let human = with_actor(version("v", 1, 0), Some("human"), Some("rhys"));
         assert_eq!(actor_label(&human), "human:rhys");
     }
@@ -652,16 +667,13 @@ mod tests {
 
     #[test]
     fn unlock_prompt_shows_holder() {
-        let lock = LockInfo {
-            lock_id: "lock-abc".into(),
-            operation: Some("OperationTypePlan".into()),
-            who: Some("rhys".into()),
-            info: None,
-            created_at: None,
-            actor_type: None,
-            actor_name: None,
-        };
-        let p = unlock_prompt("acme", "prod", &lock);
+        let lock: LockInfo = serde_json::from_value(serde_json::json!({
+            "lock_id": "lock-abc",
+            "operation": "OperationTypePlan",
+            "who": "rhys",
+        }))
+        .expect("lock parses");
+        let p = unlock_prompt("acme", "prod", &lock, "lock-abc");
         assert!(
             p.contains("force-UNLOCK workspace 'prod' (org acme)"),
             "{p}"
@@ -674,34 +686,13 @@ mod tests {
 
     #[test]
     fn ls_renders_serial_and_dashes_empty() {
-        let ws = vec![
-            Workspace {
-                id: "w1".into(),
-                name: "prod".into(),
-                created_by: None,
-                created_at: None,
-                latest_serial: Some(14),
-                resource_count: Some(128),
-                pushed_at: None,
-                pushed_by: None,
-                scan_status: None,
-                lock_id: None,
-                lock_who: None,
-            },
-            Workspace {
-                id: "w2".into(),
-                name: "empty".into(),
-                created_by: None,
-                created_at: None,
-                latest_serial: None,
-                resource_count: None,
-                pushed_at: None,
-                pushed_by: None,
-                scan_status: None,
-                lock_id: None,
-                lock_who: None,
-            },
-        ];
+        // From JSON: `StateWorkspaceSummary` is generated from the spec and
+        // carries VCS provenance and policy counts the renderer does not read.
+        let ws: Vec<Workspace> = serde_json::from_value(serde_json::json!([
+            { "id": "w1", "name": "prod", "latest_serial": 14, "resource_count": 128 },
+            { "id": "w2", "name": "staging" },
+        ]))
+        .expect("workspace rows parse");
         let out = render_ls(&ws);
         assert!(out.contains("WORKSPACE"));
         assert!(out.contains("prod"));

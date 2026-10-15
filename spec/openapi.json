@@ -950,11 +950,11 @@
       "ActorType": {
         "type": "string",
         "title": "ActorType",
-        "description": "How the acting identity authenticated. Display and audit only — never an input to an\nauthorization decision.\n",
+        "description": "How the acting identity authenticated. Display and audit only — never an input to an\nauthorization decision.\n\nThe values are what `deriveActor` writes (`lib/vcsProvenance.ts`), and nothing else is\never stored:\n\n- `human` — an interactive user token, named by `name`, else `email`, else `sub`.\n- `bot_token` — a machine `client_credentials` token, named by its `azp`.\n- `vcs` — a native GitHub/GitLab OIDC token presented by CI, named by its `sub`.\n\nThis schema previously read `[user, machine, oidc]`, which no code path has ever\nproduced. It went unnoticed because the field is only ever read for display and every\nclient modelled it as a free string; a client that generates a closed enum from this\nschema rejects every real response instead.\n",
         "enum": [
-          "user",
-          "machine",
-          "oidc"
+          "human",
+          "bot_token",
+          "vcs"
         ]
       },
       "Timestamp": {
@@ -6882,6 +6882,31 @@
               "null"
             ],
             "description": "Newest version satisfying `constraints`. Drives the drift indicator."
+          },
+          "latest_version_checked_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "When the upstream-version lookup last completed for this provider, in epoch\nmilliseconds. `null` ⇒ it has never run.\n\nThis is a FRESHNESS signal, and clients poll on it: right after a lock-file upload\nthe rows exist but `latest_version` / `latest_matching` are still being resolved by\nthe lookup queue, so a client that waits for drift data waits for this (or for\n`latest_lookup_error_at`) rather than for a field that may legitimately stay `null`.\n"
+          },
+          "latest_lookup_error_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "When the upstream-version lookup last FAILED, in epoch milliseconds. `null` ⇒ no\nrecorded failure. Paired with `latest_version_checked_at` so a caller can stop\nwaiting on a lookup that is not going to arrive.\n"
+          },
+          "provider_repo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Source repository for this provider, where one is known."
+          },
+          "id": {
+            "type": "string",
+            "description": "The `workspace_providers` row id."
           },
           "current_scan": {
             "oneOf": [

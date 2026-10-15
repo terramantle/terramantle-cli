@@ -88,13 +88,23 @@ pub fn resolve_lock_path(path: &str) -> PathBuf {
 // ── posture poll (rubric 3, injected fetch + clock, no sleeps) ──────────────────
 
 /// The outcome of polling workspace-providers for posture.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The outcome of a posture poll.
+///
+/// `PartialEq`/`Eq` are deliberately absent: `Ready` carries the generated
+/// `WorkspaceProvidersResponse`, which derives neither. Tests match on the
+/// variant rather than comparing wholesale.
+///
+/// `TimedOut` carries nothing. It used to hold the last, incomplete response,
+/// but every match site discarded it — the branch only warns and records a
+/// status. If partial posture is ever worth reporting, that is a deliberate
+/// change rather than a payload nobody reads.
+#[derive(Debug, Clone)]
 pub enum PollOutcome {
     /// The lookup queue landed data for every pushed provider.
     Ready(WorkspaceProvidersResponse),
     /// The `--posture-timeout` budget elapsed before all pushed providers were
     /// populated. Carries the last snapshot so partial posture can still show.
-    TimedOut(WorkspaceProvidersResponse),
+    TimedOut,
 }
 
 /// True once every pushed provider in `resp` has its lookup populated
@@ -146,7 +156,7 @@ where
         // Stop if another interval would push us past the budget (or if we're
         // already at/over it) — best-effort, never over-run the timeout.
         if elapsed() + interval > timeout {
-            return Ok(PollOutcome::TimedOut(resp));
+            return Ok(PollOutcome::TimedOut);
         }
         sleep(interval);
     }
@@ -442,7 +452,7 @@ pub fn push(cli: &Cli, args: &PushArgs) -> CmdResult {
                 }
                 posture_rows = Some(rows);
             }
-            Ok(PollOutcome::TimedOut(_)) => {
+            Ok(PollOutcome::TimedOut) => {
                 eprintln!("    posture not ready (timed out)");
                 posture_status = Some("timed_out");
                 // Best-effort: unknown posture is a pass, unless --require-posture.
@@ -551,7 +561,7 @@ fn provider_matches(p: &WorkspaceProvider, ns: &str, ty: &str, addr: &str) -> bo
 mod tests {
     use super::*;
     use std::cell::RefCell;
-    use tm_api::{VersionScanRollup, WorkspaceProvider};
+    use tm_api::WorkspaceProvider;
 
     const REALISTIC_LOCK: &str = r#"
 # This file is maintained automatically by "terraform init".
@@ -617,6 +627,11 @@ terraform {
         assert!(parse_provider_addresses("# empty\n").is_empty());
     }
 
+    /// An in-use provider with NO scan rollup, i.e. unscanned.
+    ///
+    /// Built from JSON rather than a struct literal: the generated
+    /// `WorkspaceProvider` comes from the spec and gains fields as the server
+    /// documents them, and only these few matter to the posture derivation.
     fn wp(
         ns: &str,
         ty: &str,
@@ -624,21 +639,19 @@ terraform {
         latest: Option<&str>,
         checked: Option<i64>,
     ) -> WorkspaceProvider {
-        WorkspaceProvider {
-            id: format!("{ns}/{ty}"),
-            provider_address: Some(format!("registry.terraform.io/{ns}/{ty}")),
-            namespace: ns.into(),
-            type_: ty.into(),
-            upstream: Some("registry.terraform.io".into()),
-            current_version: current.into(),
-            constraints: None,
-            latest_version: None,
-            latest_matching: latest.map(str::to_string),
-            latest_version_checked_at: checked,
-            provider_repo_url: None,
-            current_scan: None,
-            latest_scan: None,
-        }
+        serde_json::from_value(serde_json::json!({
+            "provider_address": format!("registry.terraform.io/{ns}/{ty}"),
+            "namespace": ns,
+            "type": ty,
+            "upstream": "terraform.io",
+            "current_version": current,
+            "latest_matching": latest,
+            // The readiness signal `posture_ready` polls on. It was absent from
+            // the spec until this migration, which is how a generated client
+            // noticed: without it the poll could never see a lookup land.
+            "latest_version_checked_at": checked,
+        }))
+        .expect("workspace provider parses")
     }
 
     /// `wp` whose locked version HAS a completed scan, with the given
@@ -649,24 +662,26 @@ terraform {
         ty: &str,
         current: &str,
         latest: Option<&str>,
-        crit: u64,
-        high: u64,
+        crit: i64,
+        high: i64,
     ) -> WorkspaceProvider {
-        WorkspaceProvider {
-            current_scan: Some(VersionScanRollup {
-                critical: crit,
-                high,
-                medium: 0,
-                low: 0,
-            }),
-            ..wp(ns, ty, current, latest, Some(1))
-        }
+        serde_json::from_value(serde_json::json!({
+            "provider_address": format!("registry.terraform.io/{ns}/{ty}"),
+            "namespace": ns,
+            "type": ty,
+            "upstream": "terraform.io",
+            "current_version": current,
+            "latest_matching": latest,
+            "current_scan": { "critical": crit, "high": high, "medium": 0, "low": 0 },
+        }))
+        .expect("workspace provider parses")
     }
 
     fn resp(providers: Vec<WorkspaceProvider>) -> WorkspaceProvidersResponse {
         WorkspaceProvidersResponse {
             lock_file: None,
             providers,
+            truncated: None,
         }
     }
 
@@ -809,7 +824,7 @@ terraform {
             || *clock.elapsed.borrow(),
         )
         .unwrap();
-        assert!(matches!(outcome, PollOutcome::TimedOut(_)));
+        assert!(matches!(outcome, PollOutcome::TimedOut));
         // 3s budget, 1s interval: fetch at 0s,1s,2s,3s; at 3s the next interval
         // (3+1>3) would over-run, so it stops → 4 fetches, none past the budget.
         assert_eq!(*calls.borrow(), 4);

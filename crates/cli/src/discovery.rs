@@ -682,13 +682,13 @@ mod tests {
 
     // ── verdict_from_scan: the posture path's verdict source ──────────────────
 
-    fn rollup(crit: u64, high: u64, medium: u64) -> VersionScanRollup {
-        VersionScanRollup {
-            critical: crit,
-            high,
-            medium,
-            low: 0,
-        }
+    /// Built from JSON: the generated rollup has optional counts, and going via
+    /// serde is the path a real response takes.
+    fn rollup(crit: i64, high: i64, medium: i64) -> VersionScanRollup {
+        serde_json::from_value(serde_json::json!({
+            "critical": crit, "high": high, "medium": medium, "low": 0,
+        }))
+        .expect("rollup parses")
     }
 
     /// The regression that mattered. The removed overview endpoint returned 410,

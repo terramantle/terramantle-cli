@@ -840,7 +840,7 @@ fn aggregate_posture(
         Ok(PollOutcome::Ready(resp)) => {
             PostureOutcome::Ready(lock::evaluate_posture(providers, &resp))
         }
-        Ok(PollOutcome::TimedOut(_)) => PostureOutcome::Unknown("timed_out"),
+        Ok(PollOutcome::TimedOut) => PostureOutcome::Unknown("timed_out"),
         Err(e) => {
             eprintln!("    warning: could not read posture: {e}");
             PostureOutcome::Unknown("error")

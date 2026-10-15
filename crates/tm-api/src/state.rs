@@ -1,10 +1,13 @@
 //! State endpoints (§7 `state ls/versions/promote/unlock`, `lock push`).
 
 use crate::error::ApiError;
-use crate::models::{
-    LockGetResponse, LockInfo, LockPushResponse, PromoteResponse, StateVersion,
-    VersionListResponse, Workspace, WorkspaceListResponse, WorkspaceProvidersResponse,
+use crate::generated::models::{
+    GetStateLockResponse, ListStateVersionsResponse, ListStateWorkspacesResponse, Ok as OkAck,
+    StateLock, StatePromoteResult, StateVersionSummary, StateWorkspaceSummary,
+    WorkspaceProvidersResponse,
 };
+use crate::models::LockPushResponse;
+use crate::ops;
 use crate::Client;
 
 /// Default versions page size (§7 rollback: default 50).
@@ -13,11 +16,16 @@ pub const VERSIONS_PAGE_DEFAULT: u64 = 50;
 pub const VERSIONS_PAGE_MAX: u64 = 100;
 
 impl Client {
-    /// `GET /api/v1/{org}/state/` — list workspaces in the org. Unwraps the
+    /// `GET /api/v1/{org}/state` — list workspaces in the org. Unwraps the
     /// `{ workspaces }` envelope.
-    pub fn state_list(&self, org: &str) -> Result<Vec<Workspace>, ApiError> {
-        let path = format!("/api/v1/{org}/state/");
-        let resp: WorkspaceListResponse = self.http().get_json(&path)?;
+    ///
+    /// This path used to be written by hand WITH a trailing slash, and the
+    /// worker 404s on any trailing slash (`/health/` does too), so `state ls`
+    /// could never have worked. The template now comes from the spec, where that
+    /// slash is unrepresentable.
+    pub fn state_list(&self, org: &str) -> Result<Vec<StateWorkspaceSummary>, ApiError> {
+        let path = ops::LIST_STATE_WORKSPACES.path(&[org])?;
+        let resp: ListStateWorkspacesResponse = self.http().get_json(&path)?;
         Ok(resp.workspaces)
     }
 
@@ -29,13 +37,13 @@ impl Client {
         workspace: &str,
         limit: u64,
         offset: u64,
-    ) -> Result<Vec<StateVersion>, ApiError> {
-        let path = format!("/api/v1/{org}/state/{workspace}/versions");
+    ) -> Result<Vec<StateVersionSummary>, ApiError> {
+        let path = ops::LIST_STATE_VERSIONS.path(&[org, workspace])?;
         let query = [
             ("limit", limit.min(VERSIONS_PAGE_MAX).to_string()),
             ("offset", offset.to_string()),
         ];
-        let resp: VersionListResponse = self.http().get_json_query(&path, &query)?;
+        let resp: ListStateVersionsResponse = self.http().get_json_query(&path, &query)?;
         Ok(resp.versions)
     }
 
@@ -45,7 +53,7 @@ impl Client {
         &self,
         org: &str,
         workspace: &str,
-    ) -> Result<Vec<StateVersion>, ApiError> {
+    ) -> Result<Vec<StateVersionSummary>, ApiError> {
         paginate_versions(VERSIONS_PAGE_DEFAULT, |limit, offset| {
             self.state_versions(org, workspace, limit, offset)
         })
@@ -58,7 +66,7 @@ impl Client {
         org: &str,
         workspace: &str,
         serial: i64,
-    ) -> Result<Option<StateVersion>, ApiError> {
+    ) -> Result<Option<StateVersionSummary>, ApiError> {
         find_by_serial(serial, VERSIONS_PAGE_DEFAULT, |limit, offset| {
             self.state_versions(org, workspace, limit, offset)
         })
@@ -72,8 +80,8 @@ impl Client {
         workspace: &str,
         version_id: &str,
         idempotency_key: &str,
-    ) -> Result<PromoteResponse, ApiError> {
-        let path = format!("/api/v1/{org}/state/{workspace}/versions/{version_id}/promote");
+    ) -> Result<StatePromoteResult, ApiError> {
+        let path = ops::PROMOTE_STATE_VERSION.path(&[org, workspace, version_id])?;
         let empty = serde_json::json!({});
         self.http()
             .post_json_headers(&path, &empty, &[("Idempotency-Key", idempotency_key)])
@@ -81,9 +89,13 @@ impl Client {
 
     /// `GET /api/v1/{org}/state/{ws}/lock` — current lock holder, or `None` when
     /// unlocked. Unwraps the `{ lock }` envelope.
-    pub fn state_lock_get(&self, org: &str, workspace: &str) -> Result<Option<LockInfo>, ApiError> {
-        let path = format!("/api/v1/{org}/state/{workspace}/lock");
-        let resp: LockGetResponse = self.http().get_json(&path)?;
+    pub fn state_lock_get(
+        &self,
+        org: &str,
+        workspace: &str,
+    ) -> Result<Option<StateLock>, ApiError> {
+        let path = ops::GET_STATE_LOCK.path(&[org, workspace])?;
+        let resp: GetStateLockResponse = self.http().get_json(&path)?;
         Ok(resp.lock)
     }
 
@@ -94,8 +106,8 @@ impl Client {
         org: &str,
         workspace: &str,
         lock_id: &str,
-    ) -> Result<serde_json::Value, ApiError> {
-        let path = format!("/api/v1/{org}/state/{workspace}/lock");
+    ) -> Result<OkAck, ApiError> {
+        let path = ops::FORCE_UNLOCK_STATE.path(&[org, workspace])?;
         let body = serde_json::json!({ "ID": lock_id });
         self.http().delete_json(&path, &body)
     }
@@ -107,7 +119,7 @@ impl Client {
         org: &str,
         workspace: &str,
     ) -> Result<WorkspaceProvidersResponse, ApiError> {
-        let path = format!("/api/v1/{org}/state/{workspace}/providers");
+        let path = ops::LIST_WORKSPACE_PROVIDERS.path(&[org, workspace])?;
         self.http().get_json(&path)
     }
 
@@ -120,7 +132,11 @@ impl Client {
         body: &[u8],
         repo_url: Option<&str>,
     ) -> Result<LockPushResponse, ApiError> {
-        let path = format!("/state/{org}/{workspace}/terraform.lock.hcl");
+        // `{key}` is the protocol router's WILDCARD, so it is joined verbatim:
+        // encoding the slash would send `prod%2F.terraform.lock.hcl` and 404.
+        // A nested workspace key such as `prod/backend` has to survive this.
+        let key = format!("{workspace}/terraform.lock.hcl");
+        let path = ops::UPLOAD_LOCK_FILE.path(&[org, &key])?;
         let headers: Vec<(&str, &str)> = match repo_url {
             Some(url) => vec![("X-Git-Repo-URL", url)],
             None => vec![],
@@ -134,9 +150,9 @@ impl Client {
 /// Collect every version by paging `fetch(limit, offset)` until a page returns
 /// fewer than `page` rows (or empty). The injected `fetch` is the seam the tests
 /// use to avoid the network.
-fn paginate_versions<F>(page: u64, mut fetch: F) -> Result<Vec<StateVersion>, ApiError>
+fn paginate_versions<F>(page: u64, mut fetch: F) -> Result<Vec<StateVersionSummary>, ApiError>
 where
-    F: FnMut(u64, u64) -> Result<Vec<StateVersion>, ApiError>,
+    F: FnMut(u64, u64) -> Result<Vec<StateVersionSummary>, ApiError>,
 {
     let mut all = Vec::new();
     let mut offset = 0u64;
@@ -156,9 +172,13 @@ where
 
 /// Page via `fetch(limit, offset)` until a version with `serial` is found or the
 /// history is exhausted. Returns the matching version, or `None` if absent.
-fn find_by_serial<F>(serial: i64, page: u64, mut fetch: F) -> Result<Option<StateVersion>, ApiError>
+fn find_by_serial<F>(
+    serial: i64,
+    page: u64,
+    mut fetch: F,
+) -> Result<Option<StateVersionSummary>, ApiError>
 where
-    F: FnMut(u64, u64) -> Result<Vec<StateVersion>, ApiError>,
+    F: FnMut(u64, u64) -> Result<Vec<StateVersionSummary>, ApiError>,
 {
     let mut offset = 0u64;
     loop {
@@ -185,26 +205,23 @@ mod tests {
         total: i64,
         page: u64,
         calls: &std::cell::RefCell<u64>,
-    ) -> impl Fn(u64, u64) -> Result<Vec<StateVersion>, ApiError> + '_ {
+    ) -> impl Fn(u64, u64) -> Result<Vec<StateVersionSummary>, ApiError> + '_ {
         move |limit, offset| {
             *calls.borrow_mut() += 1;
             assert_eq!(limit, page, "pager must request the fixed page size");
             let start = offset as i64;
             let end = (start + page as i64).min(total);
+            // Built from JSON rather than a struct literal: the generated type
+            // has 23 fields and no `Default` (its identity fields are
+            // required), and only `id`/`serial` matter to the pager. This also
+            // exercises the real deserialisation path.
             let versions = (start..end)
-                .map(|serial| StateVersion {
-                    id: format!("v{serial}"),
-                    serial,
-                    resource_count: 0,
-                    lineage: None,
-                    pushed_by: None,
-                    pushed_at: 0,
-                    scan_status: None,
-                    critical_count: 0,
-                    high_count: 0,
-                    promoted_from_serial: None,
-                    actor_type: None,
-                    actor_name: None,
+                .map(|serial| {
+                    serde_json::from_value(serde_json::json!({
+                        "id": format!("v{serial}"),
+                        "serial": serial,
+                    }))
+                    .expect("minimal version row")
                 })
                 .collect();
             Ok(versions)

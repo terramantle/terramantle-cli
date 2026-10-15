@@ -63,6 +63,23 @@ pub enum ApiError {
         #[source]
         source: serde_json::Error,
     },
+    /// A request URL could not be built from an operation's path template.
+    ///
+    /// Never a server response — the request was never sent. Either a caller
+    /// passed the wrong number of path parameters (a bug) or one was empty,
+    /// which is reachable from `--org ''` and must not be silently sent as
+    /// `/api/orgs//providers`.
+    #[error("{source}")]
+    Path {
+        #[source]
+        source: crate::spec::PathError,
+    },
+}
+
+impl From<crate::spec::PathError> for ApiError {
+    fn from(source: crate::spec::PathError) -> Self {
+        ApiError::Path { source }
+    }
 }
 
 impl ApiError {
@@ -133,7 +150,14 @@ impl ApiError {
     /// | `payload_too_large` | 1 |
     /// | no code, HTTP 401/403 | 5 |
     /// | unmapped / non-JSON | 1 |
+    ///
+    /// A [`ApiError::Path`] maps to `2` alongside `bad_request`: the request was
+    /// never sent, and the reachable cause is an empty path parameter such as
+    /// `--org ''`, which is invalid input rather than a server outcome.
     pub fn exit_code(&self) -> i32 {
+        if matches!(self, ApiError::Path { .. }) {
+            return 2;
+        }
         match self.error_code() {
             Some("unauthorized" | "invalid_token" | "forbidden") => 5,
             Some("not_found" | "feature_disabled") => 6,
@@ -275,6 +299,20 @@ mod tests {
         let e = status(400, r#"{"message":"something odd"}"#);
         assert_eq!(e.message(), Some("something odd"));
         assert_eq!(e.exit_code(), 1);
+    }
+
+    /// A path that could not be built is invalid input, not a server failure:
+    /// nothing was sent, so there is no status and no `error` code to map.
+    #[test]
+    fn path_errors_exit_2_and_carry_no_server_code() {
+        let e = ApiError::from(crate::spec::PathError::EmptyParam {
+            op: "listOrgProviders",
+            name: "orgId",
+        });
+        assert_eq!(e.exit_code(), 2);
+        assert_eq!(e.status(), None);
+        assert_eq!(e.error_code(), None);
+        assert!(e.to_string().contains("orgId"));
     }
 
     #[test]

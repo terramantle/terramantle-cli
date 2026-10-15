@@ -487,7 +487,7 @@ fn render_whoami(
         Some(list) => {
             let mut orgview = TableView::new(["org", "role"]);
             for m in list {
-                orgview.row([m.slug.clone(), m.role.clone()]);
+                orgview.row([m.slug.clone(), m.role.to_string()]);
             }
             println!("{}", orgview.render());
         }

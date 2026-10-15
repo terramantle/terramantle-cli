@@ -10,6 +10,18 @@
 
 /**How the acting identity authenticated. Display and audit only — never an input to an
 authorization decision.
+
+The values are what `deriveActor` writes (`lib/vcsProvenance.ts`), and nothing else is
+ever stored:
+
+- `human` — an interactive user token, named by `name`, else `email`, else `sub`.
+- `bot_token` — a machine `client_credentials` token, named by its `azp`.
+- `vcs` — a native GitHub/GitLab OIDC token presented by CI, named by its `sub`.
+
+This schema previously read `[user, machine, oidc]`, which no code path has ever
+produced. It went unnoticed because the field is only ever read for display and every
+client modelled it as a free string; a client that generates a closed enum from this
+schema rejects every real response instead.
 */
 #[derive(
     ::serde::Deserialize,
@@ -24,19 +36,19 @@ authorization decision.
     PartialOrd,
 )]
 pub enum ActorType {
-    #[serde(rename = "user")]
-    User,
-    #[serde(rename = "machine")]
-    Machine,
-    #[serde(rename = "oidc")]
-    Oidc,
+    #[serde(rename = "human")]
+    Human,
+    #[serde(rename = "bot_token")]
+    BotToken,
+    #[serde(rename = "vcs")]
+    Vcs,
 }
 impl ::std::fmt::Display for ActorType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
-            Self::User => f.write_str("user"),
-            Self::Machine => f.write_str("machine"),
-            Self::Oidc => f.write_str("oidc"),
+            Self::Human => f.write_str("human"),
+            Self::BotToken => f.write_str("bot_token"),
+            Self::Vcs => f.write_str("vcs"),
         }
     }
 }
@@ -44,9 +56,9 @@ impl ::std::str::FromStr for ActorType {
     type Err = self::error::ConversionError;
     fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
-            "user" => Ok(Self::User),
-            "machine" => Ok(Self::Machine),
-            "oidc" => Ok(Self::Oidc),
+            "human" => Ok(Self::Human),
+            "bot_token" => Ok(Self::BotToken),
+            "vcs" => Ok(Self::Vcs),
             _ => Err("invalid value".into()),
         }
     }
@@ -6926,6 +6938,15 @@ pub struct WorkspaceProvider {
     pub current_scan: ::std::option::Option<VersionScanRollup>,
     ///The version currently locked.
     pub current_version: ::std::string::String,
+    ///The `workspace_providers` row id.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    /**When the upstream-version lookup last FAILED, in epoch milliseconds. `null` ⇒ no
+    recorded failure. Paired with `latest_version_checked_at` so a caller can stop
+    waiting on a lookup that is not going to arrive.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_lookup_error_at: ::std::option::Option<i64>,
     ///Newest version satisfying `constraints`. Drives the drift indicator.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_matching: ::std::option::Option<::std::string::String>,
@@ -6935,9 +6956,22 @@ pub struct WorkspaceProvider {
     ///Newest upstream version, from the global latest-version cache.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version: ::std::option::Option<::std::string::String>,
+    /**When the upstream-version lookup last completed for this provider, in epoch
+    milliseconds. `null` ⇒ it has never run.
+
+    This is a FRESHNESS signal, and clients poll on it: right after a lock-file upload
+    the rows exist but `latest_version` / `latest_matching` are still being resolved by
+    the lookup queue, so a client that waits for drift data waits for this (or for
+    `latest_lookup_error_at`) rather than for a field that may legitimately stay `null`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_version_checked_at: ::std::option::Option<i64>,
     pub namespace: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provider_address: ::std::option::Option<::std::string::String>,
+    ///Source repository for this provider, where one is known.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_repo_url: ::std::option::Option<::std::string::String>,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]

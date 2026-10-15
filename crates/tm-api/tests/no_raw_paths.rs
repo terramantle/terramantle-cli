@@ -32,16 +32,22 @@ const KNOWN_RAW_PATHS: &[(&str, usize)] = &[
     // Includes `/v1/modules/{ns}/{name}/{provider}`, which is not a route at
     // all: it 404s while its siblings 401.
     ("modules.rs", 4),
-    // Includes `/api/v1/{org}/state/`, whose trailing slash 404s.
-    ("state.rs", 7),
-    ("orgs.rs", 1),
+    // `state.rs` and `orgs.rs` are migrated and deliberately absent: the test
+    // below holds them at zero permanently.
 ];
 
-/// A string literal that looks like an API path.
+/// Count string literals that look like an API path, in PRODUCTION code.
+///
+/// Two deliberate exclusions. Comments are skipped, because a doc comment
+/// citing the endpoint a method calls is useful documentation. And everything
+/// from `#[cfg(test)]` onward is skipped, because a test that asserts
+/// `ops::LIST_ORGS.path(&[]) == "/api/orgs"` is pinning the generated path —
+/// the opposite of the problem, and exactly what a migrated module should have.
 fn count_path_literals(src: &str) -> usize {
     const PREFIXES: &[&str] = &["\"/api", "\"/v1", "\"/state", "\"/plans", "\"/.well-known"];
-    src.lines()
-        // Skip doc comments: they legitimately cite the endpoint a method calls.
+    let production = src.split("#[cfg(test)]").next().unwrap_or(src);
+    production
+        .lines()
         .filter(|l| !l.trim_start().starts_with("//"))
         .map(|l| PREFIXES.iter().filter(|p| l.contains(**p)).count())
         .sum()

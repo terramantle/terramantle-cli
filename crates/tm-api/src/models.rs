@@ -11,21 +11,6 @@ use serde::{Deserialize, Serialize};
 
 // ── orgs ─────────────────────────────────────────────────────────────────────
 
-/// The `GET /api/orgs` handler wraps rows as `{ orgs: [...] }`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrgListResponse {
-    #[serde(default)]
-    pub orgs: Vec<OrgMembership>,
-}
-
-/// One org membership row from `GET /api/orgs` (§4.1 layer 4). Consolidated here
-/// from the auth slice so both auth and every other command share one type.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrgMembership {
-    pub slug: String,
-    pub role: String,
-}
-
 // ── providers: usage rollup ───────────────────────────────────────────────────
 // Source: providerFoundry.ts `GET .../providers-usage` (grouped in TS to exactly
 // this shape) and `.../providers-usage/:namespace/:type`.
@@ -275,114 +260,12 @@ pub struct ModulePublishResponse {
 // Source: StateService.ts `WorkspaceSummary`, `VersionSummary`; state.ts handlers
 // wrap them as `{ workspaces: [...] }` / `{ versions: [...] }`.
 
-/// The `GET /api/v1/{org}/state/` list handler wraps rows as `{ workspaces }`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkspaceListResponse {
-    #[serde(default)]
-    pub workspaces: Vec<Workspace>,
-}
-
-/// A workspace summary row (`WorkspaceSummary`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Workspace {
-    pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub created_by: Option<String>,
-    #[serde(default)]
-    pub created_at: Option<i64>,
-    #[serde(default)]
-    pub latest_serial: Option<i64>,
-    #[serde(default)]
-    pub resource_count: Option<u64>,
-    #[serde(default)]
-    pub pushed_at: Option<i64>,
-    #[serde(default)]
-    pub pushed_by: Option<String>,
-    #[serde(default)]
-    pub scan_status: Option<String>,
-    #[serde(default)]
-    pub lock_id: Option<String>,
-    #[serde(default)]
-    pub lock_who: Option<String>,
-}
-
-/// The `GET .../versions` handler wraps rows as `{ versions }` (paginated via
-/// `?limit=&offset=`; §7 default 50, max 100 — no `total`/cursor in the body, so
-/// pagination exhausts by observing a short/empty page).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VersionListResponse {
-    #[serde(default)]
-    pub versions: Vec<StateVersion>,
-}
-
-/// One state version (`VersionSummary`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StateVersion {
-    pub id: String,
-    pub serial: i64,
-    pub resource_count: u64,
-    #[serde(default)]
-    pub lineage: Option<String>,
-    #[serde(default)]
-    pub pushed_by: Option<String>,
-    pub pushed_at: i64,
-    #[serde(default)]
-    pub scan_status: Option<String>,
-    #[serde(default)]
-    pub critical_count: u64,
-    #[serde(default)]
-    pub high_count: u64,
-    /// Source serial when this version is a restore (promote-copy); null = normal apply.
-    #[serde(default)]
-    pub promoted_from_serial: Option<i64>,
-    // Actor metadata captured at push time (display-only).
-    #[serde(default)]
-    pub actor_type: Option<String>,
-    #[serde(default)]
-    pub actor_name: Option<String>,
-}
-
 // ── state: workspace providers (posture polling for lock push) ─────────────────
-// Source: state.ts `GET /:workspace/providers` (~line 919): `{ lock_file, providers }`.
-
-/// The `GET .../providers` response used for lock-push posture polling (§7).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkspaceProvidersResponse {
-    #[serde(default)]
-    pub lock_file: Option<LockFileMeta>,
-    #[serde(default)]
-    pub providers: Vec<WorkspaceProvider>,
-}
-
-/// Lock-file metadata attached to a workspace's providers response.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LockFileMeta {
-    #[serde(default)]
-    pub uploaded_at: Option<i64>,
-    #[serde(default)]
-    pub uploaded_by: Option<String>,
-    #[serde(default)]
-    pub infrastructure_repo_url: Option<String>,
-}
-
-/// Finding counts for one provider version, from the cross-org scan cache.
-///
-/// Note the field names: the rollup is `{critical, high, medium, low}` — **not**
-/// the `*_count` spelling used elsewhere — and it carries no total. An *absent*
-/// rollup means "not scanned"; a present rollup of all zeroes means "scanned and
-/// clean". Conflating those two is what the posture gate got wrong.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VersionScanRollup {
-    #[serde(default)]
-    pub critical: u64,
-    #[serde(default)]
-    pub high: u64,
-    #[serde(default)]
-    pub medium: u64,
-    #[serde(default)]
-    pub low: u64,
-}
+//
+// The types are generated (see the aliases at the foot of this file). This
+// behaviour is not, and that split is the point: the generator produces the
+// shape, and the judgement about what the shape MEANS stays hand-written and
+// tested.
 
 impl VersionScanRollup {
     /// Whether this rollup trips the posture gate.
@@ -390,42 +273,13 @@ impl VersionScanRollup {
     /// `critical || high` only — matching the documented `--at-risk` filter
     /// (§7). `medium`/`low` are deliberately **not** gating: they are carried for
     /// display, and treating them as at-risk would fail nearly every CI run.
+    ///
+    /// An absent count reads as zero. Note the distinction this method does NOT
+    /// make: an absent *rollup* means "not scanned", which is decided by the
+    /// caller holding an `Option<VersionScanRollup>` — see `verdict_from_scan`.
     pub fn is_at_risk(&self) -> bool {
-        self.critical > 0 || self.high > 0
+        self.critical.unwrap_or(0) > 0 || self.high.unwrap_or(0) > 0
     }
-}
-
-/// One in-use provider with its latest-matching + freshness fields.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkspaceProvider {
-    pub id: String,
-    #[serde(default)]
-    pub provider_address: Option<String>,
-    pub namespace: String,
-    #[serde(rename = "type")]
-    pub type_: String,
-    #[serde(default)]
-    pub upstream: Option<String>,
-    pub current_version: String,
-    #[serde(default)]
-    pub constraints: Option<String>,
-    #[serde(default)]
-    pub latest_version: Option<String>,
-    /// Constraint-respecting newest; `None` until the lookup queue lands the data.
-    #[serde(default)]
-    pub latest_matching: Option<String>,
-    #[serde(default)]
-    pub latest_version_checked_at: Option<i64>,
-    #[serde(default)]
-    pub provider_repo_url: Option<String>,
-    /// Scan rollup for `current_version` — the version actually locked, so this
-    /// is what the posture verdict reads. `None` ⇒ not scanned.
-    #[serde(default)]
-    pub current_scan: Option<VersionScanRollup>,
-    /// Scan rollup for `latest_version`. `None` when there is no `latest_version`
-    /// or it has no completed scan.
-    #[serde(default)]
-    pub latest_scan: Option<VersionScanRollup>,
 }
 
 // ── state: promote ─────────────────────────────────────────────────────────────
@@ -433,55 +287,10 @@ pub struct WorkspaceProvider {
 // scan_enqueued, ... }`. (The brief said `{version, source_serial}`; the live
 // handler returns the richer shape modelled here.)
 
-/// Response from `POST .../versions/{versionId}/promote`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PromoteResponse {
-    #[serde(default)]
-    pub ok: bool,
-    #[serde(default)]
-    pub version_id: Option<String>,
-    /// New serial created by the promote-copy.
-    #[serde(default)]
-    pub serial: Option<i64>,
-    /// Serial the promoted version was copied from.
-    #[serde(default)]
-    pub source_serial: Option<i64>,
-    #[serde(default)]
-    pub scan_enqueued: bool,
-    #[serde(default)]
-    pub idempotent_replay: bool,
-}
-
 // ── state: lock ────────────────────────────────────────────────────────────────
 // Source: state.ts `GET/DELETE /:workspace/lock`; StateLock in types.ts. GET wraps
 // as `{ lock: null | {...} }`. PII fields (who/ip/geo) are member+-gated server-side
 // so they are optional here.
-
-/// The `GET .../lock` response wrapper: `{ lock: null | LockInfo }`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LockGetResponse {
-    #[serde(default)]
-    pub lock: Option<LockInfo>,
-}
-
-/// Current lock holder (`StateLock`). `lock_id` is the id echoed back on unlock (§7 N4).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LockInfo {
-    pub lock_id: String,
-    #[serde(default)]
-    pub operation: Option<String>,
-    /// The holder; member+-gated so absent for readers.
-    #[serde(default)]
-    pub who: Option<String>,
-    #[serde(default)]
-    pub info: Option<String>,
-    #[serde(default)]
-    pub created_at: Option<i64>,
-    #[serde(default)]
-    pub actor_type: Option<String>,
-    #[serde(default)]
-    pub actor_name: Option<String>,
-}
 
 // ── state: lock-file push (protocol router) ────────────────────────────────────
 // Source: stateProtocol `PUT /state/{org}/{ws}/terraform.lock.hcl` →
@@ -499,83 +308,129 @@ pub struct LockPushResponse {
     pub warnings: Vec<String>,
 }
 
+// ── state: now generated ──────────────────────────────────────────────────────
+//
+// These were hand-written from the worker's TypeScript, with the endpoint and
+// line number in a comment. They are now generated from the spec, and aliased to
+// the names this crate already used so call sites did not all have to move.
+//
+// The generated rows are SUPERSETS of what was modelled by hand: VCS provenance
+// (`vcs_repository`, `vcs_ref`, `vcs_sha`, …), policy counts
+// (`policy_failing_count` / `policy_total_count`) and the real-vs-internal
+// resource split were all being sent and silently dropped, because no model
+// denies unknown fields.
+
+/// The `{ lock }` envelope.
+pub use crate::generated::models::GetStateLockResponse as LockGetResponse;
+/// The `{ orgs }` envelope.
+pub use crate::generated::models::ListOrgsResponse as OrgListResponse;
+/// The `{ versions }` envelope.
+pub use crate::generated::models::ListStateVersionsResponse as VersionListResponse;
+/// The `{ workspaces }` envelope.
+pub use crate::generated::models::ListStateWorkspacesResponse as WorkspaceListResponse;
+/// The org list row, generated from the spec's `OrgSummary`.
+///
+/// `role` is the spec's `Role` enum rather than a `String`, and the row carries
+/// the columns the handler always sent (`name`, `tier`, `is_demo`,
+/// `claimed_domain`, …) which the old two-field struct threw away.
+pub use crate::generated::models::OrgSummary as OrgMembership;
+/// The current lock holder. Was `LockInfo`.
+pub use crate::generated::models::StateLock as LockInfo;
+/// The promote result. Was `PromoteResponse`.
+pub use crate::generated::models::StatePromoteResult as PromoteResponse;
+/// One version in a workspace's history. Was `StateVersion`.
+pub use crate::generated::models::StateVersionSummary as StateVersion;
+/// A state workspace row. Was `Workspace`.
+pub use crate::generated::models::StateWorkspaceSummary as Workspace;
+/// In-use providers for a workspace, with their per-version scan rollups.
+pub use crate::generated::models::{
+    VersionScanRollup, WorkspaceProvider, WorkspaceProvidersResponse,
+    WorkspaceProvidersResponseLockFile as LockFileMeta,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The shape that mattered: `listWorkspaceProviders` has always sent
-    /// `current_scan` / `latest_scan`, but the model did not declare them — and
-    /// because no model denies unknown fields, serde dropped them in silence.
-    /// That is what left the posture gate with no severity data to act on.
+    /// Build a rollup from JSON: the generated type has optional counts and no
+    /// `Default`, and going through serde is also the path the real response
+    /// takes.
+    fn rollup(json: &str) -> VersionScanRollup {
+        serde_json::from_str(json).expect("rollup parses")
+    }
+
+    /// The shape that mattered. `listWorkspaceProviders` has always sent
+    /// `current_scan` / `latest_scan`, but the hand-written model did not declare
+    /// them — and because no model denies unknown fields, serde dropped them in
+    /// silence. That is what left the posture gate with no severity data to act
+    /// on. They now come from the spec, so they cannot go missing again.
     #[test]
     fn workspace_provider_reads_the_scan_rollups() {
         let body = r#"{
-            "id":"wp1","provider_address":"registry.terraform.io/hashicorp/aws",
-            "namespace":"hashicorp","type":"aws","upstream":"registry.terraform.io",
+            "provider_address":"registry.terraform.io/hashicorp/aws",
+            "namespace":"hashicorp","type":"aws","upstream":"terraform.io",
             "current_version":"5.2.0","constraints":"~> 5.0",
             "latest_version":"5.4.1","latest_matching":"5.4.1",
             "current_scan":{"critical":2,"high":3,"medium":7,"low":11},
             "latest_scan":{"critical":0,"high":0,"medium":0,"low":0}
         }"#;
         let p: WorkspaceProvider = serde_json::from_str(body).unwrap();
+        assert_eq!(p.namespace, "hashicorp");
+        assert_eq!(p.type_, "aws");
         let current = p.current_scan.expect("current_scan present");
-        assert_eq!((current.critical, current.high), (2, 3));
+        assert_eq!((current.critical, current.high), (Some(2), Some(3)));
         assert!(current.is_at_risk());
         // Present-but-empty is a positive clean result, NOT "unknown".
-        let latest = p.latest_scan.expect("latest_scan present");
-        assert!(!latest.is_at_risk());
+        assert!(!p.latest_scan.expect("latest_scan present").is_at_risk());
     }
 
     /// `null` and an omitted key both mean "not scanned", and must stay
-    /// distinguishable from an all-zero rollup.
+    /// distinguishable from an all-zero rollup, which means "scanned and clean".
     #[test]
     fn absent_and_null_rollups_are_both_none() {
-        let omitted = r#"{"id":"w","namespace":"n","type":"t","current_version":"1.0.0"}"#;
-        let p: WorkspaceProvider = serde_json::from_str(omitted).unwrap();
+        let base =
+            r#""namespace":"n","type":"t","upstream":"terraform.io","current_version":"1.0.0""#;
+
+        let p: WorkspaceProvider = serde_json::from_str(&format!("{{{base}}}")).unwrap();
         assert!(p.current_scan.is_none() && p.latest_scan.is_none());
 
-        let explicit_null = r#"{"id":"w","namespace":"n","type":"t","current_version":"1.0.0",
-            "current_scan":null,"latest_scan":null}"#;
-        let p: WorkspaceProvider = serde_json::from_str(explicit_null).unwrap();
+        let p: WorkspaceProvider = serde_json::from_str(&format!(
+            r#"{{{base},"current_scan":null,"latest_scan":null}}"#
+        ))
+        .unwrap();
         assert!(p.current_scan.is_none() && p.latest_scan.is_none());
 
-        // …whereas an empty object deserializes to a real, clean rollup.
-        let empty_obj = r#"{"id":"w","namespace":"n","type":"t","current_version":"1.0.0",
-            "current_scan":{}}"#;
-        let p: WorkspaceProvider = serde_json::from_str(empty_obj).unwrap();
-        assert_eq!(p.current_scan, Some(VersionScanRollup::default()));
+        // …whereas an empty object is a real, clean rollup.
+        let p: WorkspaceProvider =
+            serde_json::from_str(&format!(r#"{{{base},"current_scan":{{}}}}"#)).unwrap();
+        let scan = p.current_scan.expect("an empty object is still a rollup");
+        assert!(!scan.is_at_risk());
+        assert_eq!(scan.critical, None, "absent count, not zero");
     }
 
     /// Only critical/high gate, matching the documented `--at-risk` filter. A
     /// provider carrying only mediums and lows must not fail a CI push.
     #[test]
     fn only_critical_and_high_are_at_risk() {
-        let noisy = VersionScanRollup {
-            critical: 0,
-            high: 0,
-            medium: 40,
-            low: 99,
-        };
-        assert!(!noisy.is_at_risk(), "medium/low must not gate");
-
-        for (crit, high) in [(1, 0), (0, 1), (1, 1)] {
-            let r = VersionScanRollup {
-                critical: crit,
-                high,
-                medium: 0,
-                low: 0,
-            };
-            assert!(r.is_at_risk(), "critical={crit} high={high} must gate");
+        assert!(
+            !rollup(r#"{"medium":40,"low":99}"#).is_at_risk(),
+            "medium/low must not gate"
+        );
+        assert!(!rollup("{}").is_at_risk(), "an empty rollup is clean");
+        for body in [
+            r#"{"critical":1}"#,
+            r#"{"high":1}"#,
+            r#"{"critical":1,"high":1}"#,
+        ] {
+            assert!(rollup(body).is_at_risk(), "{body} must gate");
         }
-        assert!(!VersionScanRollup::default().is_at_risk());
     }
 
     /// The scanner may add severities; extra keys must not fail the parse.
     #[test]
     fn rollup_tolerates_unknown_severities() {
-        let r: VersionScanRollup =
-            serde_json::from_str(r#"{"critical":1,"high":0,"unknown":5,"negligible":2}"#).unwrap();
-        assert_eq!(r.critical, 1);
+        let r = rollup(r#"{"critical":1,"high":0,"unknown":5,"negligible":2}"#);
+        assert_eq!(r.critical, Some(1));
         assert!(r.is_at_risk());
     }
 }
