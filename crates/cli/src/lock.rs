@@ -7,7 +7,7 @@
 //! no sleeps (rubrics 2, 3, 5):
 //!   * [`parse_provider_addresses`] — the display-only lock-file provider count,
 //!   * [`poll_posture`] — the poll loop over an injected fetch + clock,
-//!   * [`evaluate_posture`] — verdict/outdated derivation reusing the slice-4 join.
+//!   * [`evaluate_posture`] — verdict/outdated derivation from the scan rollup.
 //!
 //! The API client is built once via `auth::api_client` (never by cloning an
 //! `HttpClient`, which drops the refresh hook).
@@ -17,13 +17,13 @@ use std::time::Duration;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::Serialize;
-use tm_api::{ProviderOverview, WorkspaceProvider, WorkspaceProvidersResponse};
+use tm_api::{WorkspaceProvider, WorkspaceProvidersResponse};
 use tm_config::OutputFormat;
 
 use crate::auth;
 use crate::cli::Cli;
 use crate::commands::CmdResult;
-use crate::discovery::{self, index_overview, verdict_for, EXIT_MISSING_ORG};
+use crate::discovery::{self, verdict_from_scan, EXIT_MISSING_ORG};
 use crate::output::{self, Style, TrustVerdict};
 
 /// The lock-file name the server enforces (§7). Reads default to `<path>/<name>`.
@@ -175,19 +175,23 @@ impl PostureRow {
     }
 }
 
-/// Derive a [`PostureRow`] per pushed provider by joining the workspace-providers
-/// snapshot (for `current`/`latest_matching`) with the org overview index (for
-/// the TRUST verdict, via the slice-4 [`verdict_for`]). Pure — the heart of the
-/// posture block (rubric 3).
+/// Derive a [`PostureRow`] per pushed provider from the workspace-providers
+/// snapshot alone. Pure — the heart of the posture block (rubric 3).
+///
+/// The TRUST verdict comes from each provider's own `current_scan` rollup via
+/// [`verdict_from_scan`], i.e. from the scan of the version the workspace
+/// actually locks.
+///
+/// It used to come from a second call to the org-wide provider overview. That
+/// endpoint was removed server-side (410) and both gate call sites swallowed the
+/// error with `unwrap_or_default()`, so every provider scored `Unscanned`,
+/// `is_at_risk()` was false for every row, and `--fail-on-atrisk` silently never
+/// tripped. The rollup was already in this response the whole time, so the fix is
+/// to read it here and make the extra call go away.
 ///
 /// `outdated` = `latest_matching` present **and** `current_version !=
 /// latest_matching`. Rows are ordered to match the `pushed` list.
-pub fn evaluate_posture(
-    pushed: &[String],
-    resp: &WorkspaceProvidersResponse,
-    overview: &[ProviderOverview],
-) -> Vec<PostureRow> {
-    let idx = index_overview(overview);
+pub fn evaluate_posture(pushed: &[String], resp: &WorkspaceProvidersResponse) -> Vec<PostureRow> {
     let mut rows = Vec::new();
     for addr in pushed {
         let (ns, ty) = split_address(addr);
@@ -208,7 +212,7 @@ pub fn evaluate_posture(
             current_version: p.current_version.clone(),
             latest_matching,
             outdated,
-            trust: verdict_for(&idx, &p.namespace, &p.type_),
+            trust: verdict_from_scan(p.current_scan.as_ref()),
         });
     }
     rows
@@ -429,8 +433,7 @@ pub fn push(cli: &Cli, args: &PushArgs) -> CmdResult {
 
         match outcome {
             Ok(PollOutcome::Ready(resp)) => {
-                let overview = client.providers_overview(&org).unwrap_or_default();
-                let rows = evaluate_posture(&providers, &resp, &overview);
+                let rows = evaluate_posture(&providers, &resp);
                 if !json {
                     eprint!("{}", render_posture(&rows, style));
                 }
@@ -548,7 +551,7 @@ fn provider_matches(p: &WorkspaceProvider, ns: &str, ty: &str, addr: &str) -> bo
 mod tests {
     use super::*;
     use std::cell::RefCell;
-    use tm_api::{ProviderOverview, WorkspaceProvider};
+    use tm_api::{VersionScanRollup, WorkspaceProvider};
 
     const REALISTIC_LOCK: &str = r#"
 # This file is maintained automatically by "terraform init".
@@ -633,6 +636,30 @@ terraform {
             latest_matching: latest.map(str::to_string),
             latest_version_checked_at: checked,
             provider_repo_url: None,
+            current_scan: None,
+            latest_scan: None,
+        }
+    }
+
+    /// `wp` whose locked version HAS a completed scan, with the given
+    /// critical/high counts. `wp` itself leaves the rollup absent (= unscanned),
+    /// so this is the seam for the posture-gate tests.
+    fn wp_scanned(
+        ns: &str,
+        ty: &str,
+        current: &str,
+        latest: Option<&str>,
+        crit: u64,
+        high: u64,
+    ) -> WorkspaceProvider {
+        WorkspaceProvider {
+            current_scan: Some(VersionScanRollup {
+                critical: crit,
+                high,
+                medium: 0,
+                low: 0,
+            }),
+            ..wp(ns, ty, current, latest, Some(1))
         }
     }
 
@@ -640,23 +667,6 @@ terraform {
         WorkspaceProvidersResponse {
             lock_file: None,
             providers,
-        }
-    }
-
-    fn overview(ns: &str, ty: &str, crit: u64, high: u64, vuln: u64) -> ProviderOverview {
-        ProviderOverview {
-            namespace: ns.into(),
-            type_: ty.into(),
-            vuln_count: vuln,
-            critical_count: crit,
-            high_count: high,
-            rule_id: None,
-            upstream: Some("registry.terraform.io".into()),
-            version_constraint: None,
-            latest_job_id: None,
-            status: None,
-            triggered_at: None,
-            completed_at: None,
         }
     }
 
@@ -722,12 +732,13 @@ terraform {
             Duration::from_secs(1),
             || {
                 *calls.borrow_mut() += 1;
-                Ok(resp(vec![wp(
+                Ok(resp(vec![wp_scanned(
                     "hashicorp",
                     "aws",
                     "5.2.0",
                     Some("5.4.1"),
-                    Some(1),
+                    1,
+                    0,
                 )]))
             },
             |d| *clock.elapsed.borrow_mut() += d,
@@ -739,9 +750,10 @@ terraform {
             PollOutcome::Ready(r) => r,
             other => panic!("expected ready, got {other:?}"),
         };
-        // at-risk overview → fail-on-atrisk trips (exit 3 in the command).
-        let ov = vec![overview("hashicorp", "aws", 1, 0, 0)];
-        let rows = evaluate_posture(&pushed, &ready, &ov);
+        // A critical in the locked version's own rollup → fail-on-atrisk trips
+        // (exit 3 in the command).
+        let rows = evaluate_posture(&pushed, &ready);
+        assert_eq!(rows[0].trust, TrustVerdict::AtRisk);
         assert!(rows.iter().any(PostureRow::is_at_risk));
     }
 
@@ -754,12 +766,13 @@ terraform {
             Duration::from_secs(15),
             Duration::from_secs(1),
             || {
-                Ok(resp(vec![wp(
+                Ok(resp(vec![wp_scanned(
                     "hashicorp",
                     "random",
                     "3.6.0",
                     Some("3.6.0"),
-                    Some(1),
+                    0,
+                    0,
                 )]))
             },
             |d| *clock.elapsed.borrow_mut() += d,
@@ -770,8 +783,7 @@ terraform {
             PollOutcome::Ready(r) => r,
             other => panic!("expected ready, got {other:?}"),
         };
-        let ov = vec![overview("hashicorp", "random", 0, 0, 0)];
-        let rows = evaluate_posture(&pushed, &ready, &ov);
+        let rows = evaluate_posture(&pushed, &ready);
         assert!(!rows.iter().any(PostureRow::is_at_risk));
         assert!(!rows[0].outdated, "3.6.0 == latest matching");
         assert_eq!(rows[0].trust, TrustVerdict::Trusted);
@@ -846,10 +858,55 @@ terraform {
             Some("3.2.2"),
             Some(1),
         )]);
-        let rows = evaluate_posture(&pushed, &r, &[]);
+        let rows = evaluate_posture(&pushed, &r);
         assert_eq!(rows.len(), 1);
         assert!(rows[0].outdated);
         assert_eq!(rows[0].trust, TrustVerdict::Unscanned);
+    }
+
+    /// The posture gate, end to end over a mixed snapshot: `--fail-on-atrisk`
+    /// keys off `rows.iter().any(is_at_risk)`, so one at-risk provider among
+    /// clean and unscanned ones must still trip it. Before the fix this returned
+    /// no at-risk rows at all, because the verdict came from a 410'd endpoint
+    /// whose error was discarded.
+    #[test]
+    fn gate_trips_when_any_provider_is_at_risk() {
+        let pushed = vec![
+            "registry.terraform.io/hashicorp/random".to_string(),
+            "registry.terraform.io/hashicorp/aws".to_string(),
+            "registry.terraform.io/opentofu/null".to_string(),
+        ];
+        let r = resp(vec![
+            wp_scanned("hashicorp", "random", "3.6.0", Some("3.6.0"), 0, 0), // clean
+            wp_scanned("hashicorp", "aws", "5.2.0", Some("5.4.1"), 0, 2),    // at-risk
+            wp("opentofu", "null", "3.2.1", None, None),                     // unscanned
+        ]);
+        let rows = evaluate_posture(&pushed, &r);
+
+        assert_eq!(rows.len(), 3, "a row per pushed provider, in order");
+        assert_eq!(rows[0].trust, TrustVerdict::Trusted);
+        assert_eq!(rows[1].trust, TrustVerdict::AtRisk);
+        assert_eq!(rows[2].trust, TrustVerdict::Unscanned);
+        assert!(
+            rows.iter().any(PostureRow::is_at_risk),
+            "one at-risk provider must trip the gate"
+        );
+    }
+
+    /// The complement: nothing at-risk ⇒ the gate stays shut, even though an
+    /// unscanned provider is present. Unscanned is not a failure.
+    #[test]
+    fn gate_stays_shut_when_nothing_is_at_risk() {
+        let pushed = vec![
+            "registry.terraform.io/hashicorp/random".to_string(),
+            "registry.terraform.io/opentofu/null".to_string(),
+        ];
+        let r = resp(vec![
+            wp_scanned("hashicorp", "random", "3.6.0", Some("3.6.0"), 0, 0),
+            wp("opentofu", "null", "3.2.1", None, None),
+        ]);
+        let rows = evaluate_posture(&pushed, &r);
+        assert!(!rows.iter().any(PostureRow::is_at_risk));
     }
 
     #[test]
@@ -865,7 +922,7 @@ terraform {
             Some("5.2.0"),
             Some(1),
         )]);
-        let rows = evaluate_posture(&pushed, &r, &[]);
+        let rows = evaluate_posture(&pushed, &r);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].type_, "aws");
         assert!(!rows[0].outdated);

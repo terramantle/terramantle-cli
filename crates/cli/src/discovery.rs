@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use tm_api::{
     Client, ModuleDetail, ModuleSearchResponse, ModuleSummary, OrgMembership, ProviderOverview,
-    ProviderUsage, UsedBy,
+    ProviderUsage, UsedBy, VersionScanRollup,
 };
 use tm_config::OutputFormat;
 
@@ -65,6 +65,26 @@ pub fn verdict_for(
         Some(o) if o.critical_count > 0 || o.high_count > 0 || o.vuln_count > 0 => {
             TrustVerdict::AtRisk
         }
+        Some(_) => TrustVerdict::Trusted,
+        None => TrustVerdict::Unscanned,
+    }
+}
+
+/// Derive a [`TrustVerdict`] from a workspace provider's own scan rollup.
+///
+/// This is the posture path's verdict source, and it needs no org-wide overview
+/// call: `listWorkspaceProviders` already carries the rollup for the version the
+/// workspace actually locks.
+///
+///   * rollup present + critical/high > 0 → `AtRisk`
+///   * rollup present + all zero          → `Trusted` (scanned and clean)
+///   * rollup absent                      → `Unscanned` (never scanned)
+///
+/// The absent-vs-empty distinction is the whole point: an empty rollup is a
+/// positive clean result, while `None` means we simply do not know.
+pub fn verdict_from_scan(scan: Option<&VersionScanRollup>) -> TrustVerdict {
+    match scan {
+        Some(r) if r.is_at_risk() => TrustVerdict::AtRisk,
         Some(_) => TrustVerdict::Trusted,
         None => TrustVerdict::Unscanned,
     }
@@ -659,6 +679,54 @@ fn split_three(s: &str) -> Result<(String, String, String), String> {
 mod tests {
     use super::*;
     use tm_api::{ProviderOverview, ProviderUsage, UsageVersion, UsedBy};
+
+    // ── verdict_from_scan: the posture path's verdict source ──────────────────
+
+    fn rollup(crit: u64, high: u64, medium: u64) -> VersionScanRollup {
+        VersionScanRollup {
+            critical: crit,
+            high,
+            medium,
+            low: 0,
+        }
+    }
+
+    /// The regression that mattered. The removed overview endpoint returned 410,
+    /// both gate call sites swallowed it with `unwrap_or_default()`, and an empty
+    /// overview scored every provider `Unscanned` — so `is_at_risk()` was false
+    /// everywhere and `--fail-on-atrisk` never tripped. A provider whose locked
+    /// version really does carry a critical must read `AtRisk`.
+    #[test]
+    fn at_risk_rollup_is_not_mistaken_for_unscanned() {
+        assert_eq!(
+            verdict_from_scan(Some(&rollup(1, 0, 0))),
+            TrustVerdict::AtRisk
+        );
+        assert_eq!(
+            verdict_from_scan(Some(&rollup(0, 1, 0))),
+            TrustVerdict::AtRisk
+        );
+    }
+
+    /// `None` (not scanned) and an all-zero rollup (scanned, clean) are different
+    /// answers and must not collapse into one verdict.
+    #[test]
+    fn absent_rollup_is_unscanned_but_empty_rollup_is_trusted() {
+        assert_eq!(verdict_from_scan(None), TrustVerdict::Unscanned);
+        assert_eq!(
+            verdict_from_scan(Some(&VersionScanRollup::default())),
+            TrustVerdict::Trusted
+        );
+    }
+
+    /// Mediums and lows are reported but do not gate, matching `--at-risk`.
+    #[test]
+    fn medium_only_rollup_is_trusted() {
+        assert_eq!(
+            verdict_from_scan(Some(&rollup(0, 0, 25))),
+            TrustVerdict::Trusted
+        );
+    }
 
     fn overview(ns: &str, ty: &str, crit: u64, high: u64, vuln: u64) -> ProviderOverview {
         ProviderOverview {

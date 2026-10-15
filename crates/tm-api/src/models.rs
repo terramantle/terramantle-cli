@@ -366,6 +366,35 @@ pub struct LockFileMeta {
     pub infrastructure_repo_url: Option<String>,
 }
 
+/// Finding counts for one provider version, from the cross-org scan cache.
+///
+/// Note the field names: the rollup is `{critical, high, medium, low}` — **not**
+/// the `*_count` spelling used elsewhere — and it carries no total. An *absent*
+/// rollup means "not scanned"; a present rollup of all zeroes means "scanned and
+/// clean". Conflating those two is what the posture gate got wrong.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VersionScanRollup {
+    #[serde(default)]
+    pub critical: u64,
+    #[serde(default)]
+    pub high: u64,
+    #[serde(default)]
+    pub medium: u64,
+    #[serde(default)]
+    pub low: u64,
+}
+
+impl VersionScanRollup {
+    /// Whether this rollup trips the posture gate.
+    ///
+    /// `critical || high` only — matching the documented `--at-risk` filter
+    /// (§7). `medium`/`low` are deliberately **not** gating: they are carried for
+    /// display, and treating them as at-risk would fail nearly every CI run.
+    pub fn is_at_risk(&self) -> bool {
+        self.critical > 0 || self.high > 0
+    }
+}
+
 /// One in-use provider with its latest-matching + freshness fields.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceProvider {
@@ -389,6 +418,14 @@ pub struct WorkspaceProvider {
     pub latest_version_checked_at: Option<i64>,
     #[serde(default)]
     pub provider_repo_url: Option<String>,
+    /// Scan rollup for `current_version` — the version actually locked, so this
+    /// is what the posture verdict reads. `None` ⇒ not scanned.
+    #[serde(default)]
+    pub current_scan: Option<VersionScanRollup>,
+    /// Scan rollup for `latest_version`. `None` when there is no `latest_version`
+    /// or it has no completed scan.
+    #[serde(default)]
+    pub latest_scan: Option<VersionScanRollup>,
 }
 
 // ── state: promote ─────────────────────────────────────────────────────────────
@@ -460,4 +497,85 @@ pub struct LockPushResponse {
     /// Non-fatal parse warnings, echoed from the server.
     #[serde(default)]
     pub warnings: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The shape that mattered: `listWorkspaceProviders` has always sent
+    /// `current_scan` / `latest_scan`, but the model did not declare them — and
+    /// because no model denies unknown fields, serde dropped them in silence.
+    /// That is what left the posture gate with no severity data to act on.
+    #[test]
+    fn workspace_provider_reads_the_scan_rollups() {
+        let body = r#"{
+            "id":"wp1","provider_address":"registry.terraform.io/hashicorp/aws",
+            "namespace":"hashicorp","type":"aws","upstream":"registry.terraform.io",
+            "current_version":"5.2.0","constraints":"~> 5.0",
+            "latest_version":"5.4.1","latest_matching":"5.4.1",
+            "current_scan":{"critical":2,"high":3,"medium":7,"low":11},
+            "latest_scan":{"critical":0,"high":0,"medium":0,"low":0}
+        }"#;
+        let p: WorkspaceProvider = serde_json::from_str(body).unwrap();
+        let current = p.current_scan.expect("current_scan present");
+        assert_eq!((current.critical, current.high), (2, 3));
+        assert!(current.is_at_risk());
+        // Present-but-empty is a positive clean result, NOT "unknown".
+        let latest = p.latest_scan.expect("latest_scan present");
+        assert!(!latest.is_at_risk());
+    }
+
+    /// `null` and an omitted key both mean "not scanned", and must stay
+    /// distinguishable from an all-zero rollup.
+    #[test]
+    fn absent_and_null_rollups_are_both_none() {
+        let omitted = r#"{"id":"w","namespace":"n","type":"t","current_version":"1.0.0"}"#;
+        let p: WorkspaceProvider = serde_json::from_str(omitted).unwrap();
+        assert!(p.current_scan.is_none() && p.latest_scan.is_none());
+
+        let explicit_null = r#"{"id":"w","namespace":"n","type":"t","current_version":"1.0.0",
+            "current_scan":null,"latest_scan":null}"#;
+        let p: WorkspaceProvider = serde_json::from_str(explicit_null).unwrap();
+        assert!(p.current_scan.is_none() && p.latest_scan.is_none());
+
+        // …whereas an empty object deserializes to a real, clean rollup.
+        let empty_obj = r#"{"id":"w","namespace":"n","type":"t","current_version":"1.0.0",
+            "current_scan":{}}"#;
+        let p: WorkspaceProvider = serde_json::from_str(empty_obj).unwrap();
+        assert_eq!(p.current_scan, Some(VersionScanRollup::default()));
+    }
+
+    /// Only critical/high gate, matching the documented `--at-risk` filter. A
+    /// provider carrying only mediums and lows must not fail a CI push.
+    #[test]
+    fn only_critical_and_high_are_at_risk() {
+        let noisy = VersionScanRollup {
+            critical: 0,
+            high: 0,
+            medium: 40,
+            low: 99,
+        };
+        assert!(!noisy.is_at_risk(), "medium/low must not gate");
+
+        for (crit, high) in [(1, 0), (0, 1), (1, 1)] {
+            let r = VersionScanRollup {
+                critical: crit,
+                high,
+                medium: 0,
+                low: 0,
+            };
+            assert!(r.is_at_risk(), "critical={crit} high={high} must gate");
+        }
+        assert!(!VersionScanRollup::default().is_at_risk());
+    }
+
+    /// The scanner may add severities; extra keys must not fail the parse.
+    #[test]
+    fn rollup_tolerates_unknown_severities() {
+        let r: VersionScanRollup =
+            serde_json::from_str(r#"{"critical":1,"high":0,"unknown":5,"negligible":2}"#).unwrap();
+        assert_eq!(r.critical, 1);
+        assert!(r.is_at_risk());
+    }
 }

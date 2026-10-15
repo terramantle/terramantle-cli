@@ -838,8 +838,7 @@ fn aggregate_posture(
     );
     match outcome {
         Ok(PollOutcome::Ready(resp)) => {
-            let overview = client.providers_overview(org).unwrap_or_default();
-            PostureOutcome::Ready(lock::evaluate_posture(providers, &resp, &overview))
+            PostureOutcome::Ready(lock::evaluate_posture(providers, &resp))
         }
         Ok(PollOutcome::TimedOut(_)) => PostureOutcome::Unknown("timed_out"),
         Err(e) => {
