@@ -177,8 +177,39 @@ fn codegen(check: bool) -> Res<()> {
         .into());
     }
 
+    // ── operations first: their inline response schemas feed the models ─────
+    let (ops, tombstones, extensions) = operations::collect(&spec);
+    let op_ids: Vec<String> = ops.iter().map(|o| o.id.clone()).collect();
+
     // ── models ───────────────────────────────────────────────────────────────
-    let (normalised, collapsed) = normalise::normalise_schemas(schemas);
+    // A `required` exception that names nothing is worse than no exception: it
+    // looks deliberate and does nothing.
+    let bad = normalise::check_exceptions(schemas);
+    if !bad.is_empty() {
+        return Err(format!(
+            "REQUIRED_EXCEPTIONS has {} entry/entries that do not match the spec:\n  {}",
+            bad.len(),
+            bad.join("\n  ")
+        )
+        .into());
+    }
+
+    let union_arms = normalise::union_arm_schemas(&spec);
+    let (mut normalised, collapsed) = normalise::normalise_schemas(schemas, &union_arms);
+    let inline = normalise::inline_response_schemas(&spec, &op_ids);
+    let inline_count = inline.len();
+    // A component of the same name would be shadowed; there is none today, and
+    // a collision should be a loud failure rather than a silent override.
+    for (name, _) in &inline {
+        if normalised.iter().any(|(n, _)| n == name) {
+            return Err(format!(
+                "generated response type `{name}` collides with a component schema of the \
+                 same name; rename the component or the operation"
+            )
+            .into());
+        }
+    }
+    normalised.extend(inline);
     let mut settings = typify::TypeSpaceSettings::default();
     settings.with_struct_builder(false);
     let mut ts = typify::TypeSpace::new(&settings);
@@ -208,7 +239,6 @@ fn codegen(check: bool) -> Res<()> {
     );
 
     // ── operations ───────────────────────────────────────────────────────────
-    let (ops, tombstones, extensions) = operations::collect(&spec);
     let mut found = extensions.clone();
     found.sort();
     let mut expected = EXPECTED_EXTENSION_METHODS.to_vec();
@@ -264,7 +294,13 @@ fn codegen(check: bool) -> Res<()> {
         .into());
     }
 
-    println!("models:     136 schemas -> crates/tm-api/src/generated/models.rs");
+    println!(
+        "models:     {} component schemas + {inline_count} inline response type(s) -> crates/tm-api/src/generated/models.rs",
+        schemas.len()
+    );
+    if !union_arms.is_empty() {
+        println!("            union arms keeping `required`: {}", union_arms.join(", "));
+    }
     if !collapsed.is_empty() {
         println!("            collapsed nullable enum(s): {}", collapsed.join(", "));
     }

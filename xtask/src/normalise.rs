@@ -18,9 +18,16 @@ use serde_json::{Map, Value};
 /// keys are load-bearing identity that today's hand-written models already treat
 /// as infallible, and making those `Option` would push an `unwrap` into every
 /// call site for no safety gained. Keep them required, deliberately and visibly.
+/// Names are the SPEC's schema names, not the CLI's old type names, and
+/// [`check_exceptions`] fails codegen if one does not exist. The first draft of
+/// this list said `OrgMembership` -- the hand-written Rust name -- which is not
+/// a schema, so the exception silently did nothing and `slug` became `Option`.
+/// A quietly ineffective entry is the exact failure mode this project exists to
+/// remove, so it is checked rather than trusted.
 pub const REQUIRED_EXCEPTIONS: &[(&str, &str)] = &[
-    ("OrgMembership", "slug"),
-    ("OrgMembership", "role"),
+    ("OrgSummary", "slug"),
+    ("OrgSummary", "role"),
+    ("OrgSummary", "name"),
     ("StateVersionSummary", "id"),
     ("StateVersionSummary", "serial"),
     ("ProviderVersionRow", "version"),
@@ -30,6 +37,41 @@ pub const REQUIRED_EXCEPTIONS: &[(&str, &str)] = &[
     ("WorkspaceProvider", "type"),
     ("WorkspaceProvider", "current_version"),
 ];
+
+/// The `required` field names a schema declares, including through `allOf`.
+fn required_names(def: &Value) -> Vec<String> {
+    fn push_from(v: &Value, out: &mut Vec<String>) {
+        if let Some(Value::Array(r)) = v.get("required") {
+            out.extend(r.iter().filter_map(Value::as_str).map(str::to_string));
+        }
+    }
+    let mut out = Vec::new();
+    push_from(def, &mut out);
+    if let Some(Value::Array(branches)) = def.get("allOf") {
+        for b in branches {
+            push_from(b, &mut out);
+        }
+    }
+    out
+}
+
+/// Every [`REQUIRED_EXCEPTIONS`] entry must name a schema that exists and a
+/// field that schema actually declares REQUIRED. Returns the bad entries.
+pub fn check_exceptions(schemas: &Map<String, Value>) -> Vec<String> {
+    let mut bad = Vec::new();
+    for (schema, field) in REQUIRED_EXCEPTIONS {
+        let Some(def) = schemas.get(*schema) else {
+            bad.push(format!("{schema}.{field}: no such schema in the spec"));
+            continue;
+        };
+        if !required_names(def).iter().any(|r| r == field) {
+            bad.push(format!(
+                "{schema}.{field}: the spec does not mark it required, so the exception is a no-op"
+            ));
+        }
+    }
+    bad
+}
 
 /// Rewrite every `$ref` in `v` from the OpenAPI pointer to typify's.
 fn rewrite_refs(v: &mut Value) {
@@ -232,15 +274,65 @@ fn collapse_nullable_enum(v: &mut Value) -> bool {
     true
 }
 
+/// Schemas that are arms of a real (non-nullable) `oneOf`/`anyOf` anywhere in
+/// the document.
+///
+/// These are the one place `required` must be KEPT on a response. typify renders
+/// such a union as `#[serde(untagged)]`, and serde picks the first arm that
+/// deserializes. Since nothing denies unknown fields, an arm whose every field is
+/// optional matches ANY object — so relaxing `required` here would make the first
+/// arm swallow the second and the union would never report the other case.
+///
+/// Concretely: `ModulePublishPending` requires `ok`, `version_id`, `storage_key`
+/// and `status`. Strip those and a settled publish deserializes as a pending one
+/// with every field `None`, which is worse than not modelling the union at all.
+pub fn union_arm_schemas(spec: &Value) -> Vec<String> {
+    fn walk(v: &Value, out: &mut Vec<String>) {
+        match v {
+            Value::Object(map) => {
+                if let Some(Value::Array(arms)) = map.get("oneOf").or_else(|| map.get("anyOf")) {
+                    let nullable = arms.iter().any(|a| a.get("type").and_then(Value::as_str) == Some("null"));
+                    if arms.len() >= 2 && !nullable {
+                        for arm in arms {
+                            if let Some(r) = arm.get("$ref").and_then(Value::as_str) {
+                                if let Some(n) = r.strip_prefix("#/components/schemas/") {
+                                    out.push(n.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+                for child in map.values() {
+                    walk(child, out);
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|i| walk(i, out)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    walk(spec, &mut out);
+    out.sort();
+    out.dedup();
+    out
+}
+
 /// Normalise `components.schemas` into typify-ready `(name, schema)` pairs.
-pub fn normalise_schemas(schemas: &Map<String, Value>) -> (Vec<(String, Value)>, Vec<String>) {
+///
+/// `union_arms` keeps its `required` intact; see [`union_arm_schemas`].
+pub fn normalise_schemas(
+    schemas: &Map<String, Value>,
+    union_arms: &[String],
+) -> (Vec<(String, Value)>, Vec<String>) {
     let mut collapsed = Vec::new();
     let out = schemas
         .iter()
         .map(|(name, schema)| {
             let mut s = schema.clone();
             rewrite_refs(&mut s);
-            relax_required(&mut s, name);
+            if !union_arms.iter().any(|a| a == name) {
+                relax_required(&mut s, name);
+            }
             drop_external_formats(&mut s);
             if collapse_nullable_enum(&mut s) {
                 collapsed.push(name.clone());
@@ -249,4 +341,77 @@ pub fn normalise_schemas(schemas: &Map<String, Value>) -> (Vec<(String, Value)>,
         })
         .collect();
     (out, collapsed)
+}
+
+/// Collect inline success-response schemas as `(TypeName, schema)` pairs.
+///
+/// Most operations answer with a `$ref` to a named component, which the models
+/// already cover. The rest answer with an INLINE object -- the `{ orgs }`,
+/// `{ providers }`, `{ workspaces }`, `{ versions }`, `{ lock }` envelopes, and
+/// the module-publish union. Those shapes were previously hand-written in
+/// `models.rs` and checked against nothing, which is the other half of the
+/// problem this work exists to fix: paths AND payloads should come from the spec.
+///
+/// Named `<OperationId>Response` in PascalCase, so `listOrgs` yields
+/// `ListOrgsResponse`.
+pub fn inline_response_schemas(
+    spec: &Value,
+    operation_ids: &[String],
+) -> Vec<(String, Value)> {
+    const METHODS: &[&str] = &["get", "put", "post", "delete", "patch", "head"];
+    let mut out = Vec::new();
+    let Some(paths) = spec["paths"].as_object() else {
+        return out;
+    };
+
+    for item in paths.values() {
+        let Some(item) = item.as_object() else { continue };
+        for method in METHODS {
+            let Some(op) = item.get(*method) else { continue };
+            let Some(id) = op["operationId"].as_str() else { continue };
+            if !operation_ids.iter().any(|w| w == id) {
+                continue;
+            }
+            // The success response the registry records: lowest 2xx.
+            let Some(responses) = op["responses"].as_object() else { continue };
+            let mut codes: Vec<&String> = responses
+                .keys()
+                .filter(|c| c.starts_with('2'))
+                .collect();
+            codes.sort();
+            let Some(code) = codes.first() else { continue };
+            let schema = &responses[*code]["content"]["application/json"]["schema"];
+            if schema.is_null() || schema.get("$ref").is_some() {
+                continue; // a named component already covers it
+            }
+
+            let mut s = schema.clone();
+            rewrite_refs(&mut s);
+            let type_name = format!("{}Response", pascal(id));
+            relax_required(&mut s, &type_name);
+            drop_external_formats(&mut s);
+            out.push((type_name, s));
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+/// `listOrgs` -> `ListOrgs`.
+fn pascal(camel: &str) -> String {
+    let mut out = String::with_capacity(camel.len());
+    let mut upper_next = true;
+    for ch in camel.chars() {
+        if ch == '_' || ch == '-' {
+            upper_next = true;
+            continue;
+        }
+        if upper_next {
+            out.extend(ch.to_uppercase());
+            upper_next = false;
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }

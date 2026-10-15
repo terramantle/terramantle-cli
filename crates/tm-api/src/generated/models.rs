@@ -84,6 +84,42 @@ pub struct ApiSpecLinks {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub openapi_url: ::std::option::Option<::std::string::String>,
 }
+///`ApprovePlanVersionResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ApprovePlanVersionResponse {
+    ///Whether a workspace block was actually cleared by this approval.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub cleared: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+}
+///`AttestProviderPolicyBlockResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AttestProviderPolicyBlockResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub cleared_rows: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+}
+///`AttestStatePolicyBlockResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AttestStatePolicyBlockResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub cleared: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+}
 ///The governance actions recorded in the audit log.
 #[derive(
     ::serde::Deserialize,
@@ -348,6 +384,32 @@ pub struct BillingStateUsage {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub users: ::std::option::Option<i64>,
 }
+///`BlocklistProviderVersionResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct BlocklistProviderVersionResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for BlocklistProviderVersionResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<BlocklistProviderVersionResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: BlocklistProviderVersionResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for BlocklistProviderVersionResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
 ///`BuildCompleteBody`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct BuildCompleteBody {
@@ -527,6 +589,20 @@ pub struct CliDiscoveryOidc {
     */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vcs_audience: ::std::option::Option<::std::string::String>,
+}
+///`CreateOrgResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct CreateOrgResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub applied_policy_preset: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org: ::std::option::Option<OrgSummary>,
+}
+///`CreatePolicyResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct CreatePolicyResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy: ::std::option::Option<Policy>,
 }
 ///`CreateTokenRequest`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -831,6 +907,14 @@ impl ::std::convert::TryFrom<::std::string::String> for FindingSeverity {
         value.parse()
     }
 }
+///`ForceInstancePoliciesResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ForceInstancePoliciesResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub affected: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+}
 /**Plan the submitter is interested in. An allowlist rather than free text so the field cannot
 be used to inject arbitrary content into the notification email. The empty string is
 permitted — it means "unspecified".
@@ -920,6 +1004,247 @@ pub struct GateVerdictInput {
     pub gate: ::std::option::Option<BuildGate>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub passed: ::std::option::Option<bool>,
+}
+///`GetArtefactPolicyInputSchemaResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct GetArtefactPolicyInputSchemaResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for GetArtefactPolicyInputSchemaResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<GetArtefactPolicyInputSchemaResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: GetArtefactPolicyInputSchemaResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for GetArtefactPolicyInputSchemaResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///An AsyncAPI 3.0 document.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct GetAsyncApiJsonResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for GetAsyncApiJsonResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<GetAsyncApiJsonResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: GetAsyncApiJsonResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for GetAsyncApiJsonResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///`GetBillingLimitsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetBillingLimitsResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_personal: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limits: ::std::option::Option<TierFeatureFlags>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<Tier>,
+}
+///`GetCurrentUserResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetCurrentUserResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub user: ::std::option::Option<User>,
+}
+///`GetHealthResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetHealthResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+}
+///An OpenAPI 3.1 document.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct GetOpenApiJsonResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for GetOpenApiJsonResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<GetOpenApiJsonResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: GetOpenApiJsonResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for GetOpenApiJsonResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///`GetOrgSettingsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetOrgSettingsResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_update_notifications: ::std::option::Option<NotificationCadence>,
+}
+///`GetPlanPolicyConfigResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetPlanPolicyConfigResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub config: ::std::option::Option<GateConfig>,
+}
+///`GetPlanReplacementsByProviderResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct GetPlanReplacementsByProviderResponse(pub ::std::vec::Vec<ReplacementByProvider>);
+impl ::std::ops::Deref for GetPlanReplacementsByProviderResponse {
+    type Target = ::std::vec::Vec<ReplacementByProvider>;
+    fn deref(&self) -> &::std::vec::Vec<ReplacementByProvider> {
+        &self.0
+    }
+}
+impl ::std::convert::From<GetPlanReplacementsByProviderResponse>
+    for ::std::vec::Vec<ReplacementByProvider>
+{
+    fn from(value: GetPlanReplacementsByProviderResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<ReplacementByProvider>>
+    for GetPlanReplacementsByProviderResponse
+{
+    fn from(value: ::std::vec::Vec<ReplacementByProvider>) -> Self {
+        Self(value)
+    }
+}
+///`GetPlanVersionPolicyResultsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetPlanVersionPolicyResultsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub results: ::std::vec::Vec<PlanPolicyResult>,
+}
+///`GetPlanVersionResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetPlanVersionResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub findings: ::std::vec::Vec<PublicPlanFinding>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<PlanVersionSummary>,
+}
+///A JSON Schema document.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct GetPolicyInputSchemaResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for GetPolicyInputSchemaResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<GetPolicyInputSchemaResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: GetPolicyInputSchemaResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for GetPolicyInputSchemaResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///`GetPolicyResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetPolicyResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy: ::std::option::Option<Policy>,
+}
+///`GetProviderSbomResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetProviderSbomResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub url: ::std::option::Option<::std::string::String>,
+}
+///`GetStateLockResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetStateLockResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lock: ::std::option::Option<StateLock>,
+}
+///A Terraform state file, returned verbatim.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct GetStateResponse(pub ::serde_json::Map<::std::string::String, ::serde_json::Value>);
+impl ::std::ops::Deref for GetStateResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<GetStateResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: GetStateResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for GetStateResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///`GetStateVersionPolicyResultsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetStateVersionPolicyResultsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub policy_results: ::std::vec::Vec<ModulePolicyResult>,
+}
+///`GetWorkspacePlanPolicyConfigResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetWorkspacePlanPolicyConfigResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub config: ::std::option::Option<GateConfig>,
+}
+///`IngestPlanResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct IngestPlanResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    ///Primary key of the plan_versions row.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_id: ::std::option::Option<::std::string::String>,
 }
 /**A finding item within the scanner -> worker POST /internal/scan-results payload. Extends PublicModuleFinding with a required `tool` field and an optional `category` (the worker derives category from tool+rule_id when absent, during rollout).
 */
@@ -1106,6 +1431,154 @@ impl ::std::convert::TryFrom<::std::string::String> for InternalStateFindingInpu
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
+}
+///`JoinDemoOrgResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct JoinDemoOrgResponse {
+    ///Present and `true` when the caller was already a member.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub already_member: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org: ::std::option::Option<JoinDemoOrgResponseOrg>,
+}
+///`JoinDemoOrgResponseOrg`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct JoinDemoOrgResponseOrg {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+}
+///`ListAllTokensResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListAllTokensResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub tokens: ::std::vec::Vec<MachineTokenSummary>,
+}
+///`ListAuditEventsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListAuditEventsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub events: ::std::vec::Vec<AuditEvent>,
+}
+///`ListInstancePoliciesResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListInstancePoliciesResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub policies: ::std::vec::Vec<Policy>,
+}
+///`ListNamespaceModuleVersionsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListNamespaceModuleVersionsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub versions: ::std::vec::Vec<ModuleVersionSummary>,
+}
+///`ListOrgMembersResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListOrgMembersResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub members: ::std::vec::Vec<OrgMember>,
+}
+///`ListOrgProvidersResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListOrgProvidersResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub providers: ::std::vec::Vec<ProviderArtefactSummary>,
+}
+///`ListOrgTokensResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListOrgTokensResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub tokens: ::std::vec::Vec<OrgMachineToken>,
+}
+///`ListOrgsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListOrgsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub orgs: ::std::vec::Vec<OrgSummary>,
+}
+///`ListPlanVersionsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListPlanVersionsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub versions: ::std::vec::Vec<PlanVersionSummary>,
+}
+///`ListPoliciesResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListPoliciesResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub policies: ::std::vec::Vec<Policy>,
+}
+///`ListProviderFlowsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListProviderFlowsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub flows: ::std::vec::Vec<ProviderFlowSummary>,
+}
+///`ListStateFindingsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListStateFindingsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub findings: ::std::vec::Vec<ListStateFindingsResponseFindingsItem>,
+}
+///`ListStateFindingsResponseFindingsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListStateFindingsResponseFindingsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub category: ::std::option::Option<FindingCategory>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<Timestamp>,
+    ///Longer finding description.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    /**Free-form metadata. For exposure findings, meta carries a `subtype`
+    discriminator string with one of the following values:
+      - 'endpoint' — an exposed HTTP/HTTPS endpoint
+      - 'port'     — an exposed network port
+
+    All other fields in meta are tool-specific and should not be relied
+    upon as stable contract.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    ///Suggested remediation text.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub remediation: ::std::option::Option<::std::string::String>,
+    ///Terraform resource address or identifier related to the finding.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub resource: ::std::option::Option<::std::string::String>,
+    ///Scanner rule or check identifier, if available.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rule_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub severity: ::std::option::Option<StateFindingSeverity>,
+    ///Short human-readable finding title.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub title: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_id: ::std::option::Option<::std::string::String>,
+}
+///`ListStateVersionsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListStateVersionsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub versions: ::std::vec::Vec<StateVersionSummary>,
+}
+///`ListStateWorkspacesResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListStateWorkspacesResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub workspaces: ::std::vec::Vec<StateWorkspaceSummary>,
+}
+///`ListVcsTrustResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListVcsTrustResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub entries: ::std::vec::Vec<VcsTrustEntry>,
 }
 /**A machine identity's metadata. Never carries a secret.
 
@@ -1359,22 +1832,18 @@ pub struct ModulePolicyResult {
     pub policy_name: ::std::option::Option<::std::string::String>,
 }
 ///Default publish acknowledgement. The scan has been enqueued, not finished.
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct ModulePublishPending {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub ok: ::std::option::Option<bool>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub status: ::std::option::Option<::std::string::String>,
+    pub ok: bool,
+    pub status: ::std::string::String,
     ///Object-storage key the archive was streamed to.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub storage_key: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub version_id: ::std::option::Option<::std::string::String>,
+    pub storage_key: ::std::string::String,
+    pub version_id: ::std::string::String,
 }
 /**Returned for `wait=true` when the scan settled inside the budget: the acknowledgement
 merged with the full version detail, so CI can assert on findings without a second call.
 */
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct ModulePublishSettled {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub block_reason: ::std::option::Option<::std::string::String>,
@@ -1414,8 +1883,7 @@ pub struct ModulePublishSettled {
     pub name: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub ok: ::std::option::Option<bool>,
+    pub ok: bool,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub policy_results: ::std::vec::Vec<ModulePolicyResult>,
     ///ISO 8601. Note the detail surfaces use ISO here, not epoch millis.
@@ -1444,8 +1912,7 @@ pub struct ModulePublishSettled {
     pub vcs_sha: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub version_id: ::std::option::Option<::std::string::String>,
+    pub version_id: ::std::string::String,
 }
 /**`202`. The archive is stored and the scan is running — it has not failed. Poll
 `GET …/{version}/status`.
@@ -2107,7 +2574,7 @@ impl<'de> ::serde::Deserialize<'de> for OrgMemberIsBillingAdmin {
     }
 }
 ///`OrgSummary`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct OrgSummary {
     ///Email domain whose new sign-ups join this org automatically.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -2121,15 +2588,12 @@ pub struct OrgSummary {
     ///A personal org is the user's own account. Always reports `starter`.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_personal: ::std::option::Option<OrgSummaryIsPersonal>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub name: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub role: ::std::option::Option<Role>,
+    pub name: ::std::string::String,
+    pub role: Role,
     /**URL-safe identity. Accepted anywhere `orgId` appears, and it is the `namespace` segment
     for this org's modules.
     */
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub slug: ::std::option::Option<::std::string::String>,
+    pub slug: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub tier: ::std::option::Option<Tier>,
 }
@@ -4292,6 +4756,33 @@ pub struct PublicStateFinding {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub title: ::std::option::Option<::std::string::String>,
 }
+///`PublishModuleVersionResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum PublishModuleVersionResponse {
+    Pending(ModulePublishPending),
+    Settled(ModulePublishSettled),
+}
+impl ::std::convert::From<ModulePublishPending> for PublishModuleVersionResponse {
+    fn from(value: ModulePublishPending) -> Self {
+        Self::Pending(value)
+    }
+}
+impl ::std::convert::From<ModulePublishSettled> for PublishModuleVersionResponse {
+    fn from(value: ModulePublishSettled) -> Self {
+        Self::Settled(value)
+    }
+}
+///`PushStateResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PushStateResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serial: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_id: ::std::option::Option<::std::string::String>,
+}
 /**Returned with `402`. A tier limit is a business outcome, not an application error — it is
 recorded as such in telemetry and never pages anyone.
 */
@@ -4419,6 +4910,46 @@ pub struct RecordsEventRecordsItemS3Object {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub key: ::std::option::Option<::std::string::String>,
 }
+///`RefreshProviderVcsStatsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct RefreshProviderVcsStatsResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for RefreshProviderVcsStatsResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<RefreshProviderVcsStatsResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: RefreshProviderVcsStatsResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for RefreshProviderVcsStatsResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///`RegisterCurrentUserResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct RegisterCurrentUserResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_new_user: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub user: ::std::option::Option<User>,
+}
+///`RegisterFeatureInterestResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct RegisterFeatureInterestResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+}
 #[doc = "The Terraform Registry Protocol's error envelope. Used **only** on `/v1/*` routes, because\n`terraform`/`tofu` surface `detail` to the operator verbatim — which is how a policy block\nexplains itself at the point of failure.\n"]
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct RegistryErrors {
@@ -4477,6 +5008,15 @@ pub struct RequiredProviderRef {
     ///The constraint as written, or `null` when the source omitted one.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version_constraint: ::std::option::Option<::std::string::String>,
+}
+///`RescanAllModuleVersionsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct RescanAllModuleVersionsResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    ///Versions enqueued.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queued: ::std::option::Option<i64>,
 }
 /**Org role, ranked `reader` < `member` < `admin` < `owner`. A guard states a minimum, so a
 higher role always passes. Machine identities never exceed `member` whatever this says.
@@ -4538,6 +5078,12 @@ impl ::std::convert::TryFrom<::std::string::String> for Role {
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
+}
+///`RotateOrgTokenResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct RotateOrgTokenResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub client_secret: ::std::option::Option<::std::string::String>,
 }
 /**Read both booleans. `claimed: false, proceed: true` is the interesting case: a previous
 attempt may have died mid-run, and re-scanning is safe because ingest is a race-safe
@@ -4746,6 +5292,22 @@ pub struct ServeOverrideResponse {
     pub ok: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub serve_override: ::std::option::Option<ServeOverride>,
+}
+///`SetPlanPolicyConfigResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct SetPlanPolicyConfigResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub config: ::std::option::Option<GateConfig>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+}
+///`SetWorkspacePlanPolicyConfigResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct SetWorkspacePlanPolicyConfigResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub config: ::std::option::Option<GateConfig>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
 }
 /**Finding severity for state findings.
 */
@@ -5850,6 +6412,58 @@ impl ::std::convert::TryFrom<::std::string::String> for TokenScope {
         value.parse()
     }
 }
+///The updated artefact fields.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct UpdateOrgProviderResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for UpdateOrgProviderResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<UpdateOrgProviderResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: UpdateOrgProviderResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for UpdateOrgProviderResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
+///`UploadLockFileResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct UploadLockFileResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for UploadLockFileResponse {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<UploadLockFileResponse>
+    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
+{
+    fn from(value: UploadLockFileResponse) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+    for UploadLockFileResponse
+{
+    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+        Self(value)
+    }
+}
 /**A public provider registry Terramantle mirrors from. The client's `User-Agent` decides
 which lineage an org serves when it manages both (`OpenTofu/` ⇒ `opentofu.org`).
 */
@@ -6361,6 +6975,25 @@ pub struct WorkspaceProvidersResponseLockFile {
     pub uploaded_at: ::std::option::Option<Timestamp>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub uploaded_by: ::std::option::Option<::std::string::String>,
+}
+///`YankProviderVersionResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct YankProviderVersionResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub yanked_rows: ::std::option::Option<i64>,
 }
 /// Error types.
 pub mod error {
