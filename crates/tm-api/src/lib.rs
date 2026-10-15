@@ -18,6 +18,13 @@
 pub mod client;
 pub mod error;
 pub mod models;
+pub mod spec;
+
+/// Types and the operation registry generated from `spec/openapi.json`.
+///
+/// Regenerate with `cargo xtask codegen`; CI runs `--check` and fails on a stale
+/// tree. Nothing in here is hand-edited.
+pub mod generated;
 
 mod modules;
 mod orgs;
@@ -28,7 +35,11 @@ pub mod types;
 pub use client::{HttpClient, RefreshHook};
 pub use error::{ApiError, ErrorBody};
 pub use models::*;
+pub use spec::{Method, Op, ParamKind, PathError};
 pub use state::{VERSIONS_PAGE_DEFAULT, VERSIONS_PAGE_MAX};
+
+/// Shorthand for the generated operation registry: `tm_api::ops::LIST_ORG_PROVIDERS`.
+pub use generated::operations as ops;
 
 /// The typed Terramantle API client. Construct with a resolved bearer token +
 /// api_url; call one method per §7 endpoint.

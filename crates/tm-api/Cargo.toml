@@ -6,6 +6,13 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[lib]
+# The generated models carry the spec's prose as doc comments. Markdown lists and
+# wrapped paragraphs inside a `/** */` block read to rustdoc as indented code
+# blocks, so they get collected as doctests and fail to compile -- they are
+# documentation, not examples. This crate has no hand-written doctests.
+doctest = false
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }

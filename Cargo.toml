@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["xtask"]
 members = [
     "crates/cli",
     "crates/tm-config",

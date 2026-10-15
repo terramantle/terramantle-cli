@@ -1,0 +1,5 @@
+[alias]
+# `xtask` is deliberately NOT a workspace member (see `exclude` in Cargo.toml),
+# so `cargo build --all --release` and cargo-dist never pull in its codegen
+# dependencies. That also means it needs its own manifest path here.
+xtask = "run --manifest-path xtask/Cargo.toml --quiet --"

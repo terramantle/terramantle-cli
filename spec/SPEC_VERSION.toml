@@ -1,0 +1,8 @@
+# Written by `cargo xtask spec pull`. The spec this build was generated against.
+# `cargo xtask codegen` reads spec/openapi.json and NEVER the network, so a build
+# is reproducible from this pin alone.
+version = "1.0.0"
+sha256 = "cba69b1135c0127cd7cd12e82e3fc4c98628f79c15d6e69ecd693021028f6b7f"
+source = "packages/worker/openapi/dist/openapi.json"
+origin = "git:6c15fb76f2ed2d4513d19a29149f14722648d07e"
+paths = 161

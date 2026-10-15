@@ -27,6 +27,13 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
+      # The generated client must match the VENDORED spec. Entirely local and
+      # offline -- it never fetches, so a monorepo deploy cannot break this job.
+      # Drift between the vendored spec and production is a separate, non-gating
+      # workflow (spec-drift.yml).
+      - name: Codegen is up to date
+        run: cargo xtask codegen --check
+
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 

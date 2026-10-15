@@ -1,0 +1,5 @@
+# Written by `cargo xtask codegen`; reviewable, but collapsed by default in diffs.
+crates/tm-api/src/generated/*.rs linguist-generated=true
+# The vendored contract. Diffing it by hand is rarely useful; `cargo xtask spec pull`
+# is what changes it, and spec/SPEC_VERSION.toml records which version is pinned.
+spec/openapi.json linguist-generated=true

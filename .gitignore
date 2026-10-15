@@ -1,4 +1,6 @@
 /target
+# xtask is excluded from the workspace, so it builds into its own target dir.
+/xtask/target
 **/*.rs.bk
 *.pdb
 Cargo.lock.orig

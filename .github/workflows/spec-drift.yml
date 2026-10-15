@@ -1,0 +1,97 @@
+# Is the vendored spec still what production serves?
+#
+# Deliberately SEPARATE from `ci`, and deliberately non-gating. A release must be
+# able to pin an older spec and still build, and a monorepo deploy must not turn
+# every open CLI pull request red. So this notifies; it never blocks.
+#
+# The gating check is `cargo xtask codegen --check` in ci.yml, which compares the
+# generated tree against the vendored spec and needs no network at all.
+name: spec-drift
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    name: vendored spec vs production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Resolve the spec URL the way the spec says to, rather than hardcoding it:
+      # the CLI discovery document advertises it under `api_spec.openapi_url`.
+      - name: Resolve the spec URL from discovery
+        id: resolve
+        run: |
+          set -euo pipefail
+          base="${TERRAMANTLE_API_URL:-https://registry.terramantle.dev}"
+          url=$(curl -sSf "$base/.well-known/terramantle-cli.json" \
+                | jq -r '.api_spec.openapi_url // empty')
+          if [ -z "$url" ]; then
+            url="$base/openapi.json"
+            echo "discovery advertised no api_spec.openapi_url; falling back to $url"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Compare
+        id: compare
+        run: |
+          set -euo pipefail
+          curl -sSf "${{ steps.resolve.outputs.url }}" -o /tmp/live.json
+          live=$(shasum -a 256 /tmp/live.json | awk '{print $1}')
+          pinned=$(tr -d '[:space:]' < spec/openapi.sha256)
+          echo "pinned: $pinned"
+          echo "live:   $live"
+          if [ "$live" = "$pinned" ]; then
+            echo "drift=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "drift=yes" >> "$GITHUB_OUTPUT"
+          # Summarise WHAT moved, not just that something did: a reworded
+          # description is not the same news as a removed operation.
+          ops() {
+            jq -r '.paths | to_entries[] as $e | $e.value | to_entries[]
+                   | select(.key | test("^(get|put|post|delete|patch|head)$"))
+                   | "\(.key | ascii_upcase) \($e.key)"' "$1" | sort
+          }
+          ops spec/openapi.json > /tmp/pinned-ops.txt
+          ops /tmp/live.json    > /tmp/live-ops.txt
+          {
+            echo "### Vendored OpenAPI spec differs from production"
+            echo
+            echo "- pinned \`$pinned\`"
+            echo "- live   \`$live\`"
+            echo
+            echo "**Only in the vendored spec** — removed upstream, so the CLI may be calling"
+            echo "endpoints that no longer exist. These are the dangerous ones:"
+            comm -23 /tmp/pinned-ops.txt /tmp/live-ops.txt | sed 's/^/- /'
+            echo
+            echo "**Only in production** — new upstream, nothing broken:"
+            comm -13 /tmp/pinned-ops.txt /tmp/live-ops.txt | sed 's/^/- /'
+            echo
+            echo "If neither list has entries, only schemas or descriptions moved."
+            echo
+            echo "Refresh with \`cargo xtask spec pull && cargo xtask codegen\`, then commit."
+          } > /tmp/report.md
+          cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the drift issue
+        if: steps.compare.outputs.drift == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="Vendored OpenAPI spec is behind production"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/report.md
+          else
+            gh issue create --title "$title" --body-file /tmp/report.md --label spec-drift || \
+              gh issue create --title "$title" --body-file /tmp/report.md
+          fi
