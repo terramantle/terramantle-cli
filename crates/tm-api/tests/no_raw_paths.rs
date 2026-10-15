@@ -24,14 +24,11 @@ const SOURCES: &[(&str, &str)] = &[
 ///
 /// Every one of these is a path the spec already describes; the entry exists
 /// only because its module has not been migrated to `tm_api::ops` yet.
-const KNOWN_RAW_PATHS: &[(&str, usize)] = &[
-    // Includes `/v1/modules/{ns}/{name}/{provider}`, which is not a route at
-    // all: it 404s while its siblings 401. The last module left to migrate.
-    ("modules.rs", 4),
-    // `providers.rs`, `state.rs` and `orgs.rs` are migrated and deliberately
-    // absent: `fully_migrated_modules_have_no_path_literals` holds them at zero
-    // permanently, so they cannot regress.
-];
+/// Empty: every endpoint module now builds its paths from the spec.
+///
+/// `fully_migrated_modules_have_no_path_literals` holds all four at zero from
+/// here, so none of them can quietly go back to `format!`.
+const KNOWN_RAW_PATHS: &[(&str, usize)] = &[];
 
 /// Count string literals that look like an API path, in PRODUCTION code.
 ///

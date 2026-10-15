@@ -15,6 +15,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
+use tm_api::PublishModuleVersionResponse;
 
 use serde::Serialize;
 use tm_release::{
@@ -388,10 +389,22 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         );
         match ack {
             Ok(resp) => {
-                eprintln!(
-                    "    uploaded · status {} (tag {tag} on `terramantle repo tag`)",
-                    resp.status.as_deref().unwrap_or("ok")
-                );
+                // The publish response is a genuine union. Settled means the
+                // scan finished inside the request and the verdict is in hand;
+                // pending means it did not, and the version is not consumable
+                // yet. The old model could not tell these apart -- every field
+                // was optional, so a still-scanning publish read as a settled
+                // one with nothing to report.
+                let status = match &resp {
+                    PublishModuleVersionResponse::Settled(s) => s
+                        .status
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "published".to_string()),
+                    PublishModuleVersionResponse::Pending(p) => {
+                        format!("{} (scan still running)", p.status)
+                    }
+                };
+                eprintln!("    uploaded · status {status} (tag {tag} on `terramantle repo tag`)");
                 rows.push(PublishRow {
                     name: plan.name.clone(),
                     path: plan.rel_dir.clone(),

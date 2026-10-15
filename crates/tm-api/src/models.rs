@@ -27,134 +27,9 @@ use serde::{Deserialize, Serialize};
 // Source: ModuleService.ts `SearchResponse`, `RegistryVersionSummary`,
 // `RegistryVersionResponse`, `RegistryVersionsResponse`.
 
-/// Result of `GET /v1/modules/search`.
-///
-/// NOTE (rubric 6): the worker's `SearchResponse` does **not** carry a `total`
-/// field — it paginates via `meta.next_offset` (null = no more pages). The slice
-/// brief asked to "model `total`"; the honest wire shape is modelled here instead,
-/// with `total` intentionally absent. `next_offset` is the paging cursor.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleSearchResponse {
-    #[serde(default)]
-    pub modules: Vec<ModuleSummary>,
-    #[serde(default)]
-    pub meta: SearchMeta,
-}
-
-/// Pagination metadata for module search.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SearchMeta {
-    #[serde(default)]
-    pub limit: u64,
-    #[serde(default)]
-    pub current_offset: u64,
-    /// Offset of the next page, or `None` when this is the last page.
-    #[serde(default)]
-    pub next_offset: Option<u64>,
-}
-
-/// A module search hit (`RegistryVersionSummary`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleSummary {
-    pub id: String,
-    pub namespace: String,
-    pub name: String,
-    pub version: String,
-    #[serde(default)]
-    pub published_at: Option<String>,
-    #[serde(default)]
-    pub description: Option<String>,
-    #[serde(default)]
-    pub deprecated: bool,
-    #[serde(default)]
-    pub deprecated_message: Option<String>,
-    #[serde(default)]
-    pub download_url: Option<String>,
-}
-
-/// Full module version detail (`GET /v1/modules/{ns}/{name}/{provider}` →
-/// `RegistryVersionResponse`). Heavy fields (readme, findings) are kept but
-/// loosely typed; the CLI renders the summary counts + provenance.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModuleDetail {
-    pub id: String,
-    pub namespace: String,
-    pub name: String,
-    pub version: String,
-    #[serde(default)]
-    pub published_at: Option<String>,
-    #[serde(default)]
-    pub description: Option<String>,
-    #[serde(default)]
-    pub deprecated: bool,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub summary: Option<ModuleSummaryCounts>,
-    #[serde(default)]
-    pub consumable: bool,
-    #[serde(default)]
-    pub manually_blocked: bool,
-    #[serde(default)]
-    pub block_reason: Option<String>,
-    #[serde(default)]
-    pub readme: Option<String>,
-    #[serde(default)]
-    pub usage_example: Option<String>,
-}
-
-/// Severity/cost rollup on a module version.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ModuleSummaryCounts {
-    #[serde(default)]
-    pub critical: u64,
-    #[serde(default)]
-    pub high: u64,
-    #[serde(default)]
-    pub medium: u64,
-    #[serde(default)]
-    pub low: u64,
-    #[serde(default)]
-    pub cost_estimate: Option<String>,
-}
-
-/// Terraform-protocol module versions list
-/// (`GET /v1/modules/{ns}/{name}/{provider}/versions`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleVersionsResponse {
-    #[serde(default)]
-    pub modules: Vec<ModuleVersionsEntry>,
-}
-
-/// One entry in the module versions protocol response.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleVersionsEntry {
-    #[serde(default)]
-    pub versions: Vec<ModuleVersionRef>,
-}
-
-/// A bare `{version}` row.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleVersionRef {
-    pub version: String,
-}
-
 // ── modules: publish ───────────────────────────────────────────────────────────
 // Source: the module-publish endpoint `PUT /v1/modules/{ns}/{name}/{provider}/{version}`
 // (§6 step 5) → `{ ok, version_id, storage_key?, status? }`. Returns 201 on success.
-
-/// Response from a module-version publish.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModulePublishResponse {
-    #[serde(default)]
-    pub ok: bool,
-    #[serde(default)]
-    pub version_id: String,
-    #[serde(default)]
-    pub storage_key: Option<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-}
 
 // ── state: workspaces + versions ───────────────────────────────────────────────
 // Source: StateService.ts `WorkspaceSummary`, `VersionSummary`; state.ts handlers
@@ -247,6 +122,26 @@ pub use crate::generated::models::{
     VersionScanRollup, WorkspaceProvider, WorkspaceProvidersResponse,
     WorkspaceProvidersResponseLockFile as LockFileMeta,
 };
+
+// ── modules: now generated ───────────────────────────────────────────────────
+//
+// `ModuleDetail` is gone with the versionless path it described: the CLI asked
+// for `/v1/modules/{ns}/{name}/{provider}`, which the worker does not route.
+// Detail is per version, so the generated `ModuleVersionDetail` replaces it —
+// and carries the VCS provenance, findings and policy results the old model did
+// not declare.
+
+/// A registry search hit. Was `ModuleSummary`; the severity fields are spelled
+/// `*_count` here, as the server sends them.
+pub use crate::generated::models::ModuleSearchHit as ModuleSummary;
+/// The search response, with its `meta.next_offset` cursor.
+pub use crate::generated::models::ModuleSearchResponse;
+/// One module version's full detail. Was `ModuleDetail`.
+pub use crate::generated::models::ModuleVersionDetail;
+/// The Terraform-protocol versions list.
+pub use crate::generated::models::ModuleVersionsResponse;
+/// A publish acknowledgement: settled, or still scanning.
+pub use crate::generated::models::PublishModuleVersionResponse;
 
 // ── providers: now generated ──────────────────────────────────────────────────
 //

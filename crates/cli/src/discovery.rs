@@ -11,11 +11,10 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 use tm_api::generated::models::{
-    ProviderArtefactDetail, ProviderArtefactSummary, ProviderUpstream, ProviderVersionRow,
+    ModuleSearchResponse, ModuleVersionDetail, ProviderArtefactDetail, ProviderArtefactSummary,
+    ProviderUpstream, ProviderVersionRow,
 };
-use tm_api::{
-    Client, ModuleDetail, ModuleSearchResponse, ModuleSummary, OrgMembership, VersionScanRollup,
-};
+use tm_api::{Client, ModuleSummary, OrgMembership, VersionScanRollup};
 use tm_config::OutputFormat;
 
 use crate::auth::{self};
@@ -255,7 +254,16 @@ pub fn providers(command: &ProvidersCommand, cli: &Cli) -> CmdResult {
 pub fn modules(command: &ModulesCommand, cli: &Cli) -> CmdResult {
     match command {
         ModulesCommand::Search { query, limit, all } => modules_search(cli, query, *limit, *all),
-        ModulesCommand::Show { module } => modules_show(cli, module),
+        ModulesCommand::Show { module } => {
+            // `<ns>/<name>/<provider>` optionally suffixed `@<version>`. Module
+            // detail is per version, so without a suffix the newest is used.
+            let (addr, version) = match module.split_once('@') {
+                Some((addr, v)) if !v.is_empty() => (addr, Some(v)),
+                Some((addr, _)) => (addr, None),
+                None => (module.as_str(), None),
+            };
+            modules_show(cli, addr, version)
+        }
         ModulesCommand::Changed { all } => crate::publish::changed(cli, *all),
         ModulesCommand::Publish(args) => crate::publish::publish(cli, args),
     }
@@ -614,16 +622,16 @@ fn modules_search(cli: &Cli, query: &str, limit: Option<u64>, all: bool) -> CmdR
             Err(e) => return Ok(api_fail(&e)),
         };
         hits.extend(resp.modules);
-        match resp.meta.next_offset {
+        match resp.meta.as_ref().and_then(|m| m.next_offset) {
             // A non-advancing cursor would loop forever — treat it as the end.
-            Some(next) if all && next > offset => {
+            Some(next) if all && next > offset as i64 => {
                 if hits.len() >= SEARCH_ALL_CAP {
                     eprintln!(
                         "note: stopped at {SEARCH_ALL_CAP} results (more available; narrow the query)"
                     );
                     break;
                 }
-                offset = next;
+                offset = next.max(0) as u64;
             }
             _ => break,
         }
@@ -643,7 +651,11 @@ fn modules_search(cli: &Cli, query: &str, limit: Option<u64>, all: bool) -> CmdR
 pub fn render_modules_search(hits: &[ModuleSummary]) -> String {
     let mut view = TableView::new(["namespace", "name", "latest"]);
     for m in hits {
-        view.row([m.namespace.clone(), m.name.clone(), m.version.clone()]);
+        view.row([
+            m.namespace.clone().unwrap_or_else(|| DASH.to_string()),
+            m.name.clone().unwrap_or_else(|| DASH.to_string()),
+            m.version.clone().unwrap_or_else(|| DASH.to_string()),
+        ]);
     }
     format!("{}\n", view.render())
 }
@@ -654,11 +666,11 @@ pub fn render_modules_search(hits: &[ModuleSummary]) -> String {
 #[derive(Debug, Clone, Serialize)]
 pub struct ModuleShow {
     #[serde(flatten)]
-    pub detail: ModuleDetail,
+    pub detail: ModuleVersionDetail,
     pub versions: Vec<String>,
 }
 
-fn modules_show(cli: &Cli, module: &str) -> CmdResult {
+fn modules_show(cli: &Cli, module: &str, wanted_version: Option<&str>) -> CmdResult {
     let (ns, name, provider) = match split_three(module) {
         Ok(v) => v,
         Err(e) => {
@@ -672,16 +684,44 @@ fn modules_show(cli: &Cli, module: &str) -> CmdResult {
         Err(code) => return Ok(code),
     };
 
-    let detail = match client.module_show(&ns, &name, &provider) {
-        Ok(d) => d,
-        Err(e) => return Ok(api_fail(&e)),
-    };
-    let versions = match client.module_versions(&ns, &name, &provider) {
+    // Versions FIRST, because detail is per version and the old call requested a
+    // versionless path the worker does not route.
+    let mut versions = match client.module_versions(&ns, &name, &provider) {
         Ok(v) => v
             .modules
             .into_iter()
-            .flat_map(|m| m.versions.into_iter().map(|r| r.version))
+            .flat_map(|m| m.versions.into_iter().filter_map(|r| r.version))
             .collect::<Vec<_>>(),
+        Err(e) => return Ok(api_fail(&e)),
+    };
+    versions.sort_by(|a, b| semver_cmp(b, a));
+    versions.dedup();
+
+    // Which version to describe: the one asked for, else the newest published.
+    let target = match wanted_version {
+        Some(v) if !versions.iter().any(|known| known == v) => {
+            eprintln!(
+                "error: {ns}/{name}/{provider} has no version {v}. Known versions: {}",
+                if versions.is_empty() {
+                    "none".to_string()
+                } else {
+                    versions.join(", ")
+                }
+            );
+            return Ok(6);
+        }
+        Some(v) => v.to_string(),
+        None => match versions.first() {
+            Some(v) => v.clone(),
+            None => {
+                eprintln!("error: {ns}/{name}/{provider} has no published versions");
+                return Ok(6);
+            }
+        },
+    };
+
+    let detail = match client.module_version(&ns, &name, &provider, &target) {
+        Ok(d) => d,
         Err(e) => return Ok(api_fail(&e)),
     };
 
@@ -701,13 +741,20 @@ pub fn render_module_show(show: &ModuleShow) -> String {
     let d = &show.detail;
     // `provider` isn't a field on ModuleDetail, so the header is ns/name; the
     // summary block below carries description/source/latest.
-    let mut out = format!("{}/{}\n", d.namespace, d.name);
+    let mut out = format!(
+        "{}/{}\n",
+        d.namespace.as_deref().unwrap_or(DASH),
+        d.name.as_deref().unwrap_or(DASH)
+    );
     if let Some(desc) = &d.description {
         if !desc.is_empty() {
             out.push_str(&format!("{desc}\n"));
         }
     }
-    out.push_str(&format!("latest   {}\n", d.version));
+    out.push_str(&format!(
+        "version  {}\n",
+        d.version.as_deref().unwrap_or(DASH)
+    ));
     out.push('\n');
 
     let mut view = TableView::new(["version"]);

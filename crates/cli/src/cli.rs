@@ -169,9 +169,12 @@ pub enum ModulesCommand {
         #[arg(long)]
         all: bool,
     },
-    /// Show a module.
+    /// Show a module version.
     Show {
-        /// `<ns>/<name>/<provider>`.
+        /// `<ns>/<name>/<provider>`, optionally `@<version>`.
+        ///
+        /// Detail is per version, so without a `@<version>` suffix the newest
+        /// published version is described.
         module: String,
     },
     /// List changed modules + proposed next semver (network-free; CI-consumable).
