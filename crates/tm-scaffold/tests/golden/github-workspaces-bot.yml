@@ -15,9 +15,11 @@
 # downloaded by anyone, so this pipeline is only safe on a private or internal
 # repo. Retention is 1 day to bound the exposure.
 #
-# Auth uses bot client credentials, not OIDC. Set the repo secrets
+# Auth uses a BOT TOKEN, not OIDC. Create one in the portal under Settings →
+# Tokens, then set its Client ID and Client Secret as the repo secrets
 # TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET (Settings → Secrets and
-# variables → Actions). No VCS trust entry is needed for this grant.
+# variables → Actions). No VCS trust entry is needed: the token carries its
+# own identity rather than borrowing the repo's.
 name: terramantle
 
 on:
@@ -57,8 +59,8 @@ env:
   # planning options, but honours these.
   TF_IN_AUTOMATION: "1"
   TF_INPUT: "0"
-  # auth=bot: client credentials from repo secrets. The explicit auth mode
-  # stops detection falling through to the ambient GitHub OIDC token.
+  # auth=bot: a portal-created bot token. The explicit auth mode stops
+  # detection falling through to the ambient GitHub OIDC token.
   TERRAMANTLE_AUTH_MODE: client
   TERRAMANTLE_CLIENT_ID: ${{ secrets.TERRAMANTLE_CLIENT_ID }}
   TERRAMANTLE_CLIENT_SECRET: ${{ secrets.TERRAMANTLE_CLIENT_SECRET }}

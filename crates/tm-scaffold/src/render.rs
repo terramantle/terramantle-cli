@@ -380,8 +380,8 @@ fn conditional_blocks(m: &Manifest) -> Vec<(&'static str, String)> {
     let gh_bot_env = if oidc {
         String::new()
     } else {
-        "  # auth=bot: client credentials from repo secrets. The explicit auth mode\n\
-         \x20 # stops detection falling through to the ambient GitHub OIDC token.\n\
+        "  # auth=bot: a portal-created bot token. The explicit auth mode stops\n\
+         \x20 # detection falling through to the ambient GitHub OIDC token.\n\
          \x20 TERRAMANTLE_AUTH_MODE: client\n\
          \x20 TERRAMANTLE_CLIENT_ID: ${{ secrets.TERRAMANTLE_CLIENT_ID }}\n\
          \x20 TERRAMANTLE_CLIENT_SECRET: ${{ secrets.TERRAMANTLE_CLIENT_SECRET }}\n"
@@ -399,7 +399,7 @@ fn conditional_blocks(m: &Manifest) -> Vec<(&'static str, String)> {
             registry_url(m)
         )
     } else {
-        "# auth=bot: client credentials from masked CI/CD variables\n\
+        "# auth=bot: a portal-created bot token, supplied as masked CI/CD variables\n\
          # (TERRAMANTLE_CLIENT_ID / TERRAMANTLE_CLIENT_SECRET on the project).\n\
          # The explicit mode stops detection falling through to GitLab OIDC.\n\
          .ci_auth:\n  \
@@ -425,15 +425,18 @@ fn conditional_blocks(m: &Manifest) -> Vec<(&'static str, String)> {
              # Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.\n"
         }
         (false, true) => {
-            "# Auth uses bot client credentials, not OIDC. Set the repo secrets\n\
+            "# Auth uses a BOT TOKEN, not OIDC. Create one in the portal under Settings →\n\
+             # Tokens, then set its Client ID and Client Secret as the repo secrets\n\
              # TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET (Settings → Secrets and\n\
-             # variables → Actions). No VCS trust entry is needed for this grant.\n"
+             # variables → Actions). No VCS trust entry is needed: the token carries its\n\
+             # own identity rather than borrowing the repo's.\n"
         }
         (false, false) => {
-            "# Auth uses bot client credentials, not OIDC — self-managed GitLab cannot use\n\
-             # keyless auth, because the registry trusts only the literal gitlab.com issuer.\n\
-             # Set TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET as masked CI/CD\n\
-             # variables. No VCS trust entry is needed for this grant.\n"
+            "# Auth uses a BOT TOKEN, not OIDC — a self-managed GitLab cannot use keyless\n\
+             # auth, because the registry trusts only the literal gitlab.com issuer. Create\n\
+             # a bot token in the portal under Settings → Tokens and set its Client ID and\n\
+             # Client Secret as the masked CI/CD variables TERRAMANTLE_CLIENT_ID and\n\
+             # TERRAMANTLE_CLIENT_SECRET. No VCS trust entry is needed for this grant.\n"
         }
     }
     .to_string();

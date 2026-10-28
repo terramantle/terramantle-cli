@@ -23,16 +23,30 @@ struct TokenResponse {
 }
 
 /// Client-credentials exchange (§5, bot flow): `POST {token_endpoint}` with
-/// `grant_type=client_credentials`. The token endpoint is the absolute URL from
-/// the issuer's OIDC metadata and the scopes come from discovery — no
-/// provider-specific path or parameter is assumed. The token's audience is the
-/// IdP's business (configured server-side, typically via a scope mapping), not
-/// a request parameter.
+/// `grant_type=client_credentials`.
+///
+/// **The parameter names do not mean what the grant name suggests.** A bot token
+/// is created in the portal, and the IdP models it as a service ACCOUNT under a
+/// single shared confidential provider rather than as its own OAuth client. So:
+///
+/// * `client_id` is the *provider's* id (the same value for every bot token in
+///   the deployment), discovered from `oidc.bot_client_id`;
+/// * `username` is the bot token's **Client ID**;
+/// * `password` is its **Client Secret**.
+///
+/// Sending the token's own id/secret as `client_id`/`client_secret` — the
+/// obvious reading, and what this did before 0.9.0 — is rejected by the IdP,
+/// because no OAuth client by that name exists.
+///
+/// The token endpoint is the absolute URL from the issuer's OIDC metadata and
+/// the scopes come from discovery, so no provider-specific path is assumed. The
+/// audience is the IdP's business (a scope mapping), not a request parameter.
 pub fn client_credentials(
     token_endpoint: &str,
     scope: &str,
-    client_id: &str,
-    client_secret: &str,
+    provider_client_id: &str,
+    token_client_id: &str,
+    token_client_secret: &str,
 ) -> Result<String, AuthError> {
     let client = HttpClient::new("");
     let resp: TokenResponse = client
@@ -40,8 +54,9 @@ pub fn client_credentials(
             token_endpoint,
             &[
                 ("grant_type", "client_credentials"),
-                ("client_id", client_id),
-                ("client_secret", client_secret),
+                ("client_id", provider_client_id),
+                ("username", token_client_id),
+                ("password", token_client_secret),
                 ("scope", scope),
             ],
         )

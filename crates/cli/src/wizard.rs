@@ -375,7 +375,8 @@ pub fn resolve_ci_auth(choice: &VcsChoice, args: &InitArgs) -> CiAuth {
     if choice.oidc_unsupported {
         eprintln!(
             "  ! self-managed GitLab detected. Keyless OIDC needs the literal gitlab.com\n    \
-             issuer, so this repo is scaffolded with auth=bot (client credentials)."
+             issuer, so this repo is scaffolded with auth=bot. Create a bot token in\n    \
+             the portal under Settings → Tokens."
         );
         return CiAuth::Bot;
     }

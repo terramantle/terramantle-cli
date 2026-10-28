@@ -16,10 +16,11 @@
 # artifacts via the runner API unless the project's CI/CD artifact visibility
 # is set to "Only project members".
 #
-# Auth uses bot client credentials, not OIDC — self-managed GitLab cannot use
-# keyless auth, because the registry trusts only the literal gitlab.com issuer.
-# Set TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET as masked CI/CD
-# variables. No VCS trust entry is needed for this grant.
+# Auth uses a BOT TOKEN, not OIDC — a self-managed GitLab cannot use keyless
+# auth, because the registry trusts only the literal gitlab.com issuer. Create
+# a bot token in the portal under Settings → Tokens and set its Client ID and
+# Client Secret as the masked CI/CD variables TERRAMANTLE_CLIENT_ID and
+# TERRAMANTLE_CLIENT_SECRET. No VCS trust entry is needed for this grant.
 #
 # Required CI/CD variables:
 #   GITHUB_TOKEN    (masked) — tflint plugin downloads; without it the job shares
@@ -81,7 +82,7 @@ variables:
 # `extends:` with hidden jobs, not YAML anchors: GitLab documents extends as the
 # recommended mechanism and it deep-merges, which anchors do not.
 
-# auth=bot: client credentials from masked CI/CD variables
+# auth=bot: a portal-created bot token, supplied as masked CI/CD variables
 # (TERRAMANTLE_CLIENT_ID / TERRAMANTLE_CLIENT_SECRET on the project).
 # The explicit mode stops detection falling through to GitLab OIDC.
 .ci_auth:

@@ -40,6 +40,14 @@ pub enum AuthError {
     SessionExpired,
     #[error("device login not yet available; use a bot token or CI OIDC")]
     DeviceUnavailable,
+    /// The deployment advertises no `oidc.bot_client_id`, so there is no
+    /// provider to authenticate a bot token against. Distinct from a bad
+    /// credential: nothing the user can put in the environment will help.
+    #[error(
+        "this registry does not advertise a bot-token client (`oidc.bot_client_id`), so \
+         bot auth is unavailable here; upgrade the registry or run `terramantle auth login`"
+    )]
+    BotUnavailable,
     #[error("device authorization expired before it was approved")]
     DeviceExpired,
     #[error("malformed JWT: {0}")]
@@ -107,15 +115,27 @@ pub fn resolve_token(ctx: &AuthContext) -> Result<String, AuthError> {
         AuthMode::ClientCredentials => {
             let disco = discovery::fetch(&ctx.api_url)?;
             let scope = disco.scopes().to_string();
+            // The provider every bot token lives under. Discovered, never
+            // compiled in: it is deployment-specific, and a wrong value fails
+            // as an opaque `invalid_client` from the IdP.
+            let provider_client_id = disco
+                .oidc
+                .bot_client_id
+                .clone()
+                .ok_or(AuthError::BotUnavailable)?;
             let endpoints = oidc_endpoints(ctx, disco)?;
-            let client_id = env("TERRAMANTLE_CLIENT_ID").ok_or(AuthError::NotAuthenticated)?;
-            let client_secret =
+            // These are the bot token's OWN credentials, which the grant carries
+            // as username/password — see `flows::client_credentials`.
+            let token_client_id =
+                env("TERRAMANTLE_CLIENT_ID").ok_or(AuthError::NotAuthenticated)?;
+            let token_client_secret =
                 env("TERRAMANTLE_CLIENT_SECRET").ok_or(AuthError::NotAuthenticated)?;
             flows::client_credentials(
                 &endpoints.token_endpoint,
                 &scope,
-                &client_id,
-                &client_secret,
+                &provider_client_id,
+                &token_client_id,
+                &token_client_secret,
             )
         }
         AuthMode::GitHub => {

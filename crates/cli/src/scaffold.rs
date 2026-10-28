@@ -186,7 +186,9 @@ fn next_steps<W: Write>(w: &mut W, m: &Manifest) {
     if m.ci.auth == tm_scaffold::CiAuth::Bot {
         let _ = writeln!(
             w,
-            "  · auth=bot: set TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET as CI secrets."
+            "  · auth=bot: create a bot token in the portal (Settings → Tokens), then set\n    \
+             its Client ID and Client Secret as the CI secrets TERRAMANTLE_CLIENT_ID\n    \
+             and TERRAMANTLE_CLIENT_SECRET."
         );
     }
     let _ = writeln!(

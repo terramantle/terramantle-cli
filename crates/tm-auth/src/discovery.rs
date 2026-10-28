@@ -33,6 +33,15 @@ pub struct OidcConfig {
     /// Null until the public device-flow client is provisioned in the IdP.
     #[serde(default)]
     pub device_client_id: Option<String>,
+    /// The confidential provider every BOT TOKEN authenticates against.
+    ///
+    /// There is no per-bot client: a bot token created in the portal is an IdP
+    /// service account under this one provider, so the client_credentials grant
+    /// sends `client_id` = this, `username` = the token's Client ID and
+    /// `password` = its Client Secret. Null on a deployment that has not
+    /// provisioned one, and on any worker older than 0.9.0.
+    #[serde(default)]
+    pub bot_client_id: Option<String>,
     /// Space-separated scopes the CLI should request (device + client-credentials
     /// flows). Absent → [`DEFAULT_SCOPES`].
     #[serde(default)]
@@ -279,5 +288,30 @@ mod tests {
         }"#;
         let d: Discovery = serde_json::from_str(json).unwrap();
         assert_eq!(d.vcs_audience(None), "https://reg");
+    }
+
+    /// The field that decides whether bot auth is even possible. A worker older
+    /// than 0.9.0 omits it, and the CLI must read that as "unavailable" rather
+    /// than failing to parse the whole discovery document.
+    #[test]
+    fn bot_client_id_is_optional_and_parsed_when_present() {
+        let with = r#"{"issuer":"https://i/","discovery_url":"https://i/.well-known/openid-configuration",
+            "audience":"https://r","bot_client_id":"terramantle-scanner"}"#;
+        let cfg: OidcConfig = serde_json::from_str(with).unwrap();
+        assert_eq!(cfg.bot_client_id.as_deref(), Some("terramantle-scanner"));
+
+        let without = r#"{"issuer":"https://i/","discovery_url":"https://i/.well-known/openid-configuration",
+            "audience":"https://r"}"#;
+        let cfg: OidcConfig = serde_json::from_str(without).unwrap();
+        assert_eq!(cfg.bot_client_id, None, "an older worker must still parse");
+    }
+
+    /// An explicit null is how the worker says "not provisioned".
+    #[test]
+    fn a_null_bot_client_id_reads_as_absent() {
+        let json = r#"{"issuer":"https://i/","discovery_url":"https://i/d",
+            "audience":"https://r","bot_client_id":null}"#;
+        let cfg: OidcConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.bot_client_id, None);
     }
 }

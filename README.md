@@ -47,7 +47,7 @@ TTY-aware status. Full design notes live in the
 - 🚀 **Publish & tag** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz`), `repo tag` (mono `<module>@<version>` release tagging) and `state publish` (per-workspace lock-file upload + posture).
 - 📦 **CI lock-file uploader** — `lock push` with eventually-consistent posture (`--fail-on-atrisk`).
 - 🗄️ **State operations** — `state ls/versions/promote/rollback/unlock`, confirmations + `--force`.
-- 🔐 **Five auth modes, zero hardcoding** — GitHub/GitLab OIDC, device login, bot client-credentials, raw token; OIDC config is fetched from a discovery endpoint at runtime.
+- 🔐 **Five auth modes, zero hardcoding** — GitHub/GitLab OIDC, device login, portal bot tokens, raw token; every client id and endpoint is fetched from a discovery endpoint at runtime.
 - 🧭 **kubectl-style contexts** — switch org/workspace with `context use`.
 - 🖥️ **Cross-platform** — macOS (arm64/x86_64), Linux (x86_64/arm64), Windows; static binaries + Homebrew + shell installer.
 - 🧾 **Scriptable** — clean `-o json|yaml`, stable [exit codes](#exit-codes), `NO_COLOR`/non-TTY aware.
@@ -311,8 +311,19 @@ vendor-specific is hardcoded in the binary; any OIDC-compliant IdP works.
 | `github` | `GITHUB_ACTIONS=true` | Ambient GitHub OIDC id-token (needs `id-token: write`), sent as `Authorization: Bearer`. No static secret. |
 | `gitlab` | `GITLAB_CI=true` | GitLab ID token from `TERRAMANTLE_ID_TOKEN`, same bearer trust path. |
 | `device` | interactive TTY (`auth login`) | OIDC device flow; access/refresh stored in the OS keyring. |
-| `client` | `TERRAMANTLE_CLIENT_ID`/`_SECRET` present | Client-credentials grant (bot). |
+| `client` | `TERRAMANTLE_CLIENT_ID`/`_SECRET` present | A **bot token** created in the portal (Settings → Tokens). See the note below — the two values are not an OAuth client id/secret. |
 | `token` | `TERRAMANTLE_TOKEN` set | Raw bearer, verbatim; skips all flows (escape hatch / testing). A bearer that has **expired** falls through to the keyring and is refreshed, so `eval "$(terramantle auth env)"` twice in one shell doesn't strand you on a dead token. |
+
+> **Bot tokens are not OAuth clients.** The IdP has no per-bot client: a bot
+> token is a service account under one shared confidential provider. So the
+> `client_credentials` grant sends `client_id` = that provider (discovered from
+> `oidc.bot_client_id`, the same for every token in the deployment),
+> `username` = your token's **Client ID** and `password` = its **Client
+> Secret**. Sending the token's own id/secret as `client_id`/`client_secret` —
+> the obvious reading, and what the CLI did before 0.9.0 — is rejected, because
+> no OAuth client by that name exists. A registry that advertises no
+> `oidc.bot_client_id` cannot do bot auth at all, and the CLI says so rather
+> than failing at the token endpoint.
 
 For **human** tokens the org defaults from `GET /api/orgs` when you belong to
 exactly one org. For **CI OIDC / bot** tokens the org is server-resolved from repo
@@ -370,7 +381,7 @@ All `TERRAMANTLE_`-prefixed; URLs have defaults and are overridable.
 | `TERRAMANTLE_WORKSPACE` | — | default workspace |
 | `TERRAMANTLE_CONTEXT` | — | context override |
 | `TERRAMANTLE_TOKEN` | — | raw bearer; skip all auth flows |
-| `TERRAMANTLE_CLIENT_ID` / `_CLIENT_SECRET` | — | client-credentials (bot) |
+| `TERRAMANTLE_CLIENT_ID` / `_CLIENT_SECRET` | — | a portal bot token's Client ID / Client Secret |
 | `TERRAMANTLE_ID_TOKEN` | — | GitLab CI OIDC id-token |
 | `TERRAMANTLE_OUTPUT` | `table` | `table\|wide\|json\|yaml` |
 | `TERRAMANTLE_AUTH_MODE` | `auto` | `auto\|github\|gitlab\|device\|client\|token` |
