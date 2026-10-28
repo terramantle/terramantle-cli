@@ -143,35 +143,84 @@ terramantle completion fish > ~/.config/fish/completions/terramantle.fish
 
 ## Scaffolding (`init` / `upgrade`)
 
-`init` scaffolds a repository; `upgrade` re-scaffolds it idempotently — the same
-create/plan/apply loop you know from `terraform`.
+`init` scaffolds a repository; `upgrade` re-scaffolds it idempotently. Both show
+a plan and confirm before writing — the same create/plan/apply loop you know
+from `terraform`.
+
+`init` is a wizard: anything it cannot infer, it asks. Every question has a flag
+override, and `--yes` (or a non-TTY) runs headless from flags plus what it can
+detect.
 
 ```sh
-cd my-infra-repo && git init          # run from inside a git repo
-terramantle init --artefact modules   # structure=poly, vcs inferred from origin
-#   + terramantle.hcl                  # the repo manifest (your source of truth)
+cd my-infra-repo
+terramantle init
+#   · artefact 'workspaces' (from the directory layout)
+#   + terramantle.hcl                    # the repo manifest (your source of truth)
+#   + terramate.tm.hcl                   # stack orchestration + generated backends
 #   + .github/workflows/terramantle.yml
 #   + .github/CODEOWNERS
-#   + main.tf variables.tf outputs.tf versions.tf README.md   # skeleton
-#   ~ .gitignore                       # terramantle ignore lines merged in
+#   + .tflint.hcl
+#   ~ .gitignore                         # terramantle ignore lines merged in
 ```
 
-- **Structure** — `--structure mono` (many independently-versioned artefacts,
-  `<module>@<version>` tags) or `poly` (one artefact per repo, the default).
-- **Artefact** — `--artefact modules` or `workspaces` (alias: `states`). Selects
-  which CI pipeline is emitted and which `publish` applies.
-- **VCS** — inferred from `git remote get-url origin` (`github.com` → GitHub
-  Actions, `gitlab.*` → GitLab CI). Override with `--vcs`.
-- **CI knobs** — `--ci-auth oidc|bot`, `--tf 1.7,1.9`, `--no-tofu`, `--no-lint`,
-  `--no-scan`, `--no-docs`, `--versioning conventional|manual`.
-  Disabled features are omitted from the emitted pipeline, not left commented.
-- `--yes` runs headless (CI / no prompts).
+It will also offer to register this repo under your org's VCS trust. Without
+that entry a correct pipeline still returns 401 on its first push, because the
+missing state is server-side.
+
+- **Artefact** — `modules` or `workspaces` (alias: `states`). Detected from the
+  directory layout when unambiguous; `--artefact` to set it.
+- **Structure** — `mono` (many independently-versioned artefacts,
+  `<module>@<version>` tags) or `poly` (one artefact per repo).
+- **VCS** — inferred from `git remote get-url origin`. A self-managed GitLab is
+  detected and switched to `auth = bot`: the registry trusts only the literal
+  `gitlab.com` and `token.actions.githubusercontent.com` issuers, so keyless
+  OIDC there can never validate.
+- **Terramate** — offered for workspaces repos. `terramate generate` then owns
+  each stack's `_backend.tf`, and CI fails when the committed output is stale.
+- **CI knobs** — `--ci-auth oidc|bot`, `--tofu 1.13.2`, `--no-terramate`,
+  `--no-lint`, `--no-scan`, `--no-docs`, `--no-pr-comment`, `--default-branch`,
+  `--runner`, `--versioning conventional|manual`. A disabled feature is omitted
+  from the emitted pipeline, not left commented out.
 
 Edit `terramantle.hcl`, then re-render:
 
 ```sh
-terramantle upgrade --diff   # show the plan (+ ~ -), change nothing
-terramantle upgrade          # apply after a confirmation prompt (--yes to skip)
+terramantle upgrade --diff    # show the plan (+ ~ -), change nothing, exit 0
+terramantle upgrade --check   # same, but exit 3 when drifted — for CI
+terramantle upgrade           # apply after a confirmation prompt (--yes to skip)
+```
+
+> **0.9.0 changed the manifest and does not migrate.** A `terramantle.hcl`
+> written by 0.8.x is refused by name (`ci.tofu` → `ci.engine`,
+> `terraform_versions` → `tofu_versions`, `terraform_docs` → `docs`). Delete it
+> and re-run `terramantle init`.
+
+## Checking a repo (`doctor`)
+
+Read-only. Every check here exists because its failure mode is silent or
+misleading somewhere else.
+
+```sh
+terramantle doctor
+#   [ok  ] scaffold               up to date with terramantle.hcl
+#   [ok  ] terramate generate     generated code is up to date
+#   [FAIL] lock files             1 workspace(s) missing .terraform.lock.hcl (stacks/data)
+#   [FAIL] backend workspaces     address does not match the directory basename
+#   [ok  ] vcs trust              repo:acme/infra is trusted
+```
+
+Exits 3 when anything failed. `--offline` skips the checks that call the
+registry.
+
+## VCS trust (`trust`)
+
+Which repos the org accepts keyless CI tokens from. The stored subject is
+matched against the CI token's `sub` claim.
+
+```sh
+terramantle trust ls
+terramantle trust add                      # this repo, from its `origin` remote
+terramantle trust add --subject repo:acme/infra --provider github
 ```
 
 `upgrade` is a stateless re-render — **no lock file**. Ownership is carried by the
@@ -355,6 +404,9 @@ highest-wins:
 | 5 | auth error (no/invalid/expired token, missing role) |
 | 6 | not found (org / workspace / version) |
 | 7 | state conflict — workspace locked / serial conflict (409) |
+
+`upgrade --check` and `doctor` both use 3: a drifted scaffold is a gate result,
+not a crash.
 
 ## Using the CLI in CI
 
