@@ -1,0 +1,24 @@
+
+      - uses: {{USES_SETUP_TFLINT}}
+        with:
+          tflint_version: "v{{TFLINT_VERSION}}"
+
+      - name: tflint plugin init
+        env:
+          # Plugin install hits the GitHub API. Without a token the runner
+          # shares one anonymous 60/hr quota by IP and fails intermittently.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -f "$(pwd)/.tflint.hcl" || { echo "::error::.tflint.hcl is missing at the repo root"; exit 1; }
+          # setup-tflint does NOT init for you, and `--recursive --init` in that
+          # order is what installs plugins for every stack — a bare `--init`
+          # only initialises the root directory.
+          tflint --recursive --init --config "$(pwd)/.tflint.hcl"
+
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # In recursive mode a relative --config is resolved per directory, so
+        # the single repo-root config must be passed as an absolute path.
+        run: tflint --recursive --config "$(pwd)/.tflint.hcl" --format compact

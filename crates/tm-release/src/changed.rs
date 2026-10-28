@@ -253,6 +253,7 @@ mod tests {
                 include: vec!["modules/*".into()],
                 exclude: vec!["modules/_archived/*".into()],
             }),
+            terramate: None,
             ci: CiConfig::default(),
         }
     }
@@ -265,6 +266,7 @@ mod tests {
             api_url: None,
             vcs: VcsProvider::Github,
             discovery: None,
+            terramate: None,
             ci: CiConfig::default(),
         }
     }

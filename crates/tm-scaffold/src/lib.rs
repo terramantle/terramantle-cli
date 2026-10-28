@@ -12,13 +12,16 @@
 
 pub mod error;
 pub mod manifest;
+pub mod pins;
 pub mod plan;
 pub mod render;
 pub mod vcs;
 
 pub use error::ScaffoldError;
 pub use manifest::{
-    Artefact, CiAuth, CiConfig, Discovery, Manifest, Structure, VcsProvider, Versioning,
+    Artefact, ChangeBase, CiAuth, CiConfig, Discovery, Engine, Manifest, Structure, Terramate,
+    VcsProvider, Versioning, DEFAULT_TERRAMATE_VERSION, DEFAULT_TOFU_VERSION,
+    TERRAMATE_WORKSPACE_EXPR,
 };
 pub use plan::{compute, Action, ApplyOutcome, Plan, PlanEntry};
-pub use render::{desired_files, merge_gitignore, FileClass, GeneratedFile};
+pub use render::{desired_files, merge_gitignore, tf_token_var, FileClass, GeneratedFile};

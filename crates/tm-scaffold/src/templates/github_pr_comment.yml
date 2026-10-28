@@ -1,0 +1,58 @@
+
+  # ── 3b. sticky PR comment ──────────────────────────────────────────────────
+  pr_comment:
+    name: PR plan comment
+    needs: [discover, plan]
+    if: >-
+      github.event_name == 'pull_request'
+      && needs.discover.outputs.count != '0'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: {{RUNNER}}
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: {{USES_DOWNLOAD_ARTIFACT}}
+        with:
+          # Only the summaries, never the plan bundles: this job must not have
+          # the cleartext plans anywhere near a comment body.
+          pattern: plansummary-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/summaries
+
+      - name: Build the comment body
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/summaries/summary-*.md)
+          [ "${#files[@]}" -gt 0 ] || { echo "::error::no plan summaries were downloaded"; exit 1; }
+          {
+            echo "<!-- terramantle-plan -->"
+            echo "## Terramantle plan — \`${GITHUB_SHA:0:7}\`"
+            echo
+            cat "${files[@]}"
+          } > "$RUNNER_TEMP/body.md"
+          # A GitHub comment caps at 65536 characters.
+          if [ "$(wc -c < "$RUNNER_TEMP/body.md")" -gt 60000 ]; then
+            head -c 60000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trunc.md"
+            printf '\n\n_Truncated — see the workflow run summary for the full plan._\n' >> "$RUNNER_TEMP/body.trunc.md"
+            mv "$RUNNER_TEMP/body.trunc.md" "$RUNNER_TEMP/body.md"
+          fi
+
+      - uses: {{USES_GITHUB_SCRIPT}}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/body.md`, 'utf8');
+            const marker = '<!-- terramantle-plan -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            // Update in place so a busy PR gets one comment, not one per push.
+            const comments = await github.paginate(
+              github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

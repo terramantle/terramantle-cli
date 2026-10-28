@@ -420,6 +420,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "supports-color",
+ "tempfile",
  "tm-api",
  "tm-auth",
  "tm-config",

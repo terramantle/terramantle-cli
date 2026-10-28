@@ -1,0 +1,379 @@
+#
+# Emitted by `terramantle init` for artefact=workspaces (states) · vcs=gitlab.
+# Terramate stacks + OpenTofu + the Terramantle HTTP state backend.
+#
+# Shape: a merge request plans every changed stack and saves the plans; merging
+# to {{DEFAULT_BRANCH}} applies those exact saved plans, so the merge does
+# precisely what the MR showed rather than a fresh plan that may have drifted.
+#
+# !! PLAN FILES ARE SENSITIVE !! `tofu plan -out` writes the full configuration
+# and every value in CLEARTEXT, so the plan artifact is restricted with
+# `access: 'developer'` and a 1-day expiry. Note GitLab's own caveat: that
+# setting governs UI and API access only — a job token can still fetch
+# artifacts via the runner API unless the project's CI/CD artifact visibility
+# is set to "Only project members".
+#
+# Auth is keyless. `terramantle auth env --terraform` detects GITLAB_CI, reads
+# the JWT that `id_tokens:` minted, and exports TF_HTTP_PASSWORD plus the
+# TF_TOKEN_* registry credentials. The org must trust this project under VCS
+# Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.
+#
+# Required CI/CD variables:
+{{GITLAB_REQUIRED_VARS}}
+stages: [check, plan, apply, publish]
+
+workflow:
+  # Only jobs marked interruptible are auto-cancelled; apply and publish are
+  # interruptible: false, so an in-flight apply is never killed by a new push.
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Avoid duplicate branch + MR pipelines for the same commit.
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - when: never
+
+variables:
+  TERRAMANTLE_ORG: "{{ORG}}"
+  TERRAMANTLE_API_URL: "{{API_URL}}"
+
+  TOFU_VERSION: "{{TOFU_VERSION}}"
+  TERRAMATE_VERSION: "{{TERRAMATE_VERSION}}"
+  TERRAMANTLE_CLI_VERSION: "{{CLI_VERSION}}"
+{{GITLAB_TFLINT_VAR}}
+  # Bootstrap escape hatch. On a brand-new repo `--changed` has nothing to diff
+  # against and would select no stacks at all; run a manual pipeline on
+  # {{DEFAULT_BRANCH}} with this set to "true" for the first apply.
+  # Set to "1" to always select every stack (manifest ci.change_base = all).
+  TM_CHANGE_BASE_ALL: "{{CHANGE_BASE_ALL}}"
+
+  TM_ALL_STACKS:
+    value: "false"
+    options: ["false", "true"]
+    description: "Bootstrap: select EVERY stack instead of only changed ones."
+
+  # Terramate change detection needs full history and real remote refs.
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "0"
+  GIT_SUBMODULE_STRATEGY: none
+
+  # The state backend ignores the Basic username and reads the token from the
+  # password. `auth env --terraform` sets TF_HTTP_PASSWORD but NOT
+  # TF_HTTP_USERNAME, and OpenTofu only sends the Authorization header when a
+  # username is present.
+  TF_HTTP_USERNAME: "terramantle-ci"
+  # Set as variables rather than flags: `tofu apply <savedplan>` rejects extra
+  # planning options but honours these.
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  DEBIAN_FRONTEND: noninteractive
+
+# ── reusable fragments ───────────────────────────────────────────────────────
+# `extends:` with hidden jobs, not YAML anchors: GitLab documents extends as the
+# recommended mechanism and it deep-merges, which anchors do not.
+
+# Job-level `id_tokens` does NOT merge with `default:id_tokens` — the job's
+# definition wins outright. Keeping it in a hidden job pulled in by `extends:`
+# avoids that trap, and means the `check` job gets no OIDC identity at all.
+.oidc:
+  id_tokens:
+    TERRAMANTLE_ID_TOKEN:
+      aud: "{{OIDC_AUDIENCE}}"
+
+.tools:
+  image: debian:stable-slim
+  before_script:
+    - set -eu
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends ca-certificates curl git jq tar gzip unzip coreutils
+    - |
+      # --- OpenTofu (pinned + checksum verified) ------------------------------
+      cd /tmp
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip"
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS"
+      grep -F "tofu_${TOFU_VERSION}_linux_amd64.zip" "tofu_${TOFU_VERSION}_SHA256SUMS" > tofu.sha256
+      sha256sum -c tofu.sha256
+      unzip -oq "tofu_${TOFU_VERSION}_linux_amd64.zip" tofu -d /usr/local/bin
+      chmod +x /usr/local/bin/tofu
+      tofu version
+    - |
+      # --- Terramate (pinned + checksum verified) -----------------------------
+      # There is no official GitLab component; install from the release tarball.
+      cd /tmp
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/terramate-io/terramate/releases/download/v${TERRAMATE_VERSION}/terramate_${TERRAMATE_VERSION}_linux_x86_64.tar.gz"
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/terramate-io/terramate/releases/download/v${TERRAMATE_VERSION}/checksums.txt"
+      grep -F "terramate_${TERRAMATE_VERSION}_linux_x86_64.tar.gz" checksums.txt > tm.sha256
+      sha256sum -c tm.sha256
+      tar -xzf "terramate_${TERRAMATE_VERSION}_linux_x86_64.tar.gz" -C /usr/local/bin terramate
+      chmod +x /usr/local/bin/terramate
+      terramate version | grep -qxF "${TERRAMATE_VERSION}"
+    - |
+      # --- Terramantle CLI (pinned release) -----------------------------------
+      curl --proto '=https' --tlsv1.2 -LsSf \
+        "https://github.com/terramantle/terramantle-cli/releases/download/v${TERRAMANTLE_CLI_VERSION}/cli-installer.sh" | sh
+      install -m 0755 "$HOME/.cargo/bin/terramantle" /usr/local/bin/terramantle
+      terramantle --version
+    - cd "$CI_PROJECT_DIR"
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+
+# Resolves TM_ALL and TM_BASE. Every script fragment in a job runs in ONE shell,
+# so these are visible to the fragments that follow.
+.changebase:
+  script:
+    - |
+      set -eu
+      if [ "${TM_ALL_STACKS:-false}" = "true" ] || [ "${TM_CHANGE_BASE_ALL:-0}" = "1" ]; then
+        TM_ALL=1; TM_BASE=""
+        echo "every stack selected (bootstrap or change_base=all)"
+      else
+        TM_ALL=0
+        TM_TARGET="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_DEFAULT_BRANCH}"
+        git fetch --no-tags origin "+refs/heads/${TM_TARGET}:refs/remotes/origin/${TM_TARGET}"
+        if [ "${CI_COMMIT_BRANCH:-}" = "${CI_DEFAULT_BRANCH}" ]; then
+          if ! git rev-parse --verify "HEAD^" >/dev/null 2>&1; then
+            echo "ERROR: HEAD has no parent commit, so there is nothing to diff against."
+            echo "ERROR: run a manual pipeline on ${CI_DEFAULT_BRANCH} with TM_ALL_STACKS=true to bootstrap."
+            exit 1
+          fi
+          TM_BASE="$(git rev-parse HEAD^)"
+        else
+          if ! git rev-parse --verify "origin/${TM_TARGET}" >/dev/null 2>&1; then
+            echo "ERROR: origin/${TM_TARGET} is missing — GIT_STRATEGY must be clone and GIT_DEPTH 0."
+            exit 1
+          fi
+          # merge-base, not the branch tip: correct under squash and rebase too.
+          TM_BASE="$(git merge-base "origin/${TM_TARGET}" HEAD)"
+        fi
+        echo "change base: $TM_BASE"
+      fi
+      export TM_ALL TM_BASE
+
+.auth:
+  script:
+    - |
+      set -eu
+      eval "$(terramantle auth env --terraform)"
+      for v in TF_HTTP_PASSWORD {{TF_TOKEN_APEX_VAR}} {{TF_TOKEN_ORG_VAR}}; do
+        eval "val=\${$v:-}"
+        if [ -z "$val" ]; then
+          echo "ERROR: $v was not exported by 'terramantle auth env --terraform'."
+          echo "ERROR: check TERRAMANTLE_ORG is set and id_tokens aud == {{OIDC_AUDIENCE}}"
+          exit 1
+        fi
+      done
+
+# ── 1. drift gate, formatting, lint ──────────────────────────────────────────
+check:
+  stage: check
+  extends: [.tools]        # deliberately not .oidc — this job needs no identity
+  interruptible: true
+  timeout: 20m
+  script:
+    - |
+      set -u
+      # `terramate fmt` has no --check; --detailed-exit-code returns 2 when it
+      # reformatted something, which is the CI failure condition.
+      terramate fmt --detailed-exit-code
+      rc=$?
+      if [ "$rc" = "2" ]; then
+        echo "ERROR: terramate files are not formatted — run 'terramate fmt' and commit."
+        git --no-pager diff --stat; exit 1
+      elif [ "$rc" != "0" ]; then exit "$rc"; fi
+      echo "terramate files are formatted"
+    - |
+      set -u
+      terramate generate --detailed-exit-code
+      rc=$?
+      if [ "$rc" = "2" ]; then
+        echo "ERROR: 'terramate generate' produced changes — run it locally and commit the result."
+        git --no-pager diff --stat; exit 1
+      elif [ "$rc" != "0" ]; then exit "$rc"; fi
+      echo "generated code is up to date"
+    - tofu fmt -check -recursive -no-color .
+{{LINT_STEPS}}
+# ── 2. plan every selected stack, bundle the plans ───────────────────────────
+plan:
+  stage: plan
+  extends: [.tools, .oidc]
+  interruptible: true
+  timeout: 45m
+  needs: ["check"]
+  script:
+    - !reference [.changebase, script]
+    - !reference [.auth, script]
+    - |
+      set -eu
+      mkdir -p "$CI_PROJECT_DIR/.terramantle-ci"
+      if [ "$TM_ALL" = "1" ]; then
+        terramate list > "$CI_PROJECT_DIR/.terramantle-ci/stacks.txt"
+      else
+        terramate list --changed --git-change-base "$TM_BASE" > "$CI_PROJECT_DIR/.terramantle-ci/stacks.txt"
+      fi
+      count="$(grep -c . "$CI_PROJECT_DIR/.terramantle-ci/stacks.txt" || true)"
+      echo "=== stacks selected: $count (base ${TM_BASE:-<all>}) ==="
+      cat "$CI_PROJECT_DIR/.terramantle-ci/stacks.txt"
+      if [ "$count" = "0" ]; then
+        echo "NOTICE: no stacks selected — nothing will be planned or applied."
+        echo "NOTICE: on a new repo, run a manual pipeline with TM_ALL_STACKS=true."
+      fi
+    - |
+      set -eu
+      : > /tmp/planfiles.txt
+      : > "$CI_PROJECT_DIR/.terramantle-ci/summary.md"
+      echo '[]' > /tmp/counts.json
+      while IFS= read -r dir; do
+        dir="${dir#./}"
+        [ -n "$dir" ] || continue
+        echo "==> planning $dir"
+        (
+          cd "$dir"
+          tofu init -input=false -no-color
+          tofu validate -no-color
+          # The plan deliberately takes the state LOCK: the server-side state
+          # policy gate only runs on LOCK, so -lock=false would defer policy
+          # enforcement to apply time, after review.
+          tofu plan -input=false -lock-timeout=300s -no-color -out=tfplan
+          test -s tfplan || { echo "ERROR: tofu produced no plan file in $dir"; exit 1; }
+          printf '%s\n' "$CI_COMMIT_SHA" > tfplan.sha
+          # The plan JSON holds cleartext values: it stays in /tmp and is deleted.
+          tofu show -json tfplan > /tmp/plan.json
+        )
+        c=$(jq '[.resource_changes[]? | select(.change.actions|index("create"))]|length' /tmp/plan.json)
+        u=$(jq '[.resource_changes[]? | select(.change.actions|index("update"))]|length' /tmp/plan.json)
+        d=$(jq '[.resource_changes[]? | select(.change.actions|index("delete"))]|length' /tmp/plan.json)
+        {
+          echo "#### $dir"
+          echo "create: $c · update: $u · destroy: $d"
+          jq -r '.resource_changes[]? | select(.change.actions != ["no-op"])
+                 | "  - " + (.change.actions|join("+")) + " " + .address' /tmp/plan.json
+          echo
+        } >> "$CI_PROJECT_DIR/.terramantle-ci/summary.md"
+        jq --argjson c "$c" --argjson u "$u" --argjson d "$d" \
+           '. + [{create:$c, update:$u, delete:$d}]' /tmp/counts.json > /tmp/counts.next
+        mv /tmp/counts.next /tmp/counts.json
+        rm -f /tmp/plan.json
+        printf '%s\n' "$dir/tfplan"     >> /tmp/planfiles.txt
+        printf '%s\n' "$dir/tfplan.sha" >> /tmp/planfiles.txt
+      done < "$CI_PROJECT_DIR/.terramantle-ci/stacks.txt"
+      echo "=== plan summary ==="
+      cat "$CI_PROJECT_DIR/.terramantle-ci/summary.md"
+    - |
+      set -eu
+      cd "$CI_PROJECT_DIR"
+      # stacks.txt always rides along, so the archive is never empty and the
+      # apply job gets the authoritative stack list beside the plans.
+      printf '%s\n' ".terramantle-ci/stacks.txt" >> /tmp/planfiles.txt
+      tar -czf .terramantle-ci/plans.tar.gz -C "$CI_PROJECT_DIR" -T /tmp/planfiles.txt
+      tar -tzf .terramantle-ci/plans.tar.gz
+  artifacts:
+    name: "terramantle-plans-$CI_PIPELINE_ID"
+    # Plan files are cleartext. `access` and `public` are mutually exclusive,
+    # so only `access` is set.
+    access: 'developer'
+    expire_in: 1 day
+    when: on_success
+    paths:
+      - .terramantle-ci/plans.tar.gz
+      - .terramantle-ci/stacks.txt
+      - .terramantle-ci/summary.md
+
+# ── 3. apply the saved plans (default branch only) ───────────────────────────
+apply:
+  stage: apply
+  extends: [.tools, .oidc]
+  interruptible: false
+  resource_group: terramantle-apply-$CI_COMMIT_REF_SLUG
+  timeout: 90m
+  needs:
+    - job: plan
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: never
+  script:
+    - !reference [.changebase, script]
+    - |
+      set -eu
+      cd "$CI_PROJECT_DIR"
+      test -f .terramantle-ci/plans.tar.gz || { echo "ERROR: plan bundle missing from the plan job's artifacts"; exit 1; }
+      tar -xzf .terramantle-ci/plans.tar.gz -C "$CI_PROJECT_DIR"
+
+      expected="$(grep -c . .terramantle-ci/stacks.txt || true)"
+      if [ "$expected" = "0" ]; then
+        echo "NOTICE: no stacks were selected at plan time — nothing to apply."
+        exit 0
+      fi
+      restored=0
+      while IFS= read -r dir; do
+        dir="${dir#./}"
+        [ -n "$dir" ] || continue
+        test -f "$dir/tfplan" || { echo "ERROR: no tfplan restored for $dir"; exit 1; }
+        got="$(cat "$dir/tfplan.sha")"
+        # A plan built from another commit would apply something never reviewed.
+        if [ "$got" != "$CI_COMMIT_SHA" ]; then
+          echo "ERROR: plan for $dir was built from $got, not $CI_COMMIT_SHA"; exit 1
+        fi
+        restored=$((restored + 1))
+      done < .terramantle-ci/stacks.txt
+      if [ "$restored" != "$expected" ]; then
+        echo "ERROR: expected $expected plans, restored $restored — refusing to apply a partial change set"
+        exit 1
+      fi
+      echo "restored $restored plan(s) for commit $CI_COMMIT_SHA"
+    - !reference [.auth, script]
+    - |
+      set -eu
+      # `terramate run` honours each stack's before/after ordering. The plan
+      # bundle carries no .terraform/ directory, so every stack re-inits here
+      # against its committed .terraform.lock.hcl and the identical tofu pin.
+      #
+      # tfplan/tfplan.sha/.terramantle-ci must be gitignored or Terramate's
+      # git-untracked safeguard aborts before the first stack.
+      if [ "$TM_ALL" = "1" ]; then
+        terramate run -- tofu init -input=false -no-color
+        terramate run -- tofu apply -input=false -lock-timeout=300s -no-color tfplan
+      else
+        terramate run --changed --git-change-base "$TM_BASE" -- tofu init -input=false -no-color
+        terramate run --changed --git-change-base "$TM_BASE" -- tofu apply -input=false -lock-timeout=300s -no-color tfplan
+      fi
+      # No -auto-approve: it is ignored when a saved plan is supplied, since
+      # passing the plan file IS the approval.
+
+# ── 4. publish lock files + posture gate ─────────────────────────────────────
+publish:
+  stage: publish
+  extends: [.tools, .oidc]
+  interruptible: false
+  resource_group: terramantle-publish-$CI_COMMIT_REF_SLUG
+  timeout: 20m
+  needs:
+    - job: apply
+      artifacts: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: never
+  script:
+    - |
+      set -eu
+      # `state publish` skips a directory without a .terraform.lock.hcl. Make
+      # that loud rather than a silently short publish.
+      missing=0
+      terramate list > /tmp/all-stacks.txt
+      while IFS= read -r dir; do
+        dir="${dir#./}"
+        [ -n "$dir" ] || continue
+        if [ ! -f "$dir/.terraform.lock.hcl" ]; then
+          echo "ERROR: $dir has no committed .terraform.lock.hcl — state publish would skip it"
+          missing=1
+        fi
+      done < /tmp/all-stacks.txt
+      [ "$missing" -eq 0 ]
+    # Exit 3 means the posture gate tripped on an at-risk provider.
+    - terramantle state publish --ci --fail-on-atrisk

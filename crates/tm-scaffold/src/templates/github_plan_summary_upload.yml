@@ -1,0 +1,11 @@
+
+      - name: Upload the plan summary
+        # Counts and resource addresses only — no values. Kept separate from the
+        # plan bundle so the comment job never downloads cleartext state.
+        uses: {{USES_UPLOAD_ARTIFACT}}
+        with:
+          name: plansummary-${{ matrix.slug }}
+          path: ${{ runner.temp }}/summary-${{ matrix.slug }}.md
+          retention-days: 1
+          if-no-files-found: error
+          overwrite: true

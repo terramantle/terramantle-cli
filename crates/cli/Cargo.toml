@@ -37,3 +37,6 @@ libc = "0.2"
 
 [package.metadata.dist]
 formula = "terramantle"
+
+[dev-dependencies]
+tempfile = "3"

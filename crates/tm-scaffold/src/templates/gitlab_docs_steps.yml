@@ -1,0 +1,17 @@
+    - |
+      # `modules publish` regenerates each module README between the
+      # BEGIN_TF_DOCS markers when terraform-docs is on PATH, and only prints a
+      # hint when it is not. Installing it here is what makes that happen.
+      set -eu
+      cd /tmp
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/terraform-docs/terraform-docs/releases/download/v${TFDOCS_VERSION}/terraform-docs-v${TFDOCS_VERSION}-linux-amd64.tar.gz"
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/terraform-docs/terraform-docs/releases/download/v${TFDOCS_VERSION}/terraform-docs-v${TFDOCS_VERSION}.sha256sum"
+      grep -F "terraform-docs-v${TFDOCS_VERSION}-linux-amd64.tar.gz" \
+        "terraform-docs-v${TFDOCS_VERSION}.sha256sum" > tfdocs.sha256
+      sha256sum -c tfdocs.sha256
+      tar -xzf "terraform-docs-v${TFDOCS_VERSION}-linux-amd64.tar.gz" terraform-docs
+      install -m 0755 terraform-docs /usr/local/bin/terraform-docs
+      cd "$CI_PROJECT_DIR"
+      terraform-docs --version

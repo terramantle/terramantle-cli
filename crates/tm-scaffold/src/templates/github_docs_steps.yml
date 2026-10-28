@@ -1,0 +1,22 @@
+
+      - name: Install terraform-docs
+        # `modules publish` regenerates each module README between the
+        # BEGIN_TF_DOCS markers when terraform-docs is on PATH, and prints a
+        # hint when it is not. Installing it here is what makes that happen;
+        # there is no separate docs action, so the generated README cannot
+        # disagree with what publish uploaded.
+        env:
+          TFDOCS_VERSION: "{{TERRAFORM_DOCS_VERSION}}"
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --proto '=https' --tlsv1.2 -fsSLO \
+            "https://github.com/terraform-docs/terraform-docs/releases/download/v${TFDOCS_VERSION}/terraform-docs-v${TFDOCS_VERSION}-linux-amd64.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSLO \
+            "https://github.com/terraform-docs/terraform-docs/releases/download/v${TFDOCS_VERSION}/terraform-docs-v${TFDOCS_VERSION}.sha256sum"
+          grep -F "terraform-docs-v${TFDOCS_VERSION}-linux-amd64.tar.gz" \
+            "terraform-docs-v${TFDOCS_VERSION}.sha256sum" > tfdocs.sha256
+          sha256sum -c tfdocs.sha256
+          tar -xzf "terraform-docs-v${TFDOCS_VERSION}-linux-amd64.tar.gz" terraform-docs
+          install -m 0755 terraform-docs "$HOME/.cargo/bin/terraform-docs"
+          terraform-docs --version

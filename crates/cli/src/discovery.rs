@@ -169,6 +169,17 @@ pub fn resolve_client_and_org(cli: &Cli) -> Result<(Client, String), Box<dyn std
     }
 }
 
+/// An authenticated client for the `init` wizard, or `None`.
+///
+/// Unlike every other caller, `init` must work for an unauthenticated user: the
+/// scaffold itself needs no network, and only the org picker and the VCS-trust
+/// offer do. So a missing token is not an error here — it just means those two
+/// steps fall back to flags and printed instructions.
+pub fn client_for_wizard(cli: &Cli) -> Option<Client> {
+    let ctx = auth::auth_context(cli).ok()?;
+    auth::api_client(&ctx).ok()
+}
+
 /// Resolve `(client, org)` or print the error and return the mapped exit code:
 /// auth failures → 5, API failures → their §9 code, missing/ambiguous org → 2.
 /// Shared by every command that needs an authed client scoped to an org.

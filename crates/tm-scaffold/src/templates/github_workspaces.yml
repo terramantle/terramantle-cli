@@ -1,0 +1,505 @@
+#
+# Emitted by `terramantle init` for artefact=workspaces (states) · vcs=github.
+# Terramate stacks + OpenTofu + the Terramantle HTTP state backend.
+#
+# Shape: a PR plans every changed stack and saves the plan; merging to
+# {{DEFAULT_BRANCH}} applies those exact saved plans. Applying a saved plan is
+# what makes the merge do precisely what the PR showed — not a fresh plan that
+# may have drifted since review.
+#
+# !! PLAN FILES ARE SENSITIVE !! `tofu plan -out` writes the full configuration
+# and every value in CLEARTEXT. On a PUBLIC repo, Actions artifacts can be
+# downloaded by anyone, so this pipeline is only safe on a private or internal
+# repo. Retention is 1 day to bound the exposure.
+#
+# Auth is keyless. `terramantle auth env --terraform` detects GITHUB_ACTIONS,
+# mints the ambient OIDC token itself, and exports TF_HTTP_PASSWORD plus the
+# TF_TOKEN_* registry host credentials. The org must trust this repo under VCS
+# Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.
+name: terramantle
+
+on:
+  pull_request:
+  push:
+    branches: ["{{DEFAULT_BRANCH}}"]
+  workflow_dispatch:
+    inputs:
+      all_stacks:
+        description: "Bootstrap: select EVERY stack instead of only changed ones. Use on a new repo with no prior commit to diff against."
+        type: boolean
+        required: false
+        default: false
+
+# Least privilege: nothing by default, each job opts in to exactly what it needs.
+permissions: {}
+
+# An in-flight apply is never cancelled — a half-applied stack would leave a
+# stale lock on the backend. Only PR runs are cancellable.
+concurrency:
+  group: terramantle-{{DEFAULT_BRANCH_SLUG}}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TERRAMANTLE_ORG: "{{ORG}}"
+  TERRAMANTLE_API_URL: "{{API_URL}}"
+  # The state backend ignores the Basic username and reads the token from the
+  # password. `auth env --terraform` sets TF_HTTP_PASSWORD but NOT
+  # TF_HTTP_USERNAME, and OpenTofu only sends the Authorization header when a
+  # username is present — so it is pinned here.
+  TF_HTTP_USERNAME: "terramantle-ci"
+  # Set as env rather than flags: `tofu apply <savedplan>` rejects additional
+  # planning options, but honours these.
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  # "1" always selects every stack (manifest ci.change_base = all).
+  TM_CHANGE_BASE_ALL: "{{CHANGE_BASE_ALL}}"
+
+jobs:
+  # ── 1. drift gate + change detection ───────────────────────────────────────
+  discover:
+    name: discover
+    runs-on: {{RUNNER}}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      stacks: ${{ steps.list.outputs.stacks }}
+      count: ${{ steps.list.outputs.count }}
+      base: ${{ steps.base.outputs.base }}
+      all: ${{ steps.base.outputs.all }}
+    steps:
+      - name: Checkout (full history — Terramate change detection needs it)
+        uses: {{USES_CHECKOUT}}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Terramate
+        uses: {{USES_TERRAMATE}}
+        with:
+          # Required: action v3 no longer falls back to latest and exits 1 with
+          # neither `version:` nor a committed .tool-versions.
+          version: "{{TERRAMATE_VERSION}}"
+
+      - name: Verify the pinned Terramate is what we got
+        run: |
+          terramate version
+          terramate version | grep -qxF "{{TERRAMATE_VERSION}}"
+
+      - name: Resolve change base
+        id: base
+        env:
+          EVENT: ${{ github.event_name }}
+          ALL_INPUT: ${{ github.event.inputs.all_stacks }}
+          PR_BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          all=0
+          base=""
+
+          if [ "${ALL_INPUT:-false}" = "true" ] || [ "${TM_CHANGE_BASE_ALL:-0}" = "1" ]; then
+            all=1
+            echo "::notice::every stack selected (bootstrap or change_base=all)"
+          elif [ "$EVENT" = "pull_request" ]; then
+            git rev-parse --verify "origin/${PR_BASE_REF}" >/dev/null 2>&1 || {
+              echo "::error::origin/${PR_BASE_REF} is missing — checkout needs fetch-depth: 0"; exit 1; }
+            # merge-base, not the branch tip: correct under squash and rebase merges too.
+            base="$(git merge-base "origin/${PR_BASE_REF}" HEAD)"
+          elif [ "$GITHUB_REF_NAME" = "{{DEFAULT_BRANCH}}" ]; then
+            git rev-parse --verify "HEAD^" >/dev/null 2>&1 || {
+              echo "::error::HEAD has no parent commit, so there is nothing to diff against."
+              echo "::error::Run this workflow from the Actions tab with all_stacks=true to bootstrap."
+              exit 1; }
+            base="$(git rev-parse HEAD^)"
+          else
+            git rev-parse --verify "origin/{{DEFAULT_BRANCH}}" >/dev/null 2>&1 || {
+              echo "::error::origin/{{DEFAULT_BRANCH}} is missing — checkout needs fetch-depth: 0"; exit 1; }
+            base="$(git merge-base "origin/{{DEFAULT_BRANCH}}" HEAD)"
+          fi
+
+          echo "all=$all" >> "$GITHUB_OUTPUT"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "change base: ${base:-<all stacks>}"
+
+      - name: Generated code is up to date
+        run: |
+          set -uo pipefail
+          # `terramate generate` rewrites the committed _backend.tf files in
+          # place; --detailed-exit-code returns 2 when it had to change anything,
+          # which means the commit is missing a `terramate generate` run.
+          terramate generate --detailed-exit-code
+          rc=$?
+          case "$rc" in
+            0) echo "generated code is up to date" ;;
+            2) echo "::error::\`terramate generate\` produced changes — run it locally and commit the result."
+               git --no-pager diff --stat
+               exit 1 ;;
+            *) exit "$rc" ;;
+          esac
+
+      - name: Select stacks
+        id: list
+        env:
+          ALL: ${{ steps.base.outputs.all }}
+          BASE: ${{ steps.base.outputs.base }}
+        run: |
+          set -euo pipefail
+          if [ "$ALL" = "1" ]; then
+            terramate list > "$RUNNER_TEMP/stacks.txt"
+          else
+            terramate list --changed --git-change-base "$BASE" > "$RUNNER_TEMP/stacks.txt"
+          fi
+
+          json='[]'
+          while IFS= read -r dir; do
+            dir="${dir#./}"
+            [ -n "$dir" ] || continue
+            # An artifact name cannot contain / \ : < > | * ? " and must be
+            # unique. Sanitised path + a hash of the ORIGINAL path, so two
+            # distinct stacks can never collide once sanitised.
+            slug="$(printf '%s' "$dir" | tr -c 'A-Za-z0-9._-' '-')-$(printf '%s' "$dir" | sha256sum | cut -c1-8)"
+            json="$(printf '%s' "$json" | jq -c --arg d "$dir" --arg s "$slug" '. + [{dir:$d, slug:$s}]')"
+          done < "$RUNNER_TEMP/stacks.txt"
+
+          count="$(printf '%s' "$json" | jq 'length')"
+          { echo "stacks=$json"; echo "count=$count"; } >> "$GITHUB_OUTPUT"
+
+          { echo "## Terramantle"; echo; echo "**Stacks selected: ${count}**"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" = "0" ]; then
+            # Explicit, never silent: this is the "--changed matched nothing" case.
+            echo "_No stacks selected — nothing will be planned or applied._" >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::0 stacks selected. On a new repo, re-run with all_stacks=true."
+          else
+            printf '%s' "$json" | jq -r '.[] | "- `\(.dir)`"' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── 2. repo-wide formatting and lint ───────────────────────────────────────
+  checks:
+    name: fmt / lint
+    runs-on: {{RUNNER}}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: {{USES_CHECKOUT}}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: {{USES_TERRAMATE}}
+        with:
+          version: "{{TERRAMATE_VERSION}}"
+
+      - uses: {{USES_SETUP_OPENTOFU}}
+        with:
+          tofu_version: "{{TOFU_VERSION}}"
+          # The wrapper re-exports stdout/stderr as step outputs and swallows
+          # exit codes; every call here is scripted, so turn it off.
+          tofu_wrapper: false
+
+      - name: terramate fmt
+        run: |
+          set -uo pipefail
+          # `terramate fmt` has no --check; --detailed-exit-code returns 2 when
+          # it reformatted something, which is the CI failure condition.
+          terramate fmt --detailed-exit-code
+          rc=$?
+          case "$rc" in
+            0) echo "terramate files are formatted" ;;
+            2) echo "::error::terramate files are not formatted — run \`terramate fmt\` and commit."
+               git --no-pager diff --stat
+               exit 1 ;;
+            *) exit "$rc" ;;
+          esac
+
+      - name: tofu fmt
+        run: tofu fmt -check -recursive -no-color .
+{{LINT_STEPS}}
+  # ── 3. plan each selected stack, one artifact apiece ───────────────────────
+  plan:
+    name: plan ${{ matrix.dir }}
+    needs: [discover, checks]
+    # Two guards. An empty matrix vector is a hard error on GitHub, so never
+    # expand one. And a fork PR gets a read-only token that cannot mint OIDC, so
+    # skip visibly rather than failing deep inside auth.
+    if: >-
+      needs.discover.outputs.count != '0'
+      && (github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: {{RUNNER}}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include: ${{ fromJSON(needs.discover.outputs.stacks) }}
+    steps:
+      - uses: {{USES_CHECKOUT}}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: {{USES_SETUP_OPENTOFU}}
+        with:
+          tofu_version: "{{TOFU_VERSION}}"
+          tofu_wrapper: false
+
+      - name: Install the Terramantle CLI
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "{{CLI_INSTALLER_URL}}" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Init, validate, plan
+        env:
+          STACK_DIR: ${{ matrix.dir }}
+        run: |
+          set -euo pipefail
+
+          # Must run in the SAME shell as tofu — exports do not cross steps.
+          eval "$(terramantle auth env --terraform)"
+
+          # Fail loudly if a credential did not materialise. Without the org
+          # TF_TOKEN the provider download silently falls back to anonymous and
+          # dies much later with an opaque 401.
+          for v in TF_HTTP_PASSWORD {{TF_TOKEN_APEX_VAR}} {{TF_TOKEN_ORG_VAR}}; do
+            eval "val=\${$v:-}"
+            [ -n "$val" ] || {
+              echo "::error::$v was not exported by 'terramantle auth env --terraform' (is TERRAMANTLE_ORG set?)"
+              exit 1; }
+          done
+          echo "::add-mask::$TF_HTTP_PASSWORD"
+
+          cd "$STACK_DIR"
+          tofu init -input=false -no-color
+          tofu validate -no-color
+          # The plan deliberately takes the state LOCK: the server-side state
+          # policy gate only runs on LOCK, so -lock=false would defer policy
+          # enforcement to apply time, after review.
+          tofu plan -input=false -lock-timeout=300s -no-color -out=tfplan
+          test -s tfplan || { echo "::error::tofu produced no plan file"; exit 1; }
+          printf '%s\n' "$GITHUB_SHA" > tfplan.sha
+
+      - name: Summarise the plan
+        env:
+          STACK_DIR: ${{ matrix.dir }}
+          SLUG: ${{ matrix.slug }}
+        run: |
+          set -euo pipefail
+          # The plan JSON holds cleartext values. It stays on the runner and is
+          # deleted in this step; only counts and resource addresses escape.
+          tofu -chdir="$STACK_DIR" show -json tfplan > "$RUNNER_TEMP/plan.json"
+          c=$(jq '[.resource_changes[]? | select(.change.actions|index("create"))]|length' "$RUNNER_TEMP/plan.json")
+          u=$(jq '[.resource_changes[]? | select(.change.actions|index("update"))]|length' "$RUNNER_TEMP/plan.json")
+          d=$(jq '[.resource_changes[]? | select(.change.actions|index("delete"))]|length' "$RUNNER_TEMP/plan.json")
+          {
+            echo "#### \`$STACK_DIR\`"
+            echo
+            echo "| create | update | destroy |"
+            echo "|---:|---:|---:|"
+            echo "| $c | $u | $d |"
+            echo
+            if [ "$((c + u + d))" -eq 0 ]; then
+              echo "_No changes._"
+            else
+              echo "<details><summary>Resource changes</summary>"
+              echo
+              jq -r '.resource_changes[]? | select(.change.actions != ["no-op"])
+                     | "- `" + (.change.actions|join("+")) + "` " + .address' "$RUNNER_TEMP/plan.json"
+              echo
+              echo "</details>"
+            fi
+            echo
+          } > "$RUNNER_TEMP/summary-$SLUG.md"
+          rm -f "$RUNNER_TEMP/plan.json"
+          cat "$RUNNER_TEMP/summary-$SLUG.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package the plan
+        env:
+          STACK_DIR: ${{ matrix.dir }}
+          SLUG: ${{ matrix.slug }}
+        run: |
+          set -euo pipefail
+          # Tar rather than uploading the file directly: upload-artifact roots
+          # the archive at the least-common-ancestor of the matched paths, so a
+          # lone stacks/foo/tfplan would be stored as a bare `tfplan` and the
+          # stack path lost. The tarball carries the exact relative path.
+          mkdir -p "$RUNNER_TEMP/pkg"
+          tar -czf "$RUNNER_TEMP/pkg/plan-$SLUG.tar.gz" \
+            -C "$GITHUB_WORKSPACE" "$STACK_DIR/tfplan" "$STACK_DIR/tfplan.sha"
+          tar -tzf "$RUNNER_TEMP/pkg/plan-$SLUG.tar.gz"
+
+      - name: Upload the plan
+        uses: {{USES_UPLOAD_ARTIFACT}}
+        with:
+          # Deterministic name (no run_id / run_attempt) so re-running only the
+          # apply job still finds it. Artifacts are immutable since v4, hence
+          # overwrite for a full re-run.
+          name: tfplan-${{ matrix.slug }}
+          path: ${{ runner.temp }}/pkg/plan-${{ matrix.slug }}.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+{{PLAN_SUMMARY_UPLOAD}}
+{{PR_COMMENT_JOB}}
+  # ── 4. apply the saved plans (default branch only) ─────────────────────────
+  apply:
+    name: apply
+    needs: [discover, plan]
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/{{DEFAULT_BRANCH}}'
+      && needs.discover.outputs.count != '0'
+    runs-on: {{RUNNER}}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: {{USES_CHECKOUT}}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: {{USES_TERRAMATE}}
+        with:
+          version: "{{TERRAMATE_VERSION}}"
+
+      - name: Install OpenTofu (identical pin to the plan job)
+        uses: {{USES_SETUP_OPENTOFU}}
+        with:
+          tofu_version: "{{TOFU_VERSION}}"
+          tofu_wrapper: false
+
+      - name: Install the Terramantle CLI
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "{{CLI_INSTALLER_URL}}" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Download the plans
+        uses: {{USES_DOWNLOAD_ARTIFACT}}
+        with:
+          pattern: tfplan-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/plans
+
+      - name: Restore the plans into their stack directories
+        env:
+          EXPECTED: ${{ needs.discover.outputs.count }}
+          STACKS_JSON: ${{ needs.discover.outputs.stacks }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bundles=("$RUNNER_TEMP"/plans/plan-*.tar.gz)
+          if [ "${#bundles[@]}" -ne "$EXPECTED" ]; then
+            echo "::error::expected $EXPECTED plan bundles, found ${#bundles[@]} — refusing to apply a partial change set"
+            exit 1
+          fi
+          for b in "${bundles[@]}"; do tar -xzf "$b" -C "$GITHUB_WORKSPACE"; done
+
+          printf '%s' "$STACKS_JSON" | jq -r '.[].dir' > "$RUNNER_TEMP/dirs.txt"
+          while IFS= read -r dir; do
+            [ -n "$dir" ] || continue
+            test -f "$dir/tfplan" || { echo "::error::no tfplan restored for $dir"; exit 1; }
+            got="$(cat "$dir/tfplan.sha")"
+            # A plan built from another commit would apply something the merge
+            # never reviewed.
+            [ "$got" = "$GITHUB_SHA" ] || {
+              echo "::error::plan for $dir was built from $got, not $GITHUB_SHA"; exit 1; }
+            echo "restored $dir/tfplan"
+          done < "$RUNNER_TEMP/dirs.txt"
+
+      - name: Apply
+        env:
+          BASE: ${{ needs.discover.outputs.base }}
+          ALL: ${{ needs.discover.outputs.all }}
+        run: |
+          set -euo pipefail
+          eval "$(terramantle auth env --terraform)"
+          for v in TF_HTTP_PASSWORD {{TF_TOKEN_APEX_VAR}} {{TF_TOKEN_ORG_VAR}}; do
+            eval "val=\${$v:-}"
+            [ -n "$val" ] || { echo "::error::$v was not exported by 'terramantle auth env --terraform'"; exit 1; }
+          done
+          echo "::add-mask::$TF_HTTP_PASSWORD"
+
+          # `terramate run` honours each stack's before/after ordering, which a
+          # parallel matrix cannot. The plan artifact carries no .terraform/
+          # directory, so every stack re-inits here against its committed
+          # .terraform.lock.hcl and the identical OpenTofu pin.
+          #
+          # tfplan/tfplan.sha must be gitignored or Terramate's git-untracked
+          # safeguard aborts the run before the first stack.
+          if [ "$ALL" = "1" ]; then
+            terramate run -- tofu init -input=false -no-color
+            terramate run -- tofu apply -input=false -lock-timeout=300s -no-color tfplan
+          else
+            terramate run --changed --git-change-base "$BASE" -- tofu init -input=false -no-color
+            terramate run --changed --git-change-base "$BASE" -- tofu apply -input=false -lock-timeout=300s -no-color tfplan
+          fi
+          # No -auto-approve: it is ignored when a saved plan is supplied, since
+          # passing the plan file IS the approval.
+
+  # ── 5. publish lock files + posture gate ───────────────────────────────────
+  publish:
+    name: publish lock files
+    needs: [discover, apply]
+    # always(), so the posture gate still runs when apply was skipped for having
+    # nothing to change — it is a continuous check, not a function of this diff.
+    if: >-
+      always()
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/{{DEFAULT_BRANCH}}'
+      && needs.discover.result == 'success'
+      && (needs.apply.result == 'success' || needs.apply.result == 'skipped')
+    runs-on: {{RUNNER}}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: {{USES_CHECKOUT}}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: {{USES_TERRAMATE}}
+        with:
+          version: "{{TERRAMATE_VERSION}}"
+
+      - name: Install the Terramantle CLI
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "{{CLI_INSTALLER_URL}}" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Every stack has a committed lock file
+        run: |
+          set -euo pipefail
+          # `state publish` skips a directory without a .terraform.lock.hcl.
+          # Make that loud rather than a silently short publish.
+          missing=0
+          while IFS= read -r dir; do
+            dir="${dir#./}"
+            [ -n "$dir" ] || continue
+            if [ ! -f "$dir/.terraform.lock.hcl" ]; then
+              echo "::error::$dir has no committed .terraform.lock.hcl — state publish would skip it"
+              missing=1
+            fi
+          done < <(terramate list)
+          [ "$missing" -eq 0 ]
+
+      - name: Publish lock files
+        # Exit 3 means the posture gate tripped on an at-risk provider.
+        run: terramantle state publish --ci --fail-on-atrisk

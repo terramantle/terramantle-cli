@@ -310,7 +310,7 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         return finish_publish(cli, args.dry_run, provider, Vec::new());
     }
 
-    let run_docs = !matches!(args.docs, Some(DocsMode::Skip)) && manifest.ci.terraform_docs;
+    let run_docs = !matches!(args.docs, Some(DocsMode::Skip)) && manifest.ci.docs;
 
     // The client + org are only needed for a real upload; a dry-run stays offline.
     let client_org = if args.dry_run {

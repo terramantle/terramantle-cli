@@ -6,7 +6,7 @@
 use clap::{Args, Parser, Subcommand};
 use clap_complete::Shell;
 use tm_config::OutputFormat;
-use tm_scaffold::{Artefact, CiAuth, Structure, VcsProvider, Versioning};
+use tm_scaffold::{Artefact, ChangeBase, CiAuth, Structure, VcsProvider, Versioning};
 
 use crate::auth::EnvFormat;
 
@@ -413,9 +413,10 @@ pub enum ConfigCommand {
 /// has a flag override; `--yes`/non-TTY runs headless from flags + detected
 /// defaults. Enum values parse via each type's `FromStr` (e.g. `--artefact states`
 /// is accepted as an alias for `workspaces`).
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Default)]
 pub struct InitArgs {
-    /// Repo layout: `mono` (many artefacts) or `poly` (one). Default: poly.
+    /// Repo layout: `mono` (many artefacts) or `poly` (one). Inferred from the
+    /// directory layout, then prompted.
     #[arg(long)]
     pub structure: Option<Structure>,
     /// Artefact type: `modules` or `workspaces` (alias: `states`). Prompted if omitted.
@@ -424,13 +425,18 @@ pub struct InitArgs {
     /// VCS provider. Inferred from the `origin` remote when omitted.
     #[arg(long)]
     pub vcs: Option<VcsProvider>,
-    /// Terraform version matrix (comma-separated), e.g. `--tf 1.7,1.9`.
+    /// OpenTofu version the pipeline pins, e.g. `--tofu 1.13.2`. Plan and apply
+    /// always use the same one — a saved plan is only valid for the binary that
+    /// produced it.
     #[arg(long, value_delimiter = ',')]
-    pub tf: Option<Vec<String>>,
-    /// Also run pipelines against OpenTofu (default on; `--no-tofu` to drop).
+    pub tofu: Option<Vec<String>>,
+    /// Scaffold Terramate stack orchestration (workspaces only; default on).
+    #[arg(long, conflicts_with = "no_terramate")]
+    pub terramate: bool,
+    /// Do not scaffold Terramate.
     #[arg(long)]
-    pub no_tofu: bool,
-    /// Drop the tflint step.
+    pub no_terramate: bool,
+    /// Drop the tflint step (and its scaffolded .tflint.hcl).
     #[arg(long)]
     pub no_lint: bool,
     /// Drop the terramantle security-scan gate.
@@ -439,13 +445,28 @@ pub struct InitArgs {
     /// Drop terraform-docs README regeneration.
     #[arg(long)]
     pub no_docs: bool,
+    /// Do not post a plan summary comment on pull/merge requests.
+    #[arg(long)]
+    pub no_pr_comment: bool,
+    /// Branch the pipeline applies from. Detected from git when omitted.
+    #[arg(long)]
+    pub default_branch: Option<String>,
+    /// CI runner label (GitHub only). Default: `ubuntu-latest`.
+    #[arg(long)]
+    pub runner: Option<String>,
+    /// How `--changed` picks its base: `auto` (default) | `all`.
+    #[arg(long)]
+    pub change_base: Option<ChangeBase>,
     /// CI auth grant: `oidc` (default, keyless) | `bot` (client-credentials).
     #[arg(long = "ci-auth")]
     pub ci_auth: Option<CiAuth>,
     /// Versioning: `conventional` (default) | `manual`.
     #[arg(long)]
     pub versioning: Option<Versioning>,
-    /// Assume defaults and never prompt (headless / CI).
+    /// Do not offer to register this repo under the org's VCS trust.
+    #[arg(long)]
+    pub no_trust: bool,
+    /// Apply without the plan preview and confirmation.
     #[arg(long)]
     pub yes: bool,
 }
@@ -456,6 +477,10 @@ pub struct UpgradeArgs {
     /// Print the plan and exit 0 without applying.
     #[arg(long)]
     pub diff: bool,
+    /// Print the plan and exit NON-ZERO when the scaffold has drifted, so CI
+    /// can gate on it. Implies `--diff`.
+    #[arg(long)]
+    pub check: bool,
     /// Apply without the confirmation prompt.
     #[arg(long)]
     pub yes: bool,

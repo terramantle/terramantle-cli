@@ -1,0 +1,24 @@
+    - |
+      set -eu
+      if [ -z "${GITHUB_TOKEN:-}" ]; then
+        echo "ERROR: CI/CD variable GITHUB_TOKEN is not set."
+        echo "ERROR: 'tflint --init' downloads plugins from the GitHub API and will hit the"
+        echo "ERROR: 60/hr anonymous shared-IP rate limit. Add a masked GITHUB_TOKEN variable"
+        echo "ERROR: (a classic PAT with NO scopes is sufficient)."
+        exit 1
+      fi
+      test -f "$CI_PROJECT_DIR/.tflint.hcl" || { echo "ERROR: .tflint.hcl missing at the repo root"; exit 1; }
+      cd /tmp
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_amd64.zip"
+      curl --proto '=https' --tlsv1.2 -fsSLO \
+        "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/checksums.txt"
+      grep -F "tflint_linux_amd64.zip" checksums.txt > tflint.sha256
+      sha256sum -c tflint.sha256
+      unzip -oq tflint_linux_amd64.zip -d /usr/local/bin
+      chmod +x /usr/local/bin/tflint
+      cd "$CI_PROJECT_DIR"
+      tflint --version
+    # `--recursive --init` in that order; a bare `--init` only does the root.
+    - tflint --recursive --init --config "$CI_PROJECT_DIR/.tflint.hcl"
+    - tflint --recursive --config "$CI_PROJECT_DIR/.tflint.hcl" --format compact

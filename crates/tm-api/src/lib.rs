@@ -31,6 +31,8 @@ mod orgs;
 mod providers;
 mod state;
 pub mod types;
+mod vcs_trust;
+pub use vcs_trust::TrustEntry;
 
 pub use client::{HttpClient, RefreshHook};
 pub use error::{ApiError, ErrorBody};

@@ -11,6 +11,8 @@ mod output;
 mod publish;
 mod scaffold;
 mod state;
+mod trust;
+mod wizard;
 
 use clap::Parser;
 

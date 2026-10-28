@@ -1,0 +1,101 @@
+#
+# Emitted by `terramantle init` for artefact=modules · vcs=github.
+#
+# A PR validates; a merge to {{DEFAULT_BRANCH}} publishes every changed module
+# to the registry and pushes its `<module>@<version>` git tag.
+#
+# The registry address of a module is `<org>/<name>/<provider>`, and the CLI
+# derives all three from the repo: org from the manifest, and name + provider
+# from the `terraform-<provider>-<name>` directory convention. A directory that
+# does not follow it fails with a message saying so — pass `--provider` to
+# override.
+#
+# Auth is keyless; the org must trust this repo under VCS Trust with subject
+# `{{TRUST_SUBJECT}}` or publishing 401s.
+name: terramantle
+
+on:
+  pull_request:
+  push:
+    branches: ["{{DEFAULT_BRANCH}}"]
+
+permissions: {}
+
+concurrency:
+  # Publishing pushes tags; two concurrent releases would race on them.
+  group: terramantle-{{DEFAULT_BRANCH_SLUG}}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TERRAMANTLE_ORG: "{{ORG}}"
+  TERRAMANTLE_API_URL: "{{API_URL}}"
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+
+jobs:
+  validate:
+    name: validate
+    runs-on: {{RUNNER}}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: {{USES_CHECKOUT}}
+        with:
+          # Change detection diffs against the last `<module>@<version>` tag.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: {{USES_SETUP_OPENTOFU}}
+        with:
+          tofu_version: "{{TOFU_VERSION}}"
+          tofu_wrapper: false
+
+      - name: Install the Terramantle CLI
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "{{CLI_INSTALLER_URL}}" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - run: tofu fmt -check -recursive -no-color .
+
+      - name: Changed modules and their next versions
+        run: terramantle modules changed
+{{LINT_STEPS}}
+  publish:
+    name: publish
+    needs: [validate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/{{DEFAULT_BRANCH}}'
+    runs-on: {{RUNNER}}
+    timeout-minutes: 30
+    permissions:
+      # `repo tag` pushes the <module>@<version> tags.
+      contents: write
+      id-token: write
+    steps:
+      - uses: {{USES_CHECKOUT}}
+        with:
+          fetch-depth: 0
+
+      - uses: {{USES_SETUP_OPENTOFU}}
+        with:
+          tofu_version: "{{TOFU_VERSION}}"
+          tofu_wrapper: false
+
+      - name: Install the Terramantle CLI
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "{{CLI_INSTALLER_URL}}" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+{{DOCS_STEPS}}
+      - name: Publish changed modules
+        run: terramantle modules publish --ci
+
+      - name: Tag the released versions
+        run: terramantle repo tag

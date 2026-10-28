@@ -1,0 +1,60 @@
+#
+# Root Terramate config, written by `terramantle init`.
+#
+# Two responsibilities live here:
+#
+#   1. `globals` — the Terramantle org and backend host. Changing `tm_org`
+#      repoints every stack at a different org.
+#   2. `generate_hcl "_backend.tf"` — emitted into EVERY stack, binding each one
+#      to its own Terramantle state workspace. One stack = one workspace = one
+#      independently versioned and scanned state.
+#
+# Run `terramate generate` after editing this file and commit the result. CI
+# fails when the committed `_backend.tf` files do not match what this produces.
+
+terramate {
+  config {
+    # Change detection diffs against this branch.
+    git {
+      default_branch = "{{DEFAULT_BRANCH}}"
+    }
+  }
+}
+
+globals {
+  # The Terramantle org that owns these workspaces.
+  tm_org = "{{ORG}}"
+
+  backend_host = "{{BACKEND_HOST}}"
+
+  # The remote-state workspace each stack binds to.
+  #
+  # This MUST resolve to the stack's directory basename. `terramantle state
+  # publish` derives the workspace name from the stack directory, so any other
+  # value uploads the provider lock file to a different workspace than the one
+  # holding the state — and the two drift apart silently.
+  workspace = {{WORKSPACE_EXPR}}
+}
+
+# Generated into every stack as `_backend.tf`.
+#
+# AUTH (HTTP Basic): the token travels in the PASSWORD. The backend ignores the
+# username, but OpenTofu only sends an Authorization header when one is set, so
+# it is fixed here and the password is supplied at runtime via TF_HTTP_PASSWORD.
+# It is never committed.
+#
+# lock_address / unlock_address are NOT optional. Without them OpenTofu never
+# issues LOCK, which means no mutual exclusion between concurrent applies AND
+# no server-side state policy evaluation — that gate only runs on LOCK.
+generate_hcl "_backend.tf" {
+  content {
+    terraform {
+      backend "http" {
+        address        = "https://${global.backend_host}/state/${global.tm_org}/${global.workspace}"
+        lock_address   = "https://${global.backend_host}/state/${global.tm_org}/${global.workspace}.lock"
+        unlock_address = "https://${global.backend_host}/state/${global.tm_org}/${global.workspace}.lock"
+        username       = "terramantle-ci"
+      }
+    }
+  }
+}
