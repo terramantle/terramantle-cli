@@ -990,17 +990,28 @@ mod tests {
             .any(|f| f.path == Path::new("stacks/example/stack.tm.hcl")));
     }
 
-    /// The workspace must resolve to the stack's directory basename, because
-    /// `state publish` derives the workspace name from the directory. Any other
-    /// expression uploads the lock file to a different workspace than the state.
+    /// The workspace is repo- and path-qualified so two repos in one org
+    /// cannot collide on a stack called `network`, and all three backend
+    /// addresses are present — omitting lock_address disables locking and
+    /// skips the server-side state policy gate.
     #[test]
-    fn terramate_backend_binds_workspace_to_the_stack_name() {
-        let m = base(Structure::Mono, Artefact::Workspaces, VcsProvider::Github);
+    fn terramate_backend_qualifies_the_workspace_and_locks() {
+        let mut m = base(Structure::Mono, Artefact::Workspaces, VcsProvider::Github);
+        m.terramate = Some(Terramate {
+            repo: Some("acme-infra".into()),
+            ..Terramate::default()
+        });
         let tm = desired_files(&m)
             .into_iter()
             .find(|f| f.path == Path::new("terramate.tm.hcl"))
             .unwrap();
-        assert!(tm.content.contains("workspace = terramate.stack.name"));
+        assert!(
+            tm.content
+                .contains("workspace = tm_lower(\"acme-infra-${tm_replace("),
+            "workspace is not repo+path qualified:\n{}",
+            tm.content
+        );
+        assert!(tm.content.contains("terramate.stack.path.relative"));
         assert!(tm.content.contains("lock_address"));
         assert!(tm.content.contains("unlock_address"));
     }

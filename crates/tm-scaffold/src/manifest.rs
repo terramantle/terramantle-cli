@@ -207,21 +207,54 @@ pub struct Terramate {
     /// manifest would mean escaping it as `$${…}` inside a quoted HCL string —
     /// a trap for anyone editing the file by hand.
     ///
-    /// `None` emits the bare `terramate.stack.name`.
+    /// `None` means no prefix; the name is still repo-and-path qualified.
     pub workspace_prefix: Option<String>,
+    /// The git repository slug, folded into every workspace name so two repos
+    /// in one org cannot collide on a stack called `network`.
+    ///
+    /// Baked in at `init` from the `origin` remote rather than computed by
+    /// Terramate, which exposes no repository metadata — and a literal keeps
+    /// `terramate generate` independent of git remotes being configured.
+    pub repo: Option<String>,
 }
 
 /// The Terramate expression for a stack's own name.
 pub const TERRAMATE_STACK_NAME: &str = "terramate.stack.name";
 
+/// The stack's path from the repo root, e.g. `stacks/eu/network`. Preferred
+/// over the bare name because two stacks in different directories may share a
+/// name, and a workspace collision silently overwrites one stack's state with
+/// the other's.
+pub const TERRAMATE_STACK_PATH: &str = "terramate.stack.path.relative";
+
 impl Terramate {
-    /// The HCL expression assigned to `globals.workspace`, quoted when a prefix
-    /// makes it a template and bare otherwise.
+    /// The HCL expression assigned to `globals.workspace`.
+    ///
+    /// Produces `<prefix><repo>-<stack/path>`, lowercased, with every run of
+    /// non-alphanumerics collapsed to a single `-`:
+    ///
+    /// ```text
+    /// state-sample-mono-repo-stacks-network
+    /// ```
+    ///
+    /// Qualifying by repo *and* path is what makes the name unique inside a
+    /// shared org. Slugifying is not cosmetic — the workspace is a path
+    /// segment in the backend URL, so an unescaped `/` or space would produce
+    /// a different URL than intended.
     pub fn workspace_expr(&self) -> String {
-        match self.workspace_prefix.as_deref().filter(|p| !p.is_empty()) {
-            Some(p) => format!("\"{p}${{{TERRAMATE_STACK_NAME}}}\""),
-            None => TERRAMATE_STACK_NAME.to_string(),
+        let mut parts = String::new();
+        if let Some(p) = self.workspace_prefix.as_deref().filter(|p| !p.is_empty()) {
+            parts.push_str(p);
         }
+        if let Some(r) = self.repo.as_deref().filter(|r| !r.is_empty()) {
+            parts.push_str(r);
+            parts.push('-');
+        }
+        // tm_lower is applied to the whole string, so a capitalised prefix or
+        // repo name cannot leak through.
+        format!(
+            "tm_lower(\"{parts}${{tm_replace({TERRAMATE_STACK_PATH}, \"/[^a-zA-Z0-9]+/\", \"-\")}}\")"
+        )
     }
 }
 
@@ -230,6 +263,7 @@ impl Default for Terramate {
         Self {
             version: DEFAULT_TERRAMATE_VERSION.into(),
             workspace_prefix: None,
+            repo: None,
         }
     }
 }
@@ -349,7 +383,15 @@ impl Manifest {
             );
             match &t.workspace_prefix {
                 Some(p) => out.push_str(&format!("  workspace_prefix = {p:?}\n")),
-                None => out.push_str("  # workspace_prefix = \"my-repo-\"\n"),
+                None => out.push_str("  # workspace_prefix = \"team-\"\n"),
+            }
+            out.push_str(
+                "  # The repo slug folded into every workspace name, so two repos in one org\n",
+            );
+            out.push_str("  # cannot collide on a stack called `network`.\n");
+            match &t.repo {
+                Some(r) => out.push_str(&format!("  repo             = {r:?}\n")),
+                None => out.push_str("  # repo = \"my-repo\"\n"),
             }
             out.push_str("}\n");
         }
@@ -485,6 +527,8 @@ struct RawTerramate {
     version: Option<String>,
     #[serde(default)]
     workspace_prefix: Option<String>,
+    #[serde(default)]
+    repo: Option<String>,
 }
 
 /// Every field that has a safe default is `Option`, so a hand-trimmed manifest
@@ -534,6 +578,7 @@ impl RawManifest {
                     .filter(|s| !s.is_empty())
                     .unwrap_or(defaults.version),
                 workspace_prefix: t.workspace_prefix.filter(|s| !s.is_empty()),
+                repo: t.repo.filter(|s| !s.is_empty()),
             }),
             _ => None,
         };
@@ -647,32 +692,52 @@ mod tests {
         );
     }
 
-    /// No prefix emits a bare expression; a prefix emits a quoted template.
-    /// Getting the quoting wrong produces HCL that does not parse.
+    /// The workspace is repo- and path-qualified, lowercased, and slugified.
+    /// Verified against real `terramate generate` output: repo `acme-infra`,
+    /// stack `stacks/eu/network`, prefix `team-` renders
+    /// `team-acme-infra-stacks-eu-network`.
     #[test]
-    fn workspace_expr_quotes_only_when_prefixed() {
-        assert_eq!(
-            Terramate::default().workspace_expr(),
-            "terramate.stack.name"
-        );
-        let prefixed = Terramate {
-            workspace_prefix: Some("state-sample-".into()),
+    fn workspace_expr_is_prefix_repo_and_path() {
+        let t = Terramate {
+            workspace_prefix: Some("team-".into()),
+            repo: Some("acme-infra".into()),
             ..Terramate::default()
         };
         assert_eq!(
-            prefixed.workspace_expr(),
-            "\"state-sample-${terramate.stack.name}\""
+            t.workspace_expr(),
+            "tm_lower(\"team-acme-infra-${tm_replace(terramate.stack.path.relative, \"/[^a-zA-Z0-9]+/\", \"-\")}\")"
         );
     }
 
-    /// An empty prefix is the same as none, not an empty template.
+    /// Each qualifier is independent: no prefix, no repo, or neither.
     #[test]
-    fn an_empty_prefix_is_no_prefix() {
-        let t = Terramate {
-            workspace_prefix: Some(String::new()),
+    fn workspace_expr_omits_absent_qualifiers() {
+        let path = "${tm_replace(terramate.stack.path.relative, \"/[^a-zA-Z0-9]+/\", \"-\")}";
+
+        let repo_only = Terramate {
+            repo: Some("acme-infra".into()),
             ..Terramate::default()
         };
-        assert_eq!(t.workspace_expr(), "terramate.stack.name");
+        assert_eq!(
+            repo_only.workspace_expr(),
+            format!("tm_lower(\"acme-infra-{path}\")")
+        );
+        assert_eq!(
+            Terramate::default().workspace_expr(),
+            format!("tm_lower(\"{path}\")")
+        );
+    }
+
+    /// An empty string is absent, not an empty segment — otherwise the name
+    /// gains a leading or doubled `-`.
+    #[test]
+    fn empty_qualifiers_are_treated_as_absent() {
+        let t = Terramate {
+            workspace_prefix: Some(String::new()),
+            repo: Some(String::new()),
+            ..Terramate::default()
+        };
+        assert_eq!(t.workspace_expr(), Terramate::default().workspace_expr());
     }
 
     #[test]
@@ -682,6 +747,7 @@ mod tests {
         m.discovery = Some(Discovery::default_for(Artefact::Workspaces));
         m.terramate = Some(Terramate {
             workspace_prefix: Some("state-sample-".into()),
+            repo: Some("state-sample-mono-repo".into()),
             ..Terramate::default()
         });
         let parsed = Manifest::parse(&m.render()).unwrap();

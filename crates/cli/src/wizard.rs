@@ -397,12 +397,19 @@ pub fn resolve_terramate(
     if args.no_terramate {
         return Ok(None);
     }
+    // Folded into every workspace name, so two repos in one org cannot collide
+    // on a stack called `network`. The remote is authoritative; the directory
+    // name is a fallback for a repo with no origin yet.
+    let repo = repo_slug(root);
     let adopted = root.join("terramate.tm.hcl").exists();
     if args.terramate || adopted || !interactive(args) {
         if adopted {
             eprintln!("  · adopting the existing terramate.tm.hcl");
         }
-        return Ok(Some(Terramate::default()));
+        return Ok(Some(Terramate {
+            repo,
+            ..Terramate::default()
+        }));
     }
     let answer = confirm(
         "Orchestrate stacks with Terramate?",
@@ -410,10 +417,49 @@ pub fn resolve_terramate(
         Some("generates each stack's backend and runs only the stacks a change touches"),
     )?;
     match answer {
-        Answer::Got(true) => Ok(Some(Terramate::default())),
+        Answer::Got(true) => Ok(Some(Terramate {
+            repo,
+            ..Terramate::default()
+        })),
         Answer::Got(false) => Ok(None),
         Answer::Cancelled => Err(ScaffoldError::Cancelled),
     }
+}
+
+/// The repository slug for workspace naming: the `origin` remote's repo name,
+/// else the directory name. Lowercased and reduced to `[a-z0-9-]`, because it
+/// becomes a path segment in the state backend URL.
+fn repo_slug(root: &std::path::Path) -> Option<String> {
+    let from_remote = vcs::origin_remote(root).and_then(|r| {
+        let path = r
+            .trim()
+            .trim_end_matches('/')
+            .trim_end_matches(".git")
+            .rsplit(['/', ':'])
+            .next()
+            .map(str::to_string)?;
+        (!path.is_empty()).then_some(path)
+    });
+    let raw = from_remote.or_else(|| {
+        root.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .filter(|s| !s.is_empty() && s != ".")
+    })?;
+    let slug = slugify(&raw);
+    (!slug.is_empty()).then_some(slug)
+}
+
+/// Lowercase, every run of non-alphanumerics collapsed to one `-`, trimmed.
+fn slugify(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        } else if !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    out.trim_matches('-').to_string()
 }
 
 /// Step 8 — the trunk branch. Read from git rather than assumed, because the
@@ -635,6 +681,50 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("terramate.tm.hcl"), "terramate {}\n").unwrap();
         assert_eq!(detect_artefact(tmp.path()), Some(Artefact::Workspaces));
+    }
+
+    /// The slug becomes a path segment in the state backend URL, so anything
+    /// that is not [a-z0-9-] has to go.
+    #[test]
+    fn slugify_reduces_to_url_safe_lowercase() {
+        assert_eq!(slugify("State-Sample-Mono-Repo"), "state-sample-mono-repo");
+        assert_eq!(slugify("acme_infra.v2"), "acme-infra-v2");
+        assert_eq!(slugify("--leading and trailing--"), "leading-and-trailing");
+        assert_eq!(slugify(""), "");
+    }
+
+    /// Every remote form yields the repo name, not the host or the owner.
+    #[test]
+    fn repo_slug_comes_from_the_origin_remote() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let git = |args: &[&str]| {
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(root)
+                .args(args)
+                .output()
+                .unwrap();
+        };
+        git(&["init", "-q"]);
+        for (remote, want) in [
+            ("git@github.com:acme/State-Sample.git", "state-sample"),
+            ("https://github.com/acme/acme-infra.git", "acme-infra"),
+            ("https://gitlab.com/group/sub/deep-repo", "deep-repo"),
+        ] {
+            git(&["remote", "remove", "origin"]);
+            git(&["remote", "add", "origin", remote]);
+            assert_eq!(repo_slug(root).as_deref(), Some(want), "{remote}");
+        }
+    }
+
+    /// No remote yet is the fresh-repo case; fall back to the directory.
+    #[test]
+    fn repo_slug_falls_back_to_the_directory_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("My Infra");
+        std::fs::create_dir(&dir).unwrap();
+        assert_eq!(repo_slug(&dir).as_deref(), Some("my-infra"));
     }
 
     #[test]

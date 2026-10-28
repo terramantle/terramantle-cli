@@ -36,7 +36,7 @@ globals {
   # publish` derives the workspace name from the stack directory, so any other
   # value uploads the provider lock file to a different workspace than the one
   # holding the state — and the two drift apart silently.
-  workspace = terramate.stack.name
+  workspace = tm_lower("${tm_replace(terramate.stack.path.relative, "/[^a-zA-Z0-9]+/", "-")}")
 }
 
 # Generated into every stack as `_backend.tf`.
