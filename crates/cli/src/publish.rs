@@ -710,10 +710,14 @@ fn workspace_units(
         if !dir.join(LOCK_FILE_NAME).is_file() {
             continue;
         }
-        let name = if a.rel_dir == "." {
-            poly_name.map(str::to_string).unwrap_or(a.name)
-        } else {
-            a.name
+        // The backend block is authoritative: it is the URL the state is
+        // actually pushed to. Guessing from the directory name is only right
+        // when nothing customised the address, and silently wrong otherwise —
+        // the lock file lands in one workspace while the state sits in another.
+        let name = match tm_scaffold::workspace_from_backend(&dir) {
+            Some(ws) => ws,
+            None if a.rel_dir == "." => poly_name.map(str::to_string).unwrap_or(a.name),
+            None => a.name,
         };
         out.push((name, dir));
     }

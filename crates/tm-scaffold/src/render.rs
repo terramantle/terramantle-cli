@@ -461,7 +461,7 @@ fn terramate_config(m: &Manifest, t: &Terramate) -> GeneratedFile {
         ("ORG", m.org.clone()),
         ("BACKEND_HOST", host_of(&api)),
         ("DEFAULT_BRANCH", m.ci.default_branch.clone()),
-        ("WORKSPACE_EXPR", t.workspace_name.clone()),
+        ("WORKSPACE_EXPR", t.workspace_expr()),
     ];
     let borrowed: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
     GeneratedFile {

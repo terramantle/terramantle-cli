@@ -10,6 +10,7 @@
 //! * [`plan`] — the lock-free, terraform-plan-style desired-vs-disk diff engine (`+ ~ -`),
 //!   using each managed file's provenance header (not a lock file) to recognise ownership.
 
+pub mod backend;
 pub mod error;
 pub mod manifest;
 pub mod pins;
@@ -17,11 +18,11 @@ pub mod plan;
 pub mod render;
 pub mod vcs;
 
+pub use backend::{workspace_from_backend, workspace_from_text};
 pub use error::ScaffoldError;
 pub use manifest::{
     Artefact, ChangeBase, CiAuth, CiConfig, Discovery, Engine, Manifest, Structure, Terramate,
-    VcsProvider, Versioning, DEFAULT_TERRAMATE_VERSION, DEFAULT_TOFU_VERSION,
-    TERRAMATE_WORKSPACE_EXPR,
+    VcsProvider, Versioning, DEFAULT_TERRAMATE_VERSION, DEFAULT_TOFU_VERSION, TERRAMATE_STACK_NAME,
 };
 pub use plan::{compute, Action, ApplyOutcome, Plan, PlanEntry};
 pub use render::{desired_files, merge_gitignore, tf_token_var, FileClass, GeneratedFile};

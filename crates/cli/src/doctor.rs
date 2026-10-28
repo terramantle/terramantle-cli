@@ -240,10 +240,14 @@ fn check_lock_files(root: &Path, m: &Manifest) -> Vec<Check> {
     }
 }
 
-/// The backend's workspace segment must equal the directory basename, because
-/// that is what `state publish` derives the workspace name from. When they
-/// disagree the lock file and the state land in different workspaces, and
-/// nothing errors — each call is individually valid.
+/// Every stack must declare a backend address, because that address is what
+/// `state publish` now derives the workspace name from.
+///
+/// This used to assert the address matched the directory basename. It no
+/// longer has to: publish reads the address itself, so a deliberately prefixed
+/// workspace (`state-sample-<stack>`) is correct. What is *not* fine is a stack
+/// with no readable address — publish then falls back to the directory name and
+/// may push the lock file somewhere the state is not.
 fn check_backend_workspaces(root: &Path, m: &Manifest) -> Vec<Check> {
     if m.artefact != tm_scaffold::Artefact::Workspaces {
         return vec![];
@@ -251,55 +255,67 @@ fn check_backend_workspaces(root: &Path, m: &Manifest) -> Vec<Check> {
     let Ok(artefacts) = tm_release::artefacts(root, m) else {
         return vec![];
     };
-    let mut mismatched = Vec::new();
+    if artefacts.is_empty() {
+        return vec![];
+    }
+
+    let (mut resolved, mut unreadable) = (Vec::new(), Vec::new());
     for a in &artefacts {
-        let dir = root.join(&a.rel_dir);
-        let Some(addr) = backend_address(&dir) else {
-            continue;
-        };
-        let Some(ws) = addr.rsplit('/').next() else {
-            continue;
-        };
-        if ws != a.name {
-            mismatched.push(format!("{} → {ws}", a.rel_dir));
+        match tm_scaffold::workspace_from_backend(&root.join(&a.rel_dir)) {
+            Some(ws) => resolved.push(ws),
+            None => unreadable.push(a.rel_dir.clone()),
         }
     }
-    if mismatched.is_empty() {
-        vec![Check::ok(
+
+    let mut checks = vec![if unreadable.is_empty() {
+        Check::ok(
             "backend workspaces",
-            "every backend address matches its directory name",
-        )]
+            format!("all {} resolve ({})", resolved.len(), preview(&resolved)),
+        )
     } else {
-        vec![Check::fail(
+        Check::fail(
             "backend workspaces",
             format!(
-                "address does not match the directory basename ({}) — \
-                 the lock file and the state would use different workspaces",
-                mismatched.join(", ")
+                "{} stack(s) have no readable backend address ({}) — publish would fall back \
+                 to the directory name",
+                unreadable.len(),
+                unreadable.join(", ")
             ),
-        )]
+        )
+    }];
+
+    // Two stacks pointing at one workspace is data loss: whichever applies
+    // last overwrites the other's state, and nothing reports it.
+    let mut seen = std::collections::BTreeMap::<&str, usize>::new();
+    for ws in &resolved {
+        *seen.entry(ws.as_str()).or_default() += 1;
     }
+    let dupes: Vec<&str> = seen
+        .iter()
+        .filter(|(_, n)| **n > 1)
+        .map(|(w, _)| *w)
+        .collect();
+    if !dupes.is_empty() {
+        checks.push(Check::fail(
+            "workspace collisions",
+            format!(
+                "{} workspace(s) are claimed by more than one stack ({}) — their state \
+                 would overwrite each other",
+                dupes.len(),
+                dupes.join(", ")
+            ),
+        ));
+    }
+    checks
 }
 
-/// The `address = "…/state/<org>/<workspace>"` of whichever backend file the
-/// directory has. Text scan rather than an HCL parse: `_backend.tf` is machine
-/// generated and single-purpose, and a parse failure here must not be fatal.
-fn backend_address(dir: &Path) -> Option<String> {
-    for name in ["_backend.tf", "backend.tf"] {
-        let Ok(text) = std::fs::read_to_string(dir.join(name)) else {
-            continue;
-        };
-        for line in text.lines() {
-            let t = line.trim();
-            if !t.starts_with("address") {
-                continue;
-            }
-            if let Some(v) = t.split('=').nth(1) {
-                return Some(v.trim().trim_matches('"').to_string());
-            }
-        }
+/// The first few names, so the line stays readable in a repo with many stacks.
+fn preview(names: &[String]) -> String {
+    const MAX: usize = 3;
+    if names.len() <= MAX {
+        return names.join(", ");
     }
-    None
+    format!("{}, +{} more", names[..MAX].join(", "), names.len() - MAX)
 }
 
 /// Is this repo trusted for keyless CI auth?
@@ -361,41 +377,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn backend_address_is_read_from_either_filename() {
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(
-            tmp.path().join("_backend.tf"),
-            "terraform {\n  backend \"http\" {\n    \
-             address        = \"https://r.example/state/acme/network\"\n    \
-             lock_address   = \"https://r.example/state/acme/network.lock\"\n  }\n}\n",
-        )
-        .unwrap();
-        assert_eq!(
-            backend_address(tmp.path()).as_deref(),
-            Some("https://r.example/state/acme/network")
-        );
-    }
-
-    /// `lock_address` also starts with "lock_address" — the scan must not
-    /// return it for `address`.
-    #[test]
-    fn backend_address_ignores_the_lock_addresses() {
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(
-            tmp.path().join("backend.tf"),
-            "    lock_address   = \"https://r.example/state/acme/x.lock\"\n    \
-             address        = \"https://r.example/state/acme/x\"\n",
-        )
-        .unwrap();
-        assert_eq!(
-            backend_address(tmp.path()).as_deref(),
-            Some("https://r.example/state/acme/x")
-        );
-    }
-
-    #[test]
-    fn no_backend_file_is_not_an_error() {
-        let tmp = tempfile::tempdir().unwrap();
-        assert_eq!(backend_address(tmp.path()), None);
+    fn preview_truncates_a_long_list() {
+        let names: Vec<String> = ["a", "b", "c", "d", "e"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(preview(&names), "a, b, c, +2 more");
+        assert_eq!(preview(&names[..2]), "a, b");
     }
 }

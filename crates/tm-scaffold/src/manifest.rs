@@ -198,23 +198,38 @@ pub const DEFAULT_TERRAMATE_VERSION: &str = "0.17.3";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Terramate {
     pub version: String,
-    /// The Terramantle state workspace each stack binds to.
+    /// Optional prefix on each stack's Terramantle state workspace, so a shared
+    /// org can tell one repo's workspaces from another's: `"state-sample-"`
+    /// binds the `network` stack to `state-sample-network`.
     ///
-    /// MUST resolve to the stack's directory basename: `state publish` derives
-    /// the workspace name from the directory (`workspace_units` in the CLI), so
-    /// any other value uploads the lock file to a different workspace than the
-    /// one holding the state.
-    pub workspace_name: String,
+    /// A plain string rather than a raw HCL expression on purpose. The emitted
+    /// value needs a `${…}` interpolation, and carrying that through the
+    /// manifest would mean escaping it as `$${…}` inside a quoted HCL string —
+    /// a trap for anyone editing the file by hand.
+    ///
+    /// `None` emits the bare `terramate.stack.name`.
+    pub workspace_prefix: Option<String>,
 }
 
-/// The only safe default for [`Terramate::workspace_name`] — see its docs.
-pub const TERRAMATE_WORKSPACE_EXPR: &str = "terramate.stack.name";
+/// The Terramate expression for a stack's own name.
+pub const TERRAMATE_STACK_NAME: &str = "terramate.stack.name";
+
+impl Terramate {
+    /// The HCL expression assigned to `globals.workspace`, quoted when a prefix
+    /// makes it a template and bare otherwise.
+    pub fn workspace_expr(&self) -> String {
+        match self.workspace_prefix.as_deref().filter(|p| !p.is_empty()) {
+            Some(p) => format!("\"{p}${{{TERRAMATE_STACK_NAME}}}\""),
+            None => TERRAMATE_STACK_NAME.to_string(),
+        }
+    }
+}
 
 impl Default for Terramate {
     fn default() -> Self {
         Self {
             version: DEFAULT_TERRAMATE_VERSION.into(),
-            workspace_name: TERRAMATE_WORKSPACE_EXPR.into(),
+            workspace_prefix: None,
         }
     }
 }
@@ -324,13 +339,18 @@ impl Manifest {
             out.push_str("terramate {\n");
             out.push_str(&format!("  version        = {:?}\n", t.version));
             out.push_str(
-                "  # MUST resolve to the stack's directory basename: `state publish` derives the\n",
+                "  # Optional prefix on each stack's workspace, so a shared org can tell one\n",
             );
             out.push_str(
-                "  # workspace name from the directory, so anything else uploads the lock file to\n",
+                "  # repo's workspaces from another's: \"state-sample-\" binds the `network` stack\n",
             );
-            out.push_str("  # a different workspace than the one holding the state.\n");
-            out.push_str(&format!("  workspace_name = {:?}\n", t.workspace_name));
+            out.push_str(
+                "  # to the `state-sample-network` workspace. Omit for the bare stack name.\n",
+            );
+            match &t.workspace_prefix {
+                Some(p) => out.push_str(&format!("  workspace_prefix = {p:?}\n")),
+                None => out.push_str("  # workspace_prefix = \"my-repo-\"\n"),
+            }
             out.push_str("}\n");
         }
 
@@ -464,7 +484,7 @@ struct RawTerramate {
     #[serde(default)]
     version: Option<String>,
     #[serde(default)]
-    workspace_name: Option<String>,
+    workspace_prefix: Option<String>,
 }
 
 /// Every field that has a safe default is `Option`, so a hand-trimmed manifest
@@ -513,10 +533,7 @@ impl RawManifest {
                     .version
                     .filter(|s| !s.is_empty())
                     .unwrap_or(defaults.version),
-                workspace_name: t
-                    .workspace_name
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or(defaults.workspace_name),
+                workspace_prefix: t.workspace_prefix.filter(|s| !s.is_empty()),
             }),
             _ => None,
         };
@@ -630,11 +647,45 @@ mod tests {
         );
     }
 
-    /// The workspace expression must resolve to the stack's directory basename,
-    /// because `state publish` derives the workspace name from the directory.
+    /// No prefix emits a bare expression; a prefix emits a quoted template.
+    /// Getting the quoting wrong produces HCL that does not parse.
     #[test]
-    fn terramate_workspace_name_defaults_to_the_stack_basename() {
-        assert_eq!(Terramate::default().workspace_name, "terramate.stack.name");
+    fn workspace_expr_quotes_only_when_prefixed() {
+        assert_eq!(
+            Terramate::default().workspace_expr(),
+            "terramate.stack.name"
+        );
+        let prefixed = Terramate {
+            workspace_prefix: Some("state-sample-".into()),
+            ..Terramate::default()
+        };
+        assert_eq!(
+            prefixed.workspace_expr(),
+            "\"state-sample-${terramate.stack.name}\""
+        );
+    }
+
+    /// An empty prefix is the same as none, not an empty template.
+    #[test]
+    fn an_empty_prefix_is_no_prefix() {
+        let t = Terramate {
+            workspace_prefix: Some(String::new()),
+            ..Terramate::default()
+        };
+        assert_eq!(t.workspace_expr(), "terramate.stack.name");
+    }
+
+    #[test]
+    fn workspace_prefix_round_trips() {
+        let mut m = mono_modules();
+        m.artefact = Artefact::Workspaces;
+        m.discovery = Some(Discovery::default_for(Artefact::Workspaces));
+        m.terramate = Some(Terramate {
+            workspace_prefix: Some("state-sample-".into()),
+            ..Terramate::default()
+        });
+        let parsed = Manifest::parse(&m.render()).unwrap();
+        assert_eq!(parsed.terramate, m.terramate);
     }
 
     #[test]
