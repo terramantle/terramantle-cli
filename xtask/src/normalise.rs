@@ -216,33 +216,38 @@ fn drop_external_formats(v: &mut Value) -> usize {
     n
 }
 
-/// Collapse a nullable enum to a plain one: drop `"null"` from `type` and
-/// `null` from `enum`.
+/// Collapse a NAMED nullable schema to its non-nullable form: drop `"null"`
+/// from `type`, and `null` from `enum` when there is one.
 ///
-/// typify mishandles a NAMED nullable enum. Given `ServeOverride` as
+/// typify mishandles any named schema whose `type` is an array containing
+/// `"null"`. Given `ServeOverride` as
 /// `{type: ["string","null"], enum: ["block","allow",null]}` it emits BOTH
 ///
 ///     pub struct ServeOverride(pub Option<ServeOverride>);   // refers to itself
 ///     pub enum ServeOverride { Block, Allow }                // same name again
 ///
 /// which is `error[E0428]: the name ServeOverride is defined multiple times`,
-/// and the newtype is infinitely recursive besides. Collapsing to a plain enum
-/// loses nothing: `required` is relaxed for responses, so every use site is
-/// already `Option<ServeOverride>`, and `None` carries exactly the `null` the
-/// schema describes (for `ServeOverride`, "clear the override").
+/// and the newtype is infinitely recursive besides.
 ///
-/// Returns true if `v` was a nullable enum.
+/// The same happens for a nullable OBJECT — `PlatformProvidersOrgRef` and
+/// `PlatformProvidersWorkflowBrief` are `{type: ["object","null"], properties:
+/// {...}}` — so this deliberately keys on the nullable `type` alone rather
+/// than on `enum`. It originally handled only enums, and the object form broke
+/// the build the first time the platform spec was pulled.
+///
+/// Collapsing loses nothing. Nullability of a *named component* is a statement
+/// about use sites, not about the type: `required` is relaxed for responses, so
+/// every field referencing it is already `Option<T>`, and `None` carries
+/// exactly the `null` the schema describes.
+///
+/// Returns true if `v` was nullable.
 fn collapse_nullable_enum(v: &mut Value) -> bool {
     let Value::Object(map) = v else { return false };
     let is_nullable_type = map
         .get("type")
         .and_then(Value::as_array)
         .is_some_and(|t| t.iter().any(|x| x.as_str() == Some("null")));
-    let has_null_in_enum = map
-        .get("enum")
-        .and_then(Value::as_array)
-        .is_some_and(|e| e.iter().any(Value::is_null));
-    if !(is_nullable_type && has_null_in_enum) {
+    if !is_nullable_type {
         return false;
     }
 
@@ -263,14 +268,12 @@ fn collapse_nullable_enum(v: &mut Value) -> bool {
             Value::Array(kept_types)
         },
     );
-    let kept_variants: Vec<Value> = map["enum"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|x| !x.is_null())
-        .cloned()
-        .collect();
-    map.insert("enum".into(), Value::Array(kept_variants));
+    // Only when there IS an enum; a nullable object has none.
+    if let Some(variants) = map.get("enum").and_then(Value::as_array) {
+        let kept_variants: Vec<Value> =
+            variants.iter().filter(|x| !x.is_null()).cloned().collect();
+        map.insert("enum".into(), Value::Array(kept_variants));
+    }
     true
 }
 

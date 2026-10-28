@@ -96,6 +96,135 @@ pub struct ApiSpecLinks {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub openapi_url: ::std::option::Option<::std::string::String>,
 }
+///`ApplyPolicyBaselineResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ApplyPolicyBaselineResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub created: ::std::vec::Vec<Policy>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rescan: ::std::option::Option<ApplyPolicyBaselineResponseRescan>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub skipped: ::std::vec::Vec<ApplyPolicyBaselineResponseSkippedItem>,
+}
+///`ApplyPolicyBaselineResponseRescan`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum ApplyPolicyBaselineResponseRescan {
+    #[serde(rename = "queued")]
+    Queued,
+    #[serde(rename = "coalesced")]
+    Coalesced,
+    #[serde(rename = "none")]
+    None,
+}
+impl ::std::fmt::Display for ApplyPolicyBaselineResponseRescan {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Queued => f.write_str("queued"),
+            Self::Coalesced => f.write_str("coalesced"),
+            Self::None => f.write_str("none"),
+        }
+    }
+}
+impl ::std::str::FromStr for ApplyPolicyBaselineResponseRescan {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "queued" => Ok(Self::Queued),
+            "coalesced" => Ok(Self::Coalesced),
+            "none" => Ok(Self::None),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ApplyPolicyBaselineResponseRescan {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ApplyPolicyBaselineResponseRescan {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ApplyPolicyBaselineResponseSkippedItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ApplyPolicyBaselineResponseSkippedItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub artefact_type: ::std::option::Option<PolicyArtefactType>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    /**The only reason a baseline policy is not created, and it is not an
+    error: the org already has one by that name.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<ApplyPolicyBaselineResponseSkippedItemReason>,
+}
+/**The only reason a baseline policy is not created, and it is not an
+error: the org already has one by that name.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum ApplyPolicyBaselineResponseSkippedItemReason {
+    #[serde(rename = "duplicate_name")]
+    DuplicateName,
+}
+impl ::std::fmt::Display for ApplyPolicyBaselineResponseSkippedItemReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::DuplicateName => f.write_str("duplicate_name"),
+        }
+    }
+}
+impl ::std::str::FromStr for ApplyPolicyBaselineResponseSkippedItemReason {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "duplicate_name" => Ok(Self::DuplicateName),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ApplyPolicyBaselineResponseSkippedItemReason {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for ApplyPolicyBaselineResponseSkippedItemReason
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`ApprovePlanVersionResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ApprovePlanVersionResponse {
@@ -396,32 +525,6 @@ pub struct BillingStateUsage {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub users: ::std::option::Option<i64>,
 }
-///`BlocklistProviderVersionResponse`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(transparent)]
-pub struct BlocklistProviderVersionResponse(
-    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
-);
-impl ::std::ops::Deref for BlocklistProviderVersionResponse {
-    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
-    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
-        &self.0
-    }
-}
-impl ::std::convert::From<BlocklistProviderVersionResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
-    fn from(value: BlocklistProviderVersionResponse) -> Self {
-        value.0
-    }
-}
-impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for BlocklistProviderVersionResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
-        Self(value)
-    }
-}
 ///`BuildCompleteBody`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct BuildCompleteBody {
@@ -580,6 +683,17 @@ pub struct CliDiscoveryOidc {
     ///Registry audience every user/CI token must carry.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub audience: ::std::option::Option<::std::string::String>,
+    /**Confidential provider every bot token authenticates against, or `null` when the
+    deployment has not provisioned one.
+
+    There is no per-bot client. A bot token created in the portal is an IdP service
+    account under this single provider, so the `client_credentials` grant sends
+    `client_id` = this value, `username` = the token's Client ID and `password` =
+    its Client Secret — not the client_id/client_secret pair the grant name suggests.
+    Advertised here so the CLI does not compile in a deployment-specific name.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub bot_client_id: ::std::option::Option<::std::string::String>,
     /**Public client for the device-authorization flow, or `null` until provisioned — in
     which case the CLI reports a clear error rather than attempting a login.
     */
@@ -602,11 +716,120 @@ pub struct CliDiscoveryOidc {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vcs_audience: ::std::option::Option<::std::string::String>,
 }
+///`ConsumptionBlock`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ConsumptionBlock {
+    /**Derived, not stored: true when all three are armed. There is no master flag in the
+    database — the UI's master switch reads this and writes `all`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub all_blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module: ::std::option::Option<ConsumptionBlockEntry>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<ConsumptionBlockEntry>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state: ::std::option::Option<ConsumptionBlockEntry>,
+}
+///One artefact type's kill-switch state.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ConsumptionBlockEntry {
+    ///Armed — every consume of this artefact type is refused for the whole org.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<bool>,
+    /**Only meaningful while `blocked` is true. Once disarmed it is when the switch was turned
+     **off**, so do not render it as "armed at".
+     */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub changed_at: ::std::option::Option<Timestamp>,
+    ///Email of the owner who last armed or disarmed it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub changed_by: ::std::option::Option<::std::string::String>,
+    /**The backing `policies` row, non-null once the switch has ever been armed for this
+    artefact. Disarming keeps the row so historical decision-ledger entries still resolve
+    to a policy; `null` means it has never been armed.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_id: ::std::option::Option<::std::string::String>,
+}
+///`ConsumptionBlockUpdateResult`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ConsumptionBlockUpdateResult {
+    /**Derived, not stored: true when all three are armed. There is no master flag in the
+    database — the UI's master switch reads this and writes `all`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub all_blocked: ::std::option::Option<bool>,
+    /**The artefact types this request actually flipped. Empty ⇒ the request was a no-op:
+    nothing was written and nothing was audited.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub changed: ::std::vec::Vec<ConsumptionBlockUpdateResultChangedItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module: ::std::option::Option<ConsumptionBlockEntry>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<ConsumptionBlockEntry>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state: ::std::option::Option<ConsumptionBlockEntry>,
+}
+///`ConsumptionBlockUpdateResultChangedItem`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum ConsumptionBlockUpdateResultChangedItem {
+    #[serde(rename = "module")]
+    Module,
+    #[serde(rename = "provider")]
+    Provider,
+    #[serde(rename = "state")]
+    State,
+}
+impl ::std::fmt::Display for ConsumptionBlockUpdateResultChangedItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Module => f.write_str("module"),
+            Self::Provider => f.write_str("provider"),
+            Self::State => f.write_str("state"),
+        }
+    }
+}
+impl ::std::str::FromStr for ConsumptionBlockUpdateResultChangedItem {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "module" => Ok(Self::Module),
+            "provider" => Ok(Self::Provider),
+            "state" => Ok(Self::State),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ConsumptionBlockUpdateResultChangedItem {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ConsumptionBlockUpdateResultChangedItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`CreateOrgResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct CreateOrgResponse {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub applied_policy_preset: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub org: ::std::option::Option<OrgSummary>,
 }
@@ -1738,50 +1961,6 @@ impl<'de> ::serde::Deserialize<'de> for MachineTokenWithSecretIsGlobal {
             .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
     }
 }
-///`ModuleDependencyGraph`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct ModuleDependencyGraph {
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub edges: ::std::vec::Vec<ModuleDependencyGraphEdgesItem>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub nodes: ::std::vec::Vec<ModuleDependencyGraphNodesItem>,
-    ///Totals for the rendered graph.
-    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
-    pub stats: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
-}
-///`ModuleDependencyGraphEdgesItem`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct ModuleDependencyGraphEdgesItem {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub from: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub is_terramantle: ::std::option::Option<bool>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub to: ::std::option::Option<::std::string::String>,
-}
-///`ModuleDependencyGraphNodesItem`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct ModuleDependencyGraphNodesItem {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub deprecated: ::std::option::Option<bool>,
-    ///`namespace/name/provider`.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub id: ::std::option::Option<::std::string::String>,
-    ///Whether the dependency resolves inside this registry.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub is_terramantle: ::std::option::Option<bool>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub latest_version: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub name: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub provider: ::std::option::Option<::std::string::String>,
-    ///`0` on a stub node for a dependency outside the caller's visibility.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub version_count: ::std::option::Option<i64>,
-}
 ///One module-to-module dependency edge parsed from the source.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ModuleDependencyInput {
@@ -1797,36 +1976,19 @@ pub struct ModuleDependencyInput {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version_constraint: ::std::option::Option<::std::string::String>,
 }
-///`ModuleGraph`
+/**Single-hop graph for one version, in the same node/edge shape as the org graph so the
+portal renders both with one component. Every node here is `kind: module`; the root
+carries THIS version's status (not the module's latest, since the route is
+version-scoped), and each dependency is a stub whose status fields are zeroed — resolving
+a status per target would mean another version lookup per node, and the question this
+answers is "what does this version pull in".
+*/
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ModuleGraph {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub edges: ::std::vec::Vec<ModuleGraphEdgesItem>,
+    pub edges: ::std::vec::Vec<OrgGraphEdge>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub nodes: ::std::vec::Vec<ModuleGraphNodesItem>,
-}
-///`ModuleGraphEdgesItem`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct ModuleGraphEdgesItem {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub from: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub to: ::std::option::Option<::std::string::String>,
-}
-///`ModuleGraphNodesItem`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct ModuleGraphNodesItem {
-    ///`namespace/name/provider`.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub id: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub name: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub provider: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub version: ::std::option::Option<::std::string::String>,
+    pub nodes: ::std::vec::Vec<OrgGraphNode>,
 }
 ///One policy's verdict against one version.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -2444,6 +2606,511 @@ impl ::std::convert::TryFrom<::std::string::String> for OnMissingSignal {
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
+}
+///`OrgDependencyGraph`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct OrgDependencyGraph {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub edges: ::std::vec::Vec<OrgGraphEdge>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub nodes: ::std::vec::Vec<OrgGraphNode>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub stats: ::std::option::Option<OrgGraphStats>,
+}
+/**A relationship and the facts that belong to it rather than to either endpoint: the
+version a workspace pinned, the constraint a module declared, and the release that
+declared it. Fields beyond the four required ones are present only for the relations
+named in their descriptions, so read `rel` first.
+
+Deliberately absent: the lock file's `hashes`. At 5-15 entries of ~55 characters that is
+300-800 bytes on every `locks` edge, which would add roughly a megabyte to a large org's
+graph for a value nothing renders. The hash set is on the workspace's Providers tab.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct OrgGraphEdge {
+    /**The declared version constraint, where one was recorded. `null` carries meaning and
+    differs by relation: on `requires` it is a `required_providers` block with no
+    `version`, i.e. **any version**; on `locks` it is a lock file that recorded no
+    constraint. Neither is a missing value, and the portal words them differently.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub constraint: ::std::option::Option<::std::string::String>,
+    /**`depends` and `requires`. The version of the CONSUMER module whose source declares
+    this relationship. On the org graph that is always the module's latest published
+    version, since module-sourced edges are scoped to it; on the version-scoped module
+    graph it is the version in the path.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub declared_in_version: ::std::option::Option<::std::string::String>,
+    ///Node id of the consumer. Edges point consumer → dependency.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<::std::string::String>,
+    /**`depends` only. The dependency resolves inside this Terramantle registry rather than
+    an external source. Recorded at scan time from the source address.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_terramantle: ::std::option::Option<bool>,
+    ///`locks` only. When an upstream lookup last failed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_lookup_error_at: ::std::option::Option<i64>,
+    /**`locks` only. Newest version satisfying `constraint`. `null` is ambiguous on its own
+    and must be read with the two timestamps below: it means "nothing newer satisfies the
+    constraint" only when `latest_version_checked_at` is set.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_matching: ::std::option::Option<::std::string::String>,
+    /**`locks` only. Newest version upstream, IGNORING the constraint. A different question
+    from `latest_matching`, and presenting the two as one is how a pin that is correctly
+    held back by its own constraint gets reported as stale.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_version: ::std::option::Option<::std::string::String>,
+    /**`locks` only. When the version checker last SUCCEEDED for this pin. `null` with
+    `latest_lookup_error_at` set means the pin has never been compared against the
+    registry, which is a different state from "up to date" and is rendered as such.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_version_checked_at: ::std::option::Option<i64>,
+    ///`locks` only. When the pin was recorded.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub locked_at: ::std::option::Option<i64>,
+    /**`locks` only. The version the lock file actually pins — the fact the graph exists to
+    surface. Compare against `latest_matching` for staleness; the node-level `outdated`
+    flag is an OR across every workspace pinning the provider and so cannot say which
+    pin is behind.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub locked_version: ::std::option::Option<::std::string::String>,
+    /**`locks` only. The literal address in the lock file, e.g.
+    `registry.terraform.io/hashicorp/aws`. Also what distinguishes two parallel edges
+    when one workspace pins the same provider from both registries.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_address: ::std::option::Option<::std::string::String>,
+    /**`depends` module → module, `requires` module → provider (`required_providers`),
+    `locks` state → provider (a lock-file pin). Module-sourced edges are scoped to the
+    module's latest published version, so a dependency dropped in a later release stops
+    being drawn.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rel: ::std::option::Option<OrgGraphEdgeRel>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<::std::string::String>,
+    /**`requires` and `locks`. Which registry the relationship names. This is the only place
+    a registry appears, because provider NODES deliberately collapse the two — an org may
+    hold `hashicorp/local` from both, while `module_provider_refs.upstream` is nullable
+    and so a module ref cannot always be attributed to one. `null` on a `requires` edge
+    therefore means "not recorded", not "neither".
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<OrgGraphEdgeUpstream>,
+}
+/**`depends` module → module, `requires` module → provider (`required_providers`),
+`locks` state → provider (a lock-file pin). Module-sourced edges are scoped to the
+module's latest published version, so a dependency dropped in a later release stops
+being drawn.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum OrgGraphEdgeRel {
+    #[serde(rename = "depends")]
+    Depends,
+    #[serde(rename = "requires")]
+    Requires,
+    #[serde(rename = "locks")]
+    Locks,
+}
+impl ::std::fmt::Display for OrgGraphEdgeRel {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Depends => f.write_str("depends"),
+            Self::Requires => f.write_str("requires"),
+            Self::Locks => f.write_str("locks"),
+        }
+    }
+}
+impl ::std::str::FromStr for OrgGraphEdgeRel {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "depends" => Ok(Self::Depends),
+            "requires" => Ok(Self::Requires),
+            "locks" => Ok(Self::Locks),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for OrgGraphEdgeRel {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for OrgGraphEdgeRel {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**`requires` and `locks`. Which registry the relationship names. This is the only place
+a registry appears, because provider NODES deliberately collapse the two — an org may
+hold `hashicorp/local` from both, while `module_provider_refs.upstream` is nullable
+and so a module ref cannot always be attributed to one. `null` on a `requires` edge
+therefore means "not recorded", not "neither".
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum OrgGraphEdgeUpstream {
+    #[serde(rename = "terraform.io")]
+    TerraformIo,
+    #[serde(rename = "opentofu.org")]
+    OpentofuOrg,
+}
+impl ::std::fmt::Display for OrgGraphEdgeUpstream {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::TerraformIo => f.write_str("terraform.io"),
+            Self::OpentofuOrg => f.write_str("opentofu.org"),
+        }
+    }
+}
+impl ::std::str::FromStr for OrgGraphEdgeUpstream {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "terraform.io" => Ok(Self::TerraformIo),
+            "opentofu.org" => Ok(Self::OpentofuOrg),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for OrgGraphEdgeUpstream {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for OrgGraphEdgeUpstream {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**One node. `kind` discriminates which optional fields are populated; the status fields are
+present on every kind so one colour scale covers the whole graph.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct OrgGraphNode {
+    ///An admin kill switch, an enforcing policy, or a serve override refuses it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<bool>,
+    ///Whichever mechanism fired. `null` when not blocked, or when none recorded one.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked_reason: ::std::option::Option<::std::string::String>,
+    ///From the latest published version. `0` on a stub, a state node, or an unscanned module — a zero here is not a clean bill of health.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub critical_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated_message: ::std::option::Option<::std::string::String>,
+    /**Provider nodes only. `true` when the provider was surfaced by discovery — a lock file
+    or a module's `required_providers` — rather than added by an admin. A referenced
+    provider we hold no artefact row for defaults to `true`: being referenced is the
+    discovery.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub discovered: ::std::option::Option<bool>,
+    /**Outside this org, so visible but ungovernable from here. Computed server-side
+    because the client previously inferred it three different ways and disagreed with
+    itself about whether to offer governance actions.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub external: ::std::option::Option<bool>,
+    /**State nodes only. `false` means Terramantle cannot see this workspace's provider
+    pins, so it cannot warn about CVEs or stale versions for it — the portal offers an
+    upload prompt on these nodes rather than leaving them as unexplained orphans.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub has_lock_file: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub high_count: ::std::option::Option<i64>,
+    /**`ws:<workspace_id>`, `mod:<namespace>/<name>/<provider>` or `prov:<namespace>/<type>`.
+    The prefix is part of the id, so ids are unique across kinds.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub infrastructure_repo_provider: ::std::option::Option<OrgGraphNodeInfrastructureRepoProvider>,
+    /**The user's own Terraform repository, recorded from a header at upload time. Not
+    allowlist-checked server-side, unlike `vcs_commit_url`, so the portal must render it
+    through its safe-URL guard.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub infrastructure_repo_url: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<OrgGraphNodeKind>,
+    ///Display name. Not unique — two orgs can hold the same module name.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    /**Newest PUBLISHED version by publish time, not a lexicographic max — `v10` sorts above
+    `v9`. `null` when a module has no published version, which includes one still being
+    scanned and one whose scan failed.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_version: ::std::option::Option<::std::string::String>,
+    /**State nodes only. When the workspace's `.terraform.lock.hcl` was last uploaded.
+    Every `locks` edge leaving this node states the estate as of this moment, so the
+    portal renders it as the as-of line rather than as a decorative timestamp. Lives on
+    the node and not on the edges because it is one fact per workspace, not one per pin.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lock_file_uploaded_at: ::std::option::Option<i64>,
+    /**The uploader's email where the recorded value was a user id, otherwise the raw OIDC
+    client id — a lock file is routinely pushed by CI, so the client id is the honest
+    answer rather than a missing one.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lock_file_uploaded_by: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_provider: ::std::option::Option<::std::string::String>,
+    ///Empty string on a state node, which has no namespace.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    ///Provider nodes only: some workspace pins a version older than the newest satisfying its constraint.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub outdated: ::std::option::Option<bool>,
+    ///The latest published version fails at least one policy. Always false for state and provider nodes.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_failed: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_type: ::std::option::Option<::std::string::String>,
+    ///Serial of the newest state version.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serial: ::std::option::Option<i64>,
+    /**Pre-built commit link, `https` on an allowlisted host only. Built server-side on
+    purpose: a forged VCS claim must not be able to steer a link the portal renders.
+    `null` whenever provenance is absent — which is the common case, since it is recorded
+    only for pushes authenticated by VCS OIDC, not for human or bot-token pushes.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_commit_url: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_provider: ::std::option::Option<OrgGraphNodeVcsProvider>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_ref: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_ref_type: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_repository: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_sha: ::std::option::Option<::std::string::String>,
+    ///Published versions only, so `0` means nothing consumable exists yet.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_name: ::std::option::Option<::std::string::String>,
+}
+///`OrgGraphNodeInfrastructureRepoProvider`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum OrgGraphNodeInfrastructureRepoProvider {
+    #[serde(rename = "github")]
+    Github,
+    #[serde(rename = "gitlab")]
+    Gitlab,
+}
+impl ::std::fmt::Display for OrgGraphNodeInfrastructureRepoProvider {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Github => f.write_str("github"),
+            Self::Gitlab => f.write_str("gitlab"),
+        }
+    }
+}
+impl ::std::str::FromStr for OrgGraphNodeInfrastructureRepoProvider {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "github" => Ok(Self::Github),
+            "gitlab" => Ok(Self::Gitlab),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for OrgGraphNodeInfrastructureRepoProvider {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for OrgGraphNodeInfrastructureRepoProvider {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`OrgGraphNodeKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum OrgGraphNodeKind {
+    #[serde(rename = "state")]
+    State,
+    #[serde(rename = "module")]
+    Module,
+    #[serde(rename = "provider")]
+    Provider,
+}
+impl ::std::fmt::Display for OrgGraphNodeKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::State => f.write_str("state"),
+            Self::Module => f.write_str("module"),
+            Self::Provider => f.write_str("provider"),
+        }
+    }
+}
+impl ::std::str::FromStr for OrgGraphNodeKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "state" => Ok(Self::State),
+            "module" => Ok(Self::Module),
+            "provider" => Ok(Self::Provider),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for OrgGraphNodeKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for OrgGraphNodeKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`OrgGraphNodeVcsProvider`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum OrgGraphNodeVcsProvider {
+    #[serde(rename = "github")]
+    Github,
+    #[serde(rename = "gitlab")]
+    Gitlab,
+}
+impl ::std::fmt::Display for OrgGraphNodeVcsProvider {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Github => f.write_str("github"),
+            Self::Gitlab => f.write_str("gitlab"),
+        }
+    }
+}
+impl ::std::str::FromStr for OrgGraphNodeVcsProvider {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "github" => Ok(Self::Github),
+            "gitlab" => Ok(Self::Gitlab),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for OrgGraphNodeVcsProvider {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for OrgGraphNodeVcsProvider {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Coverage totals for the org, used to explain what the graph is NOT showing.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct OrgGraphStats {
+    ///Modules with at least one scan-completed published version.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scanned: ::std::option::Option<i64>,
+    ///Modules in the org. External stub nodes are never counted.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total: ::std::option::Option<i64>,
+    ///Modules with no published version: mid-scan, scan failed, or pruned.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub unscanned_no_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspaces: ::std::option::Option<i64>,
+    ///Workspaces whose provider pins are invisible to Terramantle.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspaces_without_lock_file: ::std::option::Option<i64>,
 }
 ///`OrgMachineToken`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -3121,6 +3788,5991 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanVersionSummaryActorT
         value.parse()
     }
 }
+///`PlatformAuditOperatorEvent`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformAuditOperatorEvent {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub action: ::std::option::Option<::std::string::String>,
+    ///The client the token was issued to. A denial with a non-portal `azp` is `wrong_client`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_azp: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_email: ::std::option::Option<::std::string::String>,
+    ///The token subject (an email for portal tokens). `(anonymous)` if no user was resolved.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_sub: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub client_ip: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub country: ::std::option::Option<::std::string::String>,
+    ///Epoch milliseconds.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///The stored JSON, parsed (for a denial, `{"reason": "..."}`). `null` when none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub metadata: ::std::option::Option<::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub method: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub operation_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub path: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_hash: ::std::option::Option<::std::string::String>,
+    ///cf-ray; joins the Cloudflare edge logs.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub req_id: ::std::option::Option<::std::string::String>,
+    ///ok: done. denied: authz refused. refused: a precondition refused it. error: it failed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub result: ::std::option::Option<PlatformAuditOperatorEventResult>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub target: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub target_kind: ::std::option::Option<::std::string::String>,
+    ///Joins Tempo.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub trace_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub user_agent: ::std::option::Option<::std::string::String>,
+}
+///`PlatformAuditOperatorEventPage`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformAuditOperatorEventPage {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformAuditOperatorEvent>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_24h: ::std::option::Option<PlatformAuditOperatorEventPageLast24h>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+}
+///Rows per result in the last 24 hours, over the whole table, ignoring the filters.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformAuditOperatorEventPageLast24h {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub denied: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub refused: ::std::option::Option<i64>,
+}
+///ok: done. denied: authz refused. refused: a precondition refused it. error: it failed.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformAuditOperatorEventResult {
+    #[serde(rename = "ok")]
+    Ok,
+    #[serde(rename = "denied")]
+    Denied,
+    #[serde(rename = "refused")]
+    Refused,
+    #[serde(rename = "error")]
+    Error,
+}
+impl ::std::fmt::Display for PlatformAuditOperatorEventResult {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Ok => f.write_str("ok"),
+            Self::Denied => f.write_str("denied"),
+            Self::Refused => f.write_str("refused"),
+            Self::Error => f.write_str("error"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformAuditOperatorEventResult {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "ok" => Ok(Self::Ok),
+            "denied" => Ok(Self::Denied),
+            "refused" => Ok(Self::Refused),
+            "error" => Ok(Self::Error),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformAuditOperatorEventResult {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformAuditOperatorEventResult {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformAuditTenantEvent`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformAuditTenantEvent {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub action: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_email: ::std::option::Option<::std::string::String>,
+    ///`null` for bot and system actions, which have no users row.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_user_id: ::std::option::Option<::std::string::String>,
+    ///Older than the org's tier retention - still stored, but no longer on the org's own audit page.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub beyond_tenant_retention: ::std::option::Option<bool>,
+    ///Epoch milliseconds.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///The stored JSON, parsed. A value that is not valid JSON comes back as its raw string. `null` when none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub metadata: ::std::option::Option<::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub resource_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub resource_type: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_name: ::std::option::Option<::std::string::String>,
+    ///`null` only if the tenant row is gone (it is referenced by FK, so this should not happen).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_tier: ::std::option::Option<PlatformAuditTenantEventTenantTier>,
+}
+///`PlatformAuditTenantEventPage`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformAuditTenantEventPage {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformAuditTenantEvent>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+}
+///`PlatformAuditTenantEventTenantTier`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformAuditTenantEventTenantTier {
+    #[serde(rename = "starter")]
+    Starter,
+    #[serde(rename = "team")]
+    Team,
+    #[serde(rename = "business")]
+    Business,
+    #[serde(rename = "enterprise")]
+    Enterprise,
+}
+impl ::std::fmt::Display for PlatformAuditTenantEventTenantTier {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Starter => f.write_str("starter"),
+            Self::Team => f.write_str("team"),
+            Self::Business => f.write_str("business"),
+            Self::Enterprise => f.write_str("enterprise"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformAuditTenantEventTenantTier {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "starter" => Ok(Self::Starter),
+            "team" => Ok(Self::Team),
+            "business" => Ok(Self::Business),
+            "enterprise" => Ok(Self::Enterprise),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformAuditTenantEventTenantTier {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformAuditTenantEventTenantTier {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformBacklogSubmission`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformBacklogSubmission {
+    /**`return` does all the same work and hands the queue message back instead of sending it,
+    for a runner that executes the job itself.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub dispatch: ::std::option::Option<PlatformBacklogSubmissionDispatch>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub force: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    ///The tenant a completed build is entitled to. Omitted means platform-initiated.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub repatch: ::std::option::Option<bool>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    ///Picks the lineage when an org holds both. Omitted, it is resolved the way the drain resolves it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<PlatformBacklogSubmissionUpstream>,
+    /**For `build` and `reopen-build`, the upstream BASE (`X.Y.Z`). For `rescan`, either a base
+    or a `<base>-0.0.N` revision of ours.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+}
+/**`return` does all the same work and hands the queue message back instead of sending it,
+for a runner that executes the job itself.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformBacklogSubmissionDispatch {
+    #[serde(rename = "queue")]
+    Queue,
+    #[serde(rename = "return")]
+    Return,
+}
+impl ::std::fmt::Display for PlatformBacklogSubmissionDispatch {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Queue => f.write_str("queue"),
+            Self::Return => f.write_str("return"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformBacklogSubmissionDispatch {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "queue" => Ok(Self::Queue),
+            "return" => Ok(Self::Return),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformBacklogSubmissionDispatch {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformBacklogSubmissionDispatch {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Picks the lineage when an org holds both. Omitted, it is resolved the way the drain resolves it.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformBacklogSubmissionUpstream {
+    #[serde(rename = "terraform.io")]
+    TerraformIo,
+    #[serde(rename = "opentofu.org")]
+    OpentofuOrg,
+}
+impl ::std::fmt::Display for PlatformBacklogSubmissionUpstream {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::TerraformIo => f.write_str("terraform.io"),
+            Self::OpentofuOrg => f.write_str("opentofu.org"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformBacklogSubmissionUpstream {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "terraform.io" => Ok(Self::TerraformIo),
+            "opentofu.org" => Ok(Self::OpentofuOrg),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformBacklogSubmissionUpstream {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformBacklogSubmissionUpstream {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformCronRun`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformCronRun {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub cron: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ms: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub queued: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queued_artefacts: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queued_versions: ::std::option::Option<i64>,
+    ///The task's own accounting, shape depending on the task.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub result: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub task: ::std::option::Option<::std::string::String>,
+}
+///`PlatformEntitlementRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformEntitlementRequest {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    ///Required. Recorded in the audit event.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+}
+///`PlatformEntitlementResult`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformEntitlementResult {
+    ///True when the row was already there (POST only).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub already_held: ::std::option::Option<bool>,
+    ///True when this call created the row (POST only).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub granted: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_id: ::std::option::Option<::std::string::String>,
+    ///True when a row was removed (DELETE only).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub revoked: ::std::option::Option<bool>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFlag`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFlag {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    ///What turning it off actually stops, in the words needed mid-incident.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub effect: ::std::option::Option<::std::string::String>,
+    ///The decision the worker is making now, after the flag's own parsing.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub effective: ::std::option::Option<PlatformFlagEffective>,
+    ///What the deploy says — i.e. what removing an override would revert to.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub env_value: ::std::option::Option<::std::string::String>,
+    /**A `brake` is something to pull in an incident; a `feature` is a capability switch. The
+    distinction is for the operator's eye, not the resolver.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformFlagKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(
+        rename = "override",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub override_: ::std::option::Option<PlatformFlagOverride>,
+    ///The string in force, from whichever layer won.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub raw: ::std::option::Option<::std::string::String>,
+    /**Which rule the call site was written with. `on_when_1`: enabled only when the value is
+    exactly "1". `off_when_0`: enabled unless the value is exactly "0". Null for a `number`
+    flag, which has its own parser.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub semantics: ::std::option::Option<PlatformFlagSemantics>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub shape: ::std::option::Option<PlatformFlagShape>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformFlagSource>,
+}
+///The decision the worker is making now, after the flag's own parsing.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum PlatformFlagEffective {
+    Boolean(bool),
+    Integer(i64),
+}
+impl ::std::fmt::Display for PlatformFlagEffective {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match self {
+            Self::Boolean(x) => x.fmt(f),
+            Self::Integer(x) => x.fmt(f),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFlagEffective {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if let Ok(v) = value.parse() {
+            Ok(Self::Boolean(v))
+        } else if let Ok(v) = value.parse() {
+            Ok(Self::Integer(v))
+        } else {
+            Err("string conversion failed for all variants".into())
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFlagEffective {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagEffective {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::From<bool> for PlatformFlagEffective {
+    fn from(value: bool) -> Self {
+        Self::Boolean(value)
+    }
+}
+impl ::std::convert::From<i64> for PlatformFlagEffective {
+    fn from(value: i64) -> Self {
+        Self::Integer(value)
+    }
+}
+/**A `brake` is something to pull in an incident; a `feature` is a capability switch. The
+distinction is for the operator's eye, not the resolver.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFlagKind {
+    #[serde(rename = "brake")]
+    Brake,
+    #[serde(rename = "feature")]
+    Feature,
+}
+impl ::std::fmt::Display for PlatformFlagKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Brake => f.write_str("brake"),
+            Self::Feature => f.write_str("feature"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFlagKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "brake" => Ok(Self::Brake),
+            "feature" => Ok(Self::Feature),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFlagKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFlagOverride`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFlagOverride {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub updated_at: ::std::option::Option<i64>,
+    ///The operator's `sub`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub updated_by: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub value: ::std::option::Option<::std::string::String>,
+}
+/**Which rule the call site was written with. `on_when_1`: enabled only when the value is
+exactly "1". `off_when_0`: enabled unless the value is exactly "0". Null for a `number`
+flag, which has its own parser.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFlagSemantics {
+    #[serde(rename = "on_when_1")]
+    OnWhen1,
+    #[serde(rename = "off_when_0")]
+    OffWhen0,
+}
+impl ::std::fmt::Display for PlatformFlagSemantics {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::OnWhen1 => f.write_str("on_when_1"),
+            Self::OffWhen0 => f.write_str("off_when_0"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFlagSemantics {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "on_when_1" => Ok(Self::OnWhen1),
+            "off_when_0" => Ok(Self::OffWhen0),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFlagSemantics {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagSemantics {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFlagShape`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFlagShape {
+    #[serde(rename = "enabled")]
+    Enabled,
+    #[serde(rename = "number")]
+    Number,
+}
+impl ::std::fmt::Display for PlatformFlagShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Enabled => f.write_str("enabled"),
+            Self::Number => f.write_str("number"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFlagShape {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "enabled" => Ok(Self::Enabled),
+            "number" => Ok(Self::Number),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFlagShape {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFlagSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFlagSource {
+    #[serde(rename = "override")]
+    Override,
+    #[serde(rename = "env")]
+    Env,
+    #[serde(rename = "unset")]
+    Unset,
+}
+impl ::std::fmt::Display for PlatformFlagSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Override => f.write_str("override"),
+            Self::Env => f.write_str("env"),
+            Self::Unset => f.write_str("unset"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFlagSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "override" => Ok(Self::Override),
+            "env" => Ok(Self::Env),
+            "unset" => Ok(Self::Unset),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFlagSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetDeadLetter`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetDeadLetter {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub completed_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformFleetDeadLetterKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub triggered_at: ::std::option::Option<i64>,
+}
+///`PlatformFleetDeadLetterKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetDeadLetterKind {
+    #[serde(rename = "build")]
+    Build,
+    #[serde(rename = "scan")]
+    Scan,
+}
+impl ::std::fmt::Display for PlatformFleetDeadLetterKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Build => f.write_str("build"),
+            Self::Scan => f.write_str("scan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetDeadLetterKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "build" => Ok(Self::Build),
+            "scan" => Ok(Self::Scan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetDeadLetterKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetDeadLetterKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetFlow`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetFlow {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub flow: ::std::option::Option<PlatformFleetFlowState>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub job_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformFleetFlowKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub triggered_at: ::std::option::Option<i64>,
+}
+///`PlatformFleetFlowKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetFlowKind {
+    #[serde(rename = "build")]
+    Build,
+    #[serde(rename = "scan")]
+    Scan,
+}
+impl ::std::fmt::Display for PlatformFleetFlowKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Build => f.write_str("build"),
+            Self::Scan => f.write_str("scan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetFlowKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "build" => Ok(Self::Build),
+            "scan" => Ok(Self::Scan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetFlowKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetFlowKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///The output of lib/providerFlowState.ts deriveFlowState, from the pushed snapshot only.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetFlowState {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub attempt: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_step: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub dispatched_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failure_reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failure_stage: ::std::option::Option<::std::string::String>,
+    ///The supervisor's last observation (flow_updated_at); the staleness signal.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub observed_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub phase: ::std::option::Option<PlatformFleetFlowStatePhase>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queue_dwell_ms: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scheduler_pending_ms: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformFleetFlowStateSource>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub steps: ::std::vec::Vec<PlatformFleetFlowStateStepsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow_uid: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetFlowStatePhase`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetFlowStatePhase {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "queued")]
+    Queued,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "blocked")]
+    Blocked,
+    #[serde(rename = "succeeded")]
+    Succeeded,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "lost")]
+    Lost,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+impl ::std::fmt::Display for PlatformFleetFlowStatePhase {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::None => f.write_str("none"),
+            Self::Queued => f.write_str("queued"),
+            Self::Running => f.write_str("running"),
+            Self::Blocked => f.write_str("blocked"),
+            Self::Succeeded => f.write_str("succeeded"),
+            Self::Failed => f.write_str("failed"),
+            Self::Lost => f.write_str("lost"),
+            Self::Unknown => f.write_str("unknown"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetFlowStatePhase {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "none" => Ok(Self::None),
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "blocked" => Ok(Self::Blocked),
+            "succeeded" => Ok(Self::Succeeded),
+            "failed" => Ok(Self::Failed),
+            "lost" => Ok(Self::Lost),
+            "unknown" => Ok(Self::Unknown),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetFlowStatePhase {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetFlowStatePhase {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetFlowStateSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetFlowStateSource {
+    #[serde(rename = "d1")]
+    D1,
+    #[serde(rename = "argo_live")]
+    ArgoLive,
+    #[serde(rename = "argo_archive")]
+    ArgoArchive,
+    #[serde(rename = "snapshot")]
+    Snapshot,
+    #[serde(rename = "absent")]
+    Absent,
+}
+impl ::std::fmt::Display for PlatformFleetFlowStateSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::D1 => f.write_str("d1"),
+            Self::ArgoLive => f.write_str("argo_live"),
+            Self::ArgoArchive => f.write_str("argo_archive"),
+            Self::Snapshot => f.write_str("snapshot"),
+            Self::Absent => f.write_str("absent"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetFlowStateSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "d1" => Ok(Self::D1),
+            "argo_live" => Ok(Self::ArgoLive),
+            "argo_archive" => Ok(Self::ArgoArchive),
+            "snapshot" => Ok(Self::Snapshot),
+            "absent" => Ok(Self::Absent),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetFlowStateSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetFlowStateSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetFlowStateStepsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetFlowStateStepsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub attempt: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finished_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub outcome: ::std::option::Option<PlatformFleetFlowStateStepsItemOutcome>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub started_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub step: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetFlowStateStepsItemOutcome`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetFlowStateStepsItemOutcome {
+    #[serde(rename = "ok")]
+    Ok,
+    #[serde(rename = "skipped")]
+    Skipped,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "in_progress")]
+    InProgress,
+    #[serde(rename = "pending")]
+    Pending,
+}
+impl ::std::fmt::Display for PlatformFleetFlowStateStepsItemOutcome {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Ok => f.write_str("ok"),
+            Self::Skipped => f.write_str("skipped"),
+            Self::Failed => f.write_str("failed"),
+            Self::InProgress => f.write_str("in_progress"),
+            Self::Pending => f.write_str("pending"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetFlowStateStepsItemOutcome {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "ok" => Ok(Self::Ok),
+            "skipped" => Ok(Self::Skipped),
+            "failed" => Ok(Self::Failed),
+            "in_progress" => Ok(Self::InProgress),
+            "pending" => Ok(Self::Pending),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetFlowStateStepsItemOutcome {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetFlowStateStepsItemOutcome {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetHeartbeat`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetHeartbeat {
+    ///The pull loop was paused at its claim ceiling; the lost-message reaper arm stands down.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub at_capacity: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub beat_age_ms: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub beat_at: ::std::option::Option<i64>,
+    ///The beat is no older than `thresholds.heartbeat_max_age_ms`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub fresh: ::std::option::Option<bool>,
+    ///Claims the supervisor held at its last beat.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inflight: ::std::option::Option<i64>,
+    ///The supervisor's last Workflow list against the apiserver succeeded.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub list_ok: ::std::option::Option<bool>,
+    ///`false` = no heartbeat row has ever been written for this kind.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub present: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queue_kind: ::std::option::Option<::std::string::String>,
+}
+/**One reaper arm. `build_*` and `scan_*` are provider_build_jobs / provider_scan_jobs;
+`marker_*` are the shared provider_version_scans markers that hold the global in-flight
+index; `module_version`, `state_version` and `plan_version` are the version scan reaper.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetStuckArm {
+    #[serde(rename = "build_inflight")]
+    BuildInflight,
+    #[serde(rename = "build_pending")]
+    BuildPending,
+    #[serde(rename = "build_undispatched")]
+    BuildUndispatched,
+    #[serde(rename = "scan_processing")]
+    ScanProcessing,
+    #[serde(rename = "scan_pending")]
+    ScanPending,
+    #[serde(rename = "scan_undispatched")]
+    ScanUndispatched,
+    #[serde(rename = "marker_dispatched")]
+    MarkerDispatched,
+    #[serde(rename = "marker_processing")]
+    MarkerProcessing,
+    #[serde(rename = "module_version")]
+    ModuleVersion,
+    #[serde(rename = "state_version")]
+    StateVersion,
+    #[serde(rename = "plan_version")]
+    PlanVersion,
+}
+impl ::std::fmt::Display for PlatformFleetStuckArm {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::BuildInflight => f.write_str("build_inflight"),
+            Self::BuildPending => f.write_str("build_pending"),
+            Self::BuildUndispatched => f.write_str("build_undispatched"),
+            Self::ScanProcessing => f.write_str("scan_processing"),
+            Self::ScanPending => f.write_str("scan_pending"),
+            Self::ScanUndispatched => f.write_str("scan_undispatched"),
+            Self::MarkerDispatched => f.write_str("marker_dispatched"),
+            Self::MarkerProcessing => f.write_str("marker_processing"),
+            Self::ModuleVersion => f.write_str("module_version"),
+            Self::StateVersion => f.write_str("state_version"),
+            Self::PlanVersion => f.write_str("plan_version"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetStuckArm {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "build_inflight" => Ok(Self::BuildInflight),
+            "build_pending" => Ok(Self::BuildPending),
+            "build_undispatched" => Ok(Self::BuildUndispatched),
+            "scan_processing" => Ok(Self::ScanProcessing),
+            "scan_pending" => Ok(Self::ScanPending),
+            "scan_undispatched" => Ok(Self::ScanUndispatched),
+            "marker_dispatched" => Ok(Self::MarkerDispatched),
+            "marker_processing" => Ok(Self::MarkerProcessing),
+            "module_version" => Ok(Self::ModuleVersion),
+            "state_version" => Ok(Self::StateVersion),
+            "plan_version" => Ok(Self::PlanVersion),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetStuckArm {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetStuckArm {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetStuckRow`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetStuckRow {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub arm: ::std::option::Option<PlatformFleetStuckArm>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///A human label (provider address and version, module name, workspace name).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    ///The timestamp the reaper keys this arm on.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub since: ::std::option::Option<i64>,
+    ///The D1 table the row lives in.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+    ///The requesting or owning org. Null for shared provider markers, and for platform-initiated provider jobs.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub threshold_ms: ::std::option::Option<i64>,
+}
+///`PlatformFleetSummary`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummary {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub dead_letters: ::std::vec::Vec<PlatformFleetSummaryDeadLettersItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub flows: ::std::option::Option<PlatformFleetSummaryFlows>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generated_at: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub heartbeats: ::std::vec::Vec<PlatformFleetHeartbeat>,
+    /**Non-terminal rows per table and status. provider_version_scans splits `pending` into
+    `pending (awaiting drain)` (no `queued_at`: backlog the drain has not dispatched) and
+    `pending (dispatched)`.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub in_flight: ::std::vec::Vec<PlatformFleetSummaryInFlightItem>,
+    ///provider_build_jobs and provider_scan_jobs TRIGGERED in the last 24 hours, by status.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub provider_jobs_24h: ::std::vec::Vec<PlatformFleetSummaryProviderJobs24hItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_attempts_24h: ::std::option::Option<PlatformFleetSummaryScanAttempts24h>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub stuck: ::std::vec::Vec<PlatformFleetSummaryStuckItem>,
+    ///The reaper and observer constants the figures were computed with, in ms.
+    #[serde(
+        default,
+        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
+    )]
+    pub thresholds: ::std::collections::HashMap<::std::string::String, i64>,
+}
+///`PlatformFleetSummaryDeadLettersItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryDeadLettersItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformFleetSummaryDeadLettersItemKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_24h: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total: ::std::option::Option<i64>,
+}
+///`PlatformFleetSummaryDeadLettersItemKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetSummaryDeadLettersItemKind {
+    #[serde(rename = "build")]
+    Build,
+    #[serde(rename = "scan")]
+    Scan,
+}
+impl ::std::fmt::Display for PlatformFleetSummaryDeadLettersItemKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Build => f.write_str("build"),
+            Self::Scan => f.write_str("scan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetSummaryDeadLettersItemKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "build" => Ok(Self::Build),
+            "scan" => Ok(Self::Scan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryDeadLettersItemKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetSummaryDeadLettersItemKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetSummaryFlows`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryFlows {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformFleetFlow>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub phase_counts: ::std::vec::Vec<PlatformFleetSummaryFlowsPhaseCountsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sample_per_kind: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub truncated: ::std::option::Option<bool>,
+}
+///`PlatformFleetSummaryFlowsPhaseCountsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryFlowsPhaseCountsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformFleetSummaryFlowsPhaseCountsItemKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub phase: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetSummaryFlowsPhaseCountsItemKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetSummaryFlowsPhaseCountsItemKind {
+    #[serde(rename = "build")]
+    Build,
+    #[serde(rename = "scan")]
+    Scan,
+}
+impl ::std::fmt::Display for PlatformFleetSummaryFlowsPhaseCountsItemKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Build => f.write_str("build"),
+            Self::Scan => f.write_str("scan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetSummaryFlowsPhaseCountsItemKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "build" => Ok(Self::Build),
+            "scan" => Ok(Self::Scan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryFlowsPhaseCountsItemKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformFleetSummaryFlowsPhaseCountsItemKind
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetSummaryInFlightItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryInFlightItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oldest_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetSummaryProviderJobs24hItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryProviderJobs24hItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformFleetSummaryProviderJobs24hItemSource>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetSummaryProviderJobs24hItemSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetSummaryProviderJobs24hItemSource {
+    #[serde(rename = "provider_build_jobs")]
+    ProviderBuildJobs,
+    #[serde(rename = "provider_scan_jobs")]
+    ProviderScanJobs,
+}
+impl ::std::fmt::Display for PlatformFleetSummaryProviderJobs24hItemSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::ProviderBuildJobs => f.write_str("provider_build_jobs"),
+            Self::ProviderScanJobs => f.write_str("provider_scan_jobs"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetSummaryProviderJobs24hItemSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "provider_build_jobs" => Ok(Self::ProviderBuildJobs),
+            "provider_scan_jobs" => Ok(Self::ProviderScanJobs),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryProviderJobs24hItemSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformFleetSummaryProviderJobs24hItemSource
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Module/state/plan scan attempts ENQUEUED in the window. Providers are not in scan_attempts.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryScanAttempts24h {
+    ///Failed, abandoned and not_queued attempts by `error_class` (top 50). A null class is an attempt that failed without one.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub error_classes: ::std::vec::Vec<PlatformFleetSummaryScanAttempts24hErrorClassesItem>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub groups: ::std::vec::Vec<PlatformFleetSummaryScanAttempts24hGroupsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub since: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window_ms: ::std::option::Option<i64>,
+}
+///`PlatformFleetSummaryScanAttempts24hErrorClassesItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryScanAttempts24hErrorClassesItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error_class: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetSummaryScanAttempts24hGroupsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryScanAttempts24hGroupsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub artefact_kind:
+        ::std::option::Option<PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformFleetSummaryScanAttempts24hGroupsItemStatus>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub trigger: ::std::option::Option<::std::string::String>,
+}
+///`PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
+    #[serde(rename = "module")]
+    Module,
+    #[serde(rename = "state")]
+    State,
+    #[serde(rename = "plan")]
+    Plan,
+}
+impl ::std::fmt::Display for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Module => f.write_str("module"),
+            Self::State => f.write_str("state"),
+            Self::Plan => f.write_str("plan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "module" => Ok(Self::Module),
+            "state" => Ok(Self::State),
+            "plan" => Ok(Self::Plan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetSummaryScanAttempts24hGroupsItemStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
+    #[serde(rename = "queued")]
+    Queued,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "succeeded")]
+    Succeeded,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "not_queued")]
+    NotQueued,
+    #[serde(rename = "abandoned")]
+    Abandoned,
+    #[serde(rename = "coalesced")]
+    Coalesced,
+}
+impl ::std::fmt::Display for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Queued => f.write_str("queued"),
+            Self::Running => f.write_str("running"),
+            Self::Succeeded => f.write_str("succeeded"),
+            Self::Failed => f.write_str("failed"),
+            Self::NotQueued => f.write_str("not_queued"),
+            Self::Abandoned => f.write_str("abandoned"),
+            Self::Coalesced => f.write_str("coalesced"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "succeeded" => Ok(Self::Succeeded),
+            "failed" => Ok(Self::Failed),
+            "not_queued" => Ok(Self::NotQueued),
+            "abandoned" => Ok(Self::Abandoned),
+            "coalesced" => Ok(Self::Coalesced),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformFleetSummaryScanAttempts24hGroupsItemStatus
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformFleetSummaryStuckItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformFleetSummaryStuckItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub arm: ::std::option::Option<PlatformFleetStuckArm>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub threshold_ms: ::std::option::Option<i64>,
+}
+///`PlatformGlobalTokenCreateRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformGlobalTokenCreateRequest {
+    ///Why this token exists. Blank or absent is stored as `null`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    /**Shown in both consoles and used to derive the IdP service-account username, so make it
+    say what holds the token. Trimmed; blank is a `400`. Not unique — the id is.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+}
+/**The new token. `client_secret` appears here and in a `/rotate` response only — it is not
+stored, so this body is the one chance to copy it.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformGlobalTokenCreated {
+    ///Shown exactly once. Not stored by the Worker and not recoverable from the IdP.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub client_secret: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    ///The operator's `users.id`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_by: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///Always `1` here. The column is an integer, not a boolean, as stored.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_global: ::std::option::Option<PlatformGlobalTokenCreatedIsGlobal>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_city: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_country: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_rotated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_source_ip: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_used_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///The IdP application id, which is what revoke and rotate address.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oidc_app_id: ::std::option::Option<::std::string::String>,
+    ///The IdP client id (an Authentik service-account username). An identifier, not a secret.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oidc_client_id: ::std::option::Option<::std::string::String>,
+    ///Always `null` — a global token belongs to no org.
+    #[serde(default)]
+    pub tenant_id: (),
+}
+///Always `1` here. The column is an integer, not a boolean, as stored.
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PlatformGlobalTokenCreatedIsGlobal(i64);
+impl ::std::ops::Deref for PlatformGlobalTokenCreatedIsGlobal {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformGlobalTokenCreatedIsGlobal> for i64 {
+    fn from(value: PlatformGlobalTokenCreatedIsGlobal) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for PlatformGlobalTokenCreatedIsGlobal {
+    type Error = self::error::ConversionError;
+    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![1_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlatformGlobalTokenCreatedIsGlobal {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+    }
+}
+///`PlatformIdentityMachineClient`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIdentityMachineClient {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_by_email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_global: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub issues: ::std::vec::Vec<PlatformIdentityMachineClientIssuesItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_city: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_country: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_rotated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_source_ip: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_used_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oidc_app_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oidc_client_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant: ::std::option::Option<PlatformIdentityTenantRef>,
+}
+///`PlatformIdentityMachineClientIssuesItem`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIdentityMachineClientIssuesItem {
+    #[serde(rename = "missing_app_id")]
+    MissingAppId,
+    #[serde(rename = "tenant_deleted")]
+    TenantDeleted,
+    #[serde(rename = "never_used")]
+    NeverUsed,
+}
+impl ::std::fmt::Display for PlatformIdentityMachineClientIssuesItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::MissingAppId => f.write_str("missing_app_id"),
+            Self::TenantDeleted => f.write_str("tenant_deleted"),
+            Self::NeverUsed => f.write_str("never_used"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIdentityMachineClientIssuesItem {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "missing_app_id" => Ok(Self::MissingAppId),
+            "tenant_deleted" => Ok(Self::TenantDeleted),
+            "never_used" => Ok(Self::NeverUsed),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIdentityMachineClientIssuesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIdentityMachineClientIssuesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformIdentityMembership`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIdentityMembership {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_billing_admin: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub joined_at: ::std::option::Option<i64>,
+    ///Set when the user soft-left the org; a re-join clears it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub left_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlatformIdentityMembershipRole>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant: ::std::option::Option<PlatformIdentityTenantRef>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<::std::string::String>,
+}
+///`PlatformIdentityMembershipRole`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIdentityMembershipRole {
+    #[serde(rename = "owner")]
+    Owner,
+    #[serde(rename = "admin")]
+    Admin,
+    #[serde(rename = "member")]
+    Member,
+    #[serde(rename = "reader")]
+    Reader,
+}
+impl ::std::fmt::Display for PlatformIdentityMembershipRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Owner => f.write_str("owner"),
+            Self::Admin => f.write_str("admin"),
+            Self::Member => f.write_str("member"),
+            Self::Reader => f.write_str("reader"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIdentityMembershipRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "owner" => Ok(Self::Owner),
+            "admin" => Ok(Self::Admin),
+            "member" => Ok(Self::Member),
+            "reader" => Ok(Self::Reader),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIdentityMembershipRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIdentityMembershipRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformIdentityTenantRef`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIdentityTenantRef {
+    ///Unix ms of the soft delete; `null` for a live org.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_personal: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+}
+///`PlatformIdentityToken`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIdentityToken {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_by_email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///Module access for an `org` token (`none`/`read`/`write`); `null` for other scopes.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub include_modules: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub include_state: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_rotated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_used_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scope: ::std::option::Option<PlatformIdentityTokenScope>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_grant_count: ::std::option::Option<i64>,
+    ///The owning org; `null` for a global token.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant: ::std::option::Option<PlatformIdentityTenantRef>,
+}
+///`PlatformIdentityTokenScope`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIdentityTokenScope {
+    #[serde(rename = "global")]
+    Global,
+    #[serde(rename = "org")]
+    Org,
+    #[serde(rename = "state_workspaces")]
+    StateWorkspaces,
+}
+impl ::std::fmt::Display for PlatformIdentityTokenScope {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Global => f.write_str("global"),
+            Self::Org => f.write_str("org"),
+            Self::StateWorkspaces => f.write_str("state_workspaces"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIdentityTokenScope {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "global" => Ok(Self::Global),
+            "org" => Ok(Self::Org),
+            "state_workspaces" => Ok(Self::StateWorkspaces),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIdentityTokenScope {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIdentityTokenScope {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformIdentityUser`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIdentityUser {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_city: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_country: ::std::option::Option<::std::string::String>,
+    ///Last authenticated request (5-minute resolution), not a login event.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_seen_at: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub memberships: ::std::vec::Vec<PlatformIdentityMembership>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oidc_sub: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sub_is_not_email: ::std::option::Option<bool>,
+}
+///`PlatformIdentityVcsTrust`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIdentityVcsTrust {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_by_email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_wildcard: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<PlatformIdentityVcsTrustProvider>,
+    ///Prefix matched against the CI token's `sub` claim, e.g. `repo:owner/*`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant: ::std::option::Option<PlatformIdentityTenantRef>,
+}
+///`PlatformIdentityVcsTrustProvider`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIdentityVcsTrustProvider {
+    #[serde(rename = "github")]
+    Github,
+    #[serde(rename = "gitlab")]
+    Gitlab,
+}
+impl ::std::fmt::Display for PlatformIdentityVcsTrustProvider {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Github => f.write_str("github"),
+            Self::Gitlab => f.write_str("gitlab"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIdentityVcsTrustProvider {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "github" => Ok(Self::Github),
+            "gitlab" => Ok(Self::Gitlab),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIdentityVcsTrustProvider {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIdentityVcsTrustProvider {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformInboundForm`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformInboundForm {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub company: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub metadata:
+        ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub submitted_at: ::std::option::Option<i64>,
+    ///The tier the visitor picked (`Solo`, `Team`, `Business`, `Enterprise`, `Founding member`), if any.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub use_case: ::std::option::Option<::std::string::String>,
+}
+///`PlatformInboundInterest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformInboundInterest {
+    ///`null` when the user row is gone (feature_interest.user_id is not a foreign key).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub feature: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub recorded_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub user_id: ::std::option::Option<::std::string::String>,
+}
+///`PlatformInboundSignup`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformInboundSignup {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_country: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_seen_at: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub orgs: ::std::vec::Vec<PlatformInboundSignupOrgsItem>,
+}
+///`PlatformInboundSignupOrgsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformInboundSignupOrgsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub auto_created: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_demo: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<::std::string::String>,
+}
+///`PlatformIntegrityCheck`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIntegrityCheck {
+    ///The file's `-- why:` header - what breaks when this check returns rows.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    ///The file's `-- fix:` header - what to do about a finding.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub fix: ::std::option::Option<::std::string::String>,
+    ///The `.sql` file name without its extension.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///`error`: a finding is a live defect that breaks serving, scanning or access. `warn`: worth a look, not urgent.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub severity: ::std::option::Option<PlatformIntegrityCheckSeverity>,
+}
+///`error`: a finding is a live defect that breaks serving, scanning or access. `warn`: worth a look, not urgent.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIntegrityCheckSeverity {
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "warn")]
+    Warn,
+}
+impl ::std::fmt::Display for PlatformIntegrityCheckSeverity {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Error => f.write_str("error"),
+            Self::Warn => f.write_str("warn"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIntegrityCheckSeverity {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "error" => Ok(Self::Error),
+            "warn" => Ok(Self::Warn),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIntegrityCheckSeverity {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIntegrityCheckSeverity {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformIntegrityResult`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIntegrityResult {
+    ///The query returned as many rows as its own LIMIT, so there may be more findings than `finding_count`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub at_limit: ::std::option::Option<bool>,
+    ///The file's `-- why:` header - what breaks when this check returns rows.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub duration_ms: ::std::option::Option<u64>,
+    ///Why the check errored or was skipped; `null` otherwise.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error: ::std::option::Option<::std::string::String>,
+    ///Rows the query returned. Not a total when `at_limit` is true.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finding_count: ::std::option::Option<u64>,
+    ///The file's `-- fix:` header - what to do about a finding.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub fix: ::std::option::Option<::std::string::String>,
+    ///The `.sql` file name without its extension.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///The first rows returned, as the query's columns. Columns differ per check.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub rows: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    ///`error`: a finding is a live defect that breaks serving, scanning or access. `warn`: worth a look, not urgent.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub severity: ::std::option::Option<PlatformIntegrityResultSeverity>,
+    /**`pass`: no rows. `findings`: one or more rows (read `severity` for how bad).
+    `error`: the query failed, so the check says nothing either way. `skipped`: the
+    run's time budget ran out before this check started.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformIntegrityResultStatus>,
+}
+///`error`: a finding is a live defect that breaks serving, scanning or access. `warn`: worth a look, not urgent.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIntegrityResultSeverity {
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "warn")]
+    Warn,
+}
+impl ::std::fmt::Display for PlatformIntegrityResultSeverity {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Error => f.write_str("error"),
+            Self::Warn => f.write_str("warn"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIntegrityResultSeverity {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "error" => Ok(Self::Error),
+            "warn" => Ok(Self::Warn),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIntegrityResultSeverity {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIntegrityResultSeverity {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**`pass`: no rows. `findings`: one or more rows (read `severity` for how bad).
+`error`: the query failed, so the check says nothing either way. `skipped`: the
+run's time budget ran out before this check started.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformIntegrityResultStatus {
+    #[serde(rename = "pass")]
+    Pass,
+    #[serde(rename = "findings")]
+    Findings,
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "skipped")]
+    Skipped,
+}
+impl ::std::fmt::Display for PlatformIntegrityResultStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pass => f.write_str("pass"),
+            Self::Findings => f.write_str("findings"),
+            Self::Error => f.write_str("error"),
+            Self::Skipped => f.write_str("skipped"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformIntegrityResultStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pass" => Ok(Self::Pass),
+            "findings" => Ok(Self::Findings),
+            "error" => Ok(Self::Error),
+            "skipped" => Ok(Self::Skipped),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformIntegrityResultStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformIntegrityResultStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformIntegrityRun`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIntegrityRun {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub duration_ms: ::std::option::Option<u64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ran_at: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub results: ::std::vec::Vec<PlatformIntegrityResult>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub summary: ::std::option::Option<PlatformIntegrityRunSummary>,
+}
+///`PlatformIntegrityRunSummary`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformIntegrityRunSummary {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub checks: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub errored: ::std::option::Option<i64>,
+    ///Checks of severity `error` that returned rows.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failed: ::std::option::Option<i64>,
+    ///Sum of `finding_count` across the results.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub findings: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub passed: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub skipped: ::std::option::Option<i64>,
+    ///Checks of severity `warn` that returned rows.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub warned: ::std::option::Option<i64>,
+}
+///`PlatformOperation`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOperation {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub approved_at: ::std::option::Option<i64>,
+    ///Lease claims so far. A number climbing with no phase change means slices are dying.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub attempts: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    /**The environment the plan was made against. An apply in a different one is refused, so a
+    staging plan can never be applied in production.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub env: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error: ::std::option::Option<::std::string::String>,
+    ///When the plan goes stale. Only meaningful while `planned`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expires_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finished_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub heartbeat_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformOperationKind>,
+    ///The resume point. For a wipe, the object sweeps run before the row deletes.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub phase: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_hash: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub requested_by: ::std::option::Option<::std::string::String>,
+    /**What the run did and what it left. For a wipe: the per-phase tally, any prefix still
+    populated, leftover object failures, rows remaining, the kept-table counts, and the fork
+    repositories and shared bundles it deliberately left alone. For a purge: the tally and
+    the exit-check verdicts.
+    */
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub result: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub started_at: ::std::option::Option<i64>,
+    /**`incomplete` is not a failure: the deletes ran and the re-inventory still found
+    something. It is resumable, and `result` says what was left.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformOperationStatus>,
+    /**`<namespace>/<type>` for a provider wipe, `*` for a provider purge, and the org's SLUG
+    for an org purge (the id is in the plan; the slug is what a human can retype).
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub target: ::std::option::Option<::std::string::String>,
+}
+///`PlatformOperationKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformOperationKind {
+    #[serde(rename = "provider_wipe")]
+    ProviderWipe,
+    #[serde(rename = "provider_purge")]
+    ProviderPurge,
+    #[serde(rename = "org_purge")]
+    OrgPurge,
+}
+impl ::std::fmt::Display for PlatformOperationKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::ProviderWipe => f.write_str("provider_wipe"),
+            Self::ProviderPurge => f.write_str("provider_purge"),
+            Self::OrgPurge => f.write_str("org_purge"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformOperationKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "provider_wipe" => Ok(Self::ProviderWipe),
+            "provider_purge" => Ok(Self::ProviderPurge),
+            "org_purge" => Ok(Self::OrgPurge),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformOperationKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformOperationKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**`incomplete` is not a failure: the deletes ran and the re-inventory still found
+something. It is resumable, and `result` says what was left.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformOperationStatus {
+    #[serde(rename = "planned")]
+    Planned,
+    #[serde(rename = "queued")]
+    Queued,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "succeeded")]
+    Succeeded,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "incomplete")]
+    Incomplete,
+    #[serde(rename = "cancelled")]
+    Cancelled,
+    #[serde(rename = "expired")]
+    Expired,
+}
+impl ::std::fmt::Display for PlatformOperationStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Planned => f.write_str("planned"),
+            Self::Queued => f.write_str("queued"),
+            Self::Running => f.write_str("running"),
+            Self::Succeeded => f.write_str("succeeded"),
+            Self::Failed => f.write_str("failed"),
+            Self::Incomplete => f.write_str("incomplete"),
+            Self::Cancelled => f.write_str("cancelled"),
+            Self::Expired => f.write_str("expired"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformOperationStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "planned" => Ok(Self::Planned),
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "succeeded" => Ok(Self::Succeeded),
+            "failed" => Ok(Self::Failed),
+            "incomplete" => Ok(Self::Incomplete),
+            "cancelled" => Ok(Self::Cancelled),
+            "expired" => Ok(Self::Expired),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformOperationStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformOperationStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformOperatorIdentity`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOperatorIdentity {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///Always `true`: a non-operator gets `403`, never `operator: false`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub operator: ::std::option::Option<bool>,
+    ///The token's `roles` claim, as the worker read it.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub roles: ::std::vec::Vec<::std::string::String>,
+    ///The token subject. For portal tokens this is the user's email (sub_mode user_email).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sub: ::std::option::Option<::std::string::String>,
+}
+///`PlatformOverview`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverview {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub heartbeats: ::std::option::Option<PlatformOverviewHeartbeats>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inbound: ::std::option::Option<PlatformOverviewInbound>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_builds: ::std::option::Option<PlatformOverviewJobCounts>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_scans: ::std::option::Option<PlatformOverviewJobCounts>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub registry: ::std::option::Option<PlatformOverviewRegistry>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenants: ::std::option::Option<PlatformOverviewTenants>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub users: ::std::option::Option<PlatformOverviewUsers>,
+}
+///`PlatformOverviewHeartbeats`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewHeartbeats {
+    ///The least recent heartbeat, or `null` when no observer has ever reported.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oldest: ::std::option::Option<PlatformOverviewHeartbeatsOldest>,
+    ///Queue kinds that have ever reported a workflow-observer heartbeat.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queue_kinds: ::std::option::Option<i64>,
+}
+///The least recent heartbeat, or `null` when no observer has ever reported.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewHeartbeatsOldest {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub beat_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queue_kind: ::std::option::Option<::std::string::String>,
+}
+///`PlatformOverviewInbound`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewInbound {
+    ///Contact/sales form submissions in the last 7 days.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub forms_7d: ::std::option::Option<i64>,
+    ///Feature-interest clicks in the last 7 days.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub interest_7d: ::std::option::Option<i64>,
+}
+///`PlatformOverviewJobCounts`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewJobCounts {
+    ///Jobs that ended `failed` in the last 24 hours.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failed_24h: ::std::option::Option<i64>,
+    ///Jobs that left the in-flight set in the last 24 hours, whatever their outcome.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finished_24h: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inflight: ::std::option::Option<i64>,
+}
+///`PlatformOverviewRegistry`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewRegistry {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub modules: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_workspaces: ::std::option::Option<i64>,
+}
+///`PlatformOverviewTenants`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewTenants {
+    ///Not soft-deleted and not demo.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub active: ::std::option::Option<i64>,
+    ///Active orgs per tier, largest first.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub by_tier: ::std::vec::Vec<PlatformOverviewTenantsByTierItem>,
+    ///Soft-deleted, awaiting purge.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub demo: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub new_7d: ::std::option::Option<i64>,
+}
+///`PlatformOverviewTenantsByTierItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewTenantsByTierItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub n: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<::std::string::String>,
+}
+///`PlatformOverviewUsers`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformOverviewUsers {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub new_7d: ::std::option::Option<i64>,
+    ///Users whose `last_seen_at` is within the last 7 days.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub seen_7d: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total: ::std::option::Option<i64>,
+}
+///`PlatformPolicyDownloadsTenantPolicy`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyDownloadsTenantPolicy {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub bundle: ::std::option::Option<PlatformPolicyDownloadsTenantPolicyBundle>,
+    ///What the policy rows hash to now; `null` for an org with no policies.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub computed_revision: ::std::option::Option<::std::string::String>,
+    ///Rows in policy_instance_overrides (per-identity inherit/disable/enforce).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub override_count: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub policies: ::std::vec::Vec<PlatformPolicyDownloadsTenantPolicyPoliciesItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant: ::std::option::Option<PlatformPolicyDownloadsTenantPolicyTenant>,
+}
+///`PlatformPolicyDownloadsTenantPolicyBundle`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyDownloadsTenantPolicyBundle {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub computed_revision: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub contract_version: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_contract_version: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub drift: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub revision: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub stored_object: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub updated_at: ::std::option::Option<i64>,
+}
+///`PlatformPolicyDownloadsTenantPolicyPoliciesItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyDownloadsTenantPolicyPoliciesItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub artefact_type:
+        ::std::option::Option<PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_by: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///`null` = org baseline; a value = custom to one module/workspace/provider.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub instance_key: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_enabled: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_enforcing: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rego_bytes: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub snapshots: ::std::vec::Vec<PlatformPolicyDownloadsTenantPolicyPoliciesItemSnapshotsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub updated_at: ::std::option::Option<i64>,
+}
+///`PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+    #[serde(rename = "module")]
+    Module,
+    #[serde(rename = "state")]
+    State,
+    #[serde(rename = "provider")]
+    Provider,
+    #[serde(rename = "plan")]
+    Plan,
+}
+impl ::std::fmt::Display for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Module => f.write_str("module"),
+            Self::State => f.write_str("state"),
+            Self::Provider => f.write_str("provider"),
+            Self::Plan => f.write_str("plan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "module" => Ok(Self::Module),
+            "state" => Ok(Self::State),
+            "provider" => Ok(Self::Provider),
+            "plan" => Ok(Self::Plan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformPolicyDownloadsTenantPolicyPoliciesItemSnapshotsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyDownloadsTenantPolicyPoliciesItemSnapshotsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub taken_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub taken_by: ::std::option::Option<::std::string::String>,
+}
+///`PlatformPolicyDownloadsTenantPolicyTenant`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyDownloadsTenantPolicyTenant {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policies_enabled: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+}
+///`PlatformPolicyFreshness`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyFreshness {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub bundles: ::std::option::Option<PlatformPolicyFreshnessBundles>,
+    ///The worker's POLICY_CONTRACT_VERSION (the policy-input schema's `x-contract-version`).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_contract_version: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub cve_intel: ::std::option::Option<PlatformPolicyFreshnessCveIntel>,
+    ///Epoch ms the worker built this report; ages are relative to it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generated_at: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformPolicyOrgBundle>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reference_bundle: ::std::option::Option<PlatformPolicyFreshnessReferenceBundle>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rego_snapshots: ::std::option::Option<PlatformPolicyFreshnessRegoSnapshots>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub stale_after_ms: ::std::option::Option<i64>,
+}
+///`PlatformPolicyFreshnessBundles`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyFreshnessBundles {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub behind: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub missing: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total: ::std::option::Option<i64>,
+}
+///`PlatformPolicyFreshnessCveIntel`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyFreshnessCveIntel {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub epss_at: ::std::option::Option<i64>,
+    ///CVEs with an EPSS score at or above the stored floor.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub epss_rows: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub epss_stale: ::std::option::Option<bool>,
+    ///CVEs currently flagged as on the CISA KEV catalogue.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kev_rows: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kev_stale: ::std::option::Option<bool>,
+    ///Epoch ms of the last KEV sweep (oldest `updated_at` among KEV rows).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kev_swept_at: ::std::option::Option<i64>,
+    ///CISA's own `dateAdded` on the newest entry. CISA adds a few a week; weeks old means the mirror is not refreshing.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub newest_kev_added_at: ::std::option::Option<i64>,
+}
+///`PlatformPolicyFreshnessReferenceBundle`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyFreshnessReferenceBundle {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub bundle_key: ::std::option::Option<::std::string::String>,
+    ///Epoch ms of the last publish, which only happens when the content changed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub revision: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub stale: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub updated_at: ::std::option::Option<i64>,
+}
+///`PlatformPolicyFreshnessRegoSnapshots`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyFreshnessRegoSnapshots {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub by_reason: ::std::vec::Vec<PlatformPolicyFreshnessRegoSnapshotsByReasonItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub newest_taken_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total: ::std::option::Option<i64>,
+}
+///`PlatformPolicyFreshnessRegoSnapshotsByReasonItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyFreshnessRegoSnapshotsByReasonItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub newest_taken_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub oldest_taken_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+}
+///`PlatformPolicyOrgBundle`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPolicyOrgBundle {
+    ///Epoch ms the bundle pointer last moved.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub bundle_updated_at: ::std::option::Option<i64>,
+    ///The policy-input contract the published bundle was built against.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub contract_version: ::std::option::Option<i64>,
+    ///Epoch ms of the soft delete; `null` for a live org.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted_at: ::std::option::Option<i64>,
+    ///Policies with `is_enabled = 1`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub enabled_policies: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_demo: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///The org's master policy switch (`tenants.policies_enabled`).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policies_enabled: ::std::option::Option<bool>,
+    ///The published bundle revision; `null` when `status` is `missing`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub revision: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformPolicyOrgBundleStatus>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<PlatformPolicyOrgBundleTier>,
+}
+///`PlatformPolicyOrgBundleStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformPolicyOrgBundleStatus {
+    #[serde(rename = "behind")]
+    Behind,
+    #[serde(rename = "missing")]
+    Missing,
+    #[serde(rename = "current")]
+    Current,
+}
+impl ::std::fmt::Display for PlatformPolicyOrgBundleStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Behind => f.write_str("behind"),
+            Self::Missing => f.write_str("missing"),
+            Self::Current => f.write_str("current"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformPolicyOrgBundleStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "behind" => Ok(Self::Behind),
+            "missing" => Ok(Self::Missing),
+            "current" => Ok(Self::Current),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformPolicyOrgBundleStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformPolicyOrgBundleStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformPolicyOrgBundleTier`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformPolicyOrgBundleTier {
+    #[serde(rename = "starter")]
+    Starter,
+    #[serde(rename = "team")]
+    Team,
+    #[serde(rename = "business")]
+    Business,
+    #[serde(rename = "enterprise")]
+    Enterprise,
+}
+impl ::std::fmt::Display for PlatformPolicyOrgBundleTier {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Starter => f.write_str("starter"),
+            Self::Team => f.write_str("team"),
+            Self::Business => f.write_str("business"),
+            Self::Enterprise => f.write_str("enterprise"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformPolicyOrgBundleTier {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "starter" => Ok(Self::Starter),
+            "team" => Ok(Self::Team),
+            "business" => Ok(Self::Business),
+            "enterprise" => Ok(Self::Enterprise),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformPolicyOrgBundleTier {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformPolicyOrgBundleTier {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Where to read the Workflow CR by hand - the only place a gate block's reason lives.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersArgoCr {
+    ///The Argo server API path for the archived Workflow, when the uid is known.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub archive_api_path: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kubectl: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub uid: ::std::option::Option<::std::string::String>,
+}
+/**What the detail route's Argo read returned. `ok: false` is a failed or skipped read - no
+information - with `reason` one of `not_configured`, `no_workflow_uid` (terminal row with
+nothing to look up), `unreachable` or `http_<n>`. `ok: true, found: false` is a successful
+read that found nothing, which IS evidence.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersArgoRead {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub configured: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub found: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformProvidersArgoReadSource>,
+}
+///`PlatformProvidersArgoReadSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersArgoReadSource {
+    #[serde(rename = "live")]
+    Live,
+    #[serde(rename = "archive")]
+    Archive,
+}
+impl ::std::fmt::Display for PlatformProvidersArgoReadSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Live => f.write_str("live"),
+            Self::Archive => f.write_str("archive"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersArgoReadSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "live" => Ok(Self::Live),
+            "archive" => Ok(Self::Archive),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersArgoReadSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersArgoReadSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformProvidersBacklog`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBacklog {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generated_at: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformProvidersBacklogItemsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+    ///Per-provider rollup of the filtered set.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub providers: ::std::vec::Vec<PlatformProvidersBacklogProvidersItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub thresholds_ms: ::std::option::Option<PlatformProvidersBacklogThresholdsMs>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub totals: ::std::option::Option<PlatformProvidersBacklogTotals>,
+}
+///`PlatformProvidersBacklogItemsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBacklogItemsItem {
+    ///scanned_at, else queued_at, as epoch ms (despite the name, a timestamp).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub age_ms: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub build: ::std::option::Option<PlatformProvidersBacklogState>,
+    ///`null` = never scanned, not zero findings.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub findings: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub malware: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub orgs: ::std::option::Option<i64>,
+    ///No artefact version backs this row (a self_built lineage, or a removed artefact). Still real work.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub orphan: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan: ::std::option::Option<PlatformProvidersBacklogState>,
+    ///Some org serves this provider (serve_mode `serve`).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub served: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+}
+///`PlatformProvidersBacklogProvidersItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBacklogProvidersItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub build_due: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub build_failed: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub never_built: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub never_scanned: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub outstanding: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rescan_due: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_failed: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_inflight: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_stale: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub versions: ::std::option::Option<i64>,
+}
+///`PlatformProvidersBacklogState`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersBacklogState {
+    #[serde(rename = "never-scanned")]
+    NeverScanned,
+    #[serde(rename = "scan-failed")]
+    ScanFailed,
+    #[serde(rename = "scan-stale")]
+    ScanStale,
+    #[serde(rename = "rescan-due")]
+    RescanDue,
+    #[serde(rename = "queued")]
+    Queued,
+    #[serde(rename = "scanning")]
+    Scanning,
+    #[serde(rename = "scanned")]
+    Scanned,
+    #[serde(rename = "build-due")]
+    BuildDue,
+    #[serde(rename = "build-failed")]
+    BuildFailed,
+    #[serde(rename = "never-built")]
+    NeverBuilt,
+    #[serde(rename = "build-queued")]
+    BuildQueued,
+    #[serde(rename = "building")]
+    Building,
+    #[serde(rename = "built")]
+    Built,
+}
+impl ::std::fmt::Display for PlatformProvidersBacklogState {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::NeverScanned => f.write_str("never-scanned"),
+            Self::ScanFailed => f.write_str("scan-failed"),
+            Self::ScanStale => f.write_str("scan-stale"),
+            Self::RescanDue => f.write_str("rescan-due"),
+            Self::Queued => f.write_str("queued"),
+            Self::Scanning => f.write_str("scanning"),
+            Self::Scanned => f.write_str("scanned"),
+            Self::BuildDue => f.write_str("build-due"),
+            Self::BuildFailed => f.write_str("build-failed"),
+            Self::NeverBuilt => f.write_str("never-built"),
+            Self::BuildQueued => f.write_str("build-queued"),
+            Self::Building => f.write_str("building"),
+            Self::Built => f.write_str("built"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersBacklogState {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "never-scanned" => Ok(Self::NeverScanned),
+            "scan-failed" => Ok(Self::ScanFailed),
+            "scan-stale" => Ok(Self::ScanStale),
+            "rescan-due" => Ok(Self::RescanDue),
+            "queued" => Ok(Self::Queued),
+            "scanning" => Ok(Self::Scanning),
+            "scanned" => Ok(Self::Scanned),
+            "build-due" => Ok(Self::BuildDue),
+            "build-failed" => Ok(Self::BuildFailed),
+            "never-built" => Ok(Self::NeverBuilt),
+            "build-queued" => Ok(Self::BuildQueued),
+            "building" => Ok(Self::Building),
+            "built" => Ok(Self::Built),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersBacklogState {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersBacklogState {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///The drain's own thresholds the states were derived with.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBacklogThresholdsMs {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub dispatch_stale: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failed_retry: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub rescan_after: ::std::option::Option<i64>,
+}
+///`PlatformProvidersBacklogTotals`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBacklogTotals {
+    #[serde(
+        default,
+        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
+    )]
+    pub build: ::std::collections::HashMap<::std::string::String, i64>,
+    ///Versions with actionable work (scan backlog, build-due or build-failed).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub outstanding: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub providers: ::std::option::Option<i64>,
+    ///Count per scan state, every state present.
+    #[serde(
+        default,
+        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
+    )]
+    pub scan: ::std::collections::HashMap<::std::string::String, i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub versions: ::std::option::Option<i64>,
+}
+///`PlatformProvidersBuild`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBuild {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub attempt: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub building_started_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub completed_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error_message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub flow: ::std::option::Option<PlatformProvidersFlowState>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub gates_passed: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub platform_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub requested_by_org: ::std::option::Option<PlatformProvidersOrgRef>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub requested_via: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformProvidersBuildStatus>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub triggered_at: ::std::option::Option<i64>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow_name: ::std::option::Option<::std::string::String>,
+}
+///`PlatformProvidersBuildDetail`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBuildDetail {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub argo: ::std::option::Option<PlatformProvidersArgoRead>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub argo_cr: ::std::option::Option<PlatformProvidersArgoCr>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub flow: ::std::option::Option<PlatformProvidersFlowState>,
+    ///Empty for a blocked build - see `argo_cr`.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub gate_verdicts: ::std::vec::Vec<PlatformProvidersBuildDetailGateVerdictsItem>,
+    ///The list fields (without `flow`) plus source/bundle hashes, sha256sums and the raw flow columns.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub job: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub overrides: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    ///patched_provider_versions rows whose build_job_id is this job.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub patched_revisions:
+        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow: ::std::option::Option<PlatformProvidersWorkflowBrief>,
+}
+///`PlatformProvidersBuildDetailGateVerdictsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersBuildDetailGateVerdictsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub gate: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub passed: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub verdict: ::std::option::Option<::serde_json::Value>,
+}
+///`PlatformProvidersBuildStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersBuildStatus {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "building")]
+    Building,
+    #[serde(rename = "signing")]
+    Signing,
+    #[serde(rename = "publishing")]
+    Publishing,
+    #[serde(rename = "completed")]
+    Completed,
+    #[serde(rename = "failed")]
+    Failed,
+}
+impl ::std::fmt::Display for PlatformProvidersBuildStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pending => f.write_str("pending"),
+            Self::Building => f.write_str("building"),
+            Self::Signing => f.write_str("signing"),
+            Self::Publishing => f.write_str("publishing"),
+            Self::Completed => f.write_str("completed"),
+            Self::Failed => f.write_str("failed"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersBuildStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "building" => Ok(Self::Building),
+            "signing" => Ok(Self::Signing),
+            "publishing" => Ok(Self::Publishing),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersBuildStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersBuildStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**lib/providerFlowState.ts deriveFlowState. `unknown` means nothing could vouch for the job
+(stale snapshot, no live answer) and is never shown as `queued`. `blocked` is a gate block,
+the product working; the reason is in the Workflow CR.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersFlowState {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_step: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failure_reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub observed_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub phase: ::std::option::Option<PlatformProvidersFlowStatePhase>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformProvidersFlowStateSource>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub steps: ::std::vec::Vec<PlatformProvidersFlowStateStepsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow_uid: ::std::option::Option<::std::string::String>,
+}
+///`PlatformProvidersFlowStatePhase`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersFlowStatePhase {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "queued")]
+    Queued,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "blocked")]
+    Blocked,
+    #[serde(rename = "succeeded")]
+    Succeeded,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "lost")]
+    Lost,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+impl ::std::fmt::Display for PlatformProvidersFlowStatePhase {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::None => f.write_str("none"),
+            Self::Queued => f.write_str("queued"),
+            Self::Running => f.write_str("running"),
+            Self::Blocked => f.write_str("blocked"),
+            Self::Succeeded => f.write_str("succeeded"),
+            Self::Failed => f.write_str("failed"),
+            Self::Lost => f.write_str("lost"),
+            Self::Unknown => f.write_str("unknown"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersFlowStatePhase {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "none" => Ok(Self::None),
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "blocked" => Ok(Self::Blocked),
+            "succeeded" => Ok(Self::Succeeded),
+            "failed" => Ok(Self::Failed),
+            "lost" => Ok(Self::Lost),
+            "unknown" => Ok(Self::Unknown),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersFlowStatePhase {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersFlowStatePhase {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformProvidersFlowStateSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersFlowStateSource {
+    #[serde(rename = "d1")]
+    D1,
+    #[serde(rename = "argo_live")]
+    ArgoLive,
+    #[serde(rename = "argo_archive")]
+    ArgoArchive,
+    #[serde(rename = "snapshot")]
+    Snapshot,
+    #[serde(rename = "absent")]
+    Absent,
+}
+impl ::std::fmt::Display for PlatformProvidersFlowStateSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::D1 => f.write_str("d1"),
+            Self::ArgoLive => f.write_str("argo_live"),
+            Self::ArgoArchive => f.write_str("argo_archive"),
+            Self::Snapshot => f.write_str("snapshot"),
+            Self::Absent => f.write_str("absent"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersFlowStateSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "d1" => Ok(Self::D1),
+            "argo_live" => Ok(Self::ArgoLive),
+            "argo_archive" => Ok(Self::ArgoArchive),
+            "snapshot" => Ok(Self::Snapshot),
+            "absent" => Ok(Self::Absent),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersFlowStateSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersFlowStateSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformProvidersFlowStateStepsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersFlowStateStepsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub attempt: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub outcome: ::std::option::Option<PlatformProvidersFlowStateStepsItemOutcome>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub step: ::std::option::Option<::std::string::String>,
+}
+///`PlatformProvidersFlowStateStepsItemOutcome`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersFlowStateStepsItemOutcome {
+    #[serde(rename = "ok")]
+    Ok,
+    #[serde(rename = "skipped")]
+    Skipped,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "in_progress")]
+    InProgress,
+    #[serde(rename = "pending")]
+    Pending,
+}
+impl ::std::fmt::Display for PlatformProvidersFlowStateStepsItemOutcome {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Ok => f.write_str("ok"),
+            Self::Skipped => f.write_str("skipped"),
+            Self::Failed => f.write_str("failed"),
+            Self::InProgress => f.write_str("in_progress"),
+            Self::Pending => f.write_str("pending"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersFlowStateStepsItemOutcome {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "ok" => Ok(Self::Ok),
+            "skipped" => Ok(Self::Skipped),
+            "failed" => Ok(Self::Failed),
+            "in_progress" => Ok(Self::InProgress),
+            "pending" => Ok(Self::Pending),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersFlowStateStepsItemOutcome {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersFlowStateStepsItemOutcome {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformProvidersOrgRef`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersOrgRef {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+}
+///Aggregate rows exactly as the shared SQL returns them (column names are the contract).
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PlatformProvidersRows(
+    pub ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+);
+impl ::std::ops::Deref for PlatformProvidersRows {
+    type Target = ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>;
+    fn deref(
+        &self,
+    ) -> &::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>> {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformProvidersRows>
+    for ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+{
+    fn from(value: PlatformProvidersRows) -> Self {
+        value.0
+    }
+}
+impl
+    ::std::convert::From<
+        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    > for PlatformProvidersRows
+{
+    fn from(
+        value: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    ) -> Self {
+        Self(value)
+    }
+}
+///`PlatformProvidersScan`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersScan {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub claimed_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub completed_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error_message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finding_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub flow: ::std::option::Option<PlatformProvidersFlowState>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///For self_built scans, the registry the tree was built from.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lineage_upstream: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub matched_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org: ::std::option::Option<PlatformProvidersOrgRef>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_kind: ::std::option::Option<PlatformProvidersScanScanKind>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformProvidersScanStatus>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub triggered_at: ::std::option::Option<i64>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_count: ::std::option::Option<i64>,
+}
+///`PlatformProvidersScanDetail`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersScanDetail {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub argo: ::std::option::Option<PlatformProvidersArgoRead>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub argo_cr: ::std::option::Option<PlatformProvidersArgoCr>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub flow: ::std::option::Option<PlatformProvidersFlowState>,
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub job: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub results: ::std::vec::Vec<PlatformProvidersScanDetailResultsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub results_truncated: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow: ::std::option::Option<PlatformProvidersWorkflowBrief>,
+}
+///`PlatformProvidersScanDetailResultsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersScanDetailResultsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub arch: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error_message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finding_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub malware_detected: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub os: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sbom_size: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scanned_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+}
+///`PlatformProvidersScanScanKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersScanScanKind {
+    #[serde(rename = "full")]
+    Full,
+    #[serde(rename = "cve_refresh")]
+    CveRefresh,
+}
+impl ::std::fmt::Display for PlatformProvidersScanScanKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Full => f.write_str("full"),
+            Self::CveRefresh => f.write_str("cve_refresh"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersScanScanKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "full" => Ok(Self::Full),
+            "cve_refresh" => Ok(Self::CveRefresh),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersScanScanKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersScanScanKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformProvidersScanStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformProvidersScanStatus {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "processing")]
+    Processing,
+    #[serde(rename = "completed")]
+    Completed,
+    #[serde(rename = "partial")]
+    Partial,
+    #[serde(rename = "failed")]
+    Failed,
+}
+impl ::std::fmt::Display for PlatformProvidersScanStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pending => f.write_str("pending"),
+            Self::Processing => f.write_str("processing"),
+            Self::Completed => f.write_str("completed"),
+            Self::Partial => f.write_str("partial"),
+            Self::Failed => f.write_str("failed"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformProvidersScanStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "processing" => Ok(Self::Processing),
+            "completed" => Ok(Self::Completed),
+            "partial" => Ok(Self::Partial),
+            "failed" => Ok(Self::Failed),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformProvidersScanStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersScanStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformProvidersStatus`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersStatus {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub argo: ::std::option::Option<PlatformProvidersStatusArgo>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub build_failures: ::std::option::Option<PlatformProvidersRows>,
+    ///Per (status, requested_via): n, done_1h, done_24h, stuck (building > 1h or pending > 3h), oldest_inflight_ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub build_jobs: ::std::option::Option<PlatformProvidersRows>,
+    ///Last 24h completed: n, run_avg_ms, run_max_ms, platforms, gates_passed.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub build_timing: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ///Section name -> query error. Empty when every section loaded.
+    #[serde(
+        default,
+        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
+    )]
+    pub errors: ::std::collections::HashMap<::std::string::String, ::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generated_at: ::std::option::Option<i64>,
+    ///D1 scan and build jobs not yet terminal.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inflight_count: ::std::option::Option<i64>,
+    ///patched_provider_versions per (status, failure_stage): n, created_24h, published_24h.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub patched: ::std::option::Option<PlatformProvidersRows>,
+    ///Top five failure messages (first 90 chars) in the last 24h: error, n, last_ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_failures: ::std::option::Option<PlatformProvidersRows>,
+    ///Per status: n, done_1h, done_24h, stale (in flight > 90m), oldest_inflight_ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_jobs: ::std::option::Option<PlatformProvidersRows>,
+    ///Per (scan_state, dispatch): n, oldest_ms, stale (processing > 90m).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_queue: ::std::option::Option<PlatformProvidersRows>,
+    ///Last 24h completed/partial: n, claim_avg_ms, claim_max_ms, run_avg_ms, run_max_ms, versions, findings. Averages are null when n is 0.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub scan_timing: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub trend: ::std::option::Option<PlatformProvidersStatusTrend>,
+}
+///`PlatformProvidersStatusArgo`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersStatusArgo {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub live_workflows: ::std::option::Option<i64>,
+    /**In-flight D1 jobs with no live Workflow (first 50). A pending scan job waits for the
+    drain, so only processing/building rows here are suspicious.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub missing_workflow:
+        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    ///Running/Pending provider Workflows whose D1 job is already terminal (first 50).
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub orphan_running:
+        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+}
+///Hourly completions, 24 values each, OLDEST FIRST (the last value is the current hour).
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersStatusTrend {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub build: ::std::vec::Vec<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub build_failed: ::std::vec::Vec<i64>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub scan: ::std::vec::Vec<i64>,
+}
+///`PlatformProvidersWorkflowBrief`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformProvidersWorkflowBrief {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub finished_at: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub phase: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub started_at: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub uid: ::std::option::Option<::std::string::String>,
+}
+///`PlatformPurgePlan`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPurgePlan {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub arm_problem: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub armed: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub confirmation_required: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expires_at: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub inventory: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub operation_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_hash: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub precondition: ::std::option::Option<PlatformPurgePlanPrecondition>,
+}
+/**Every gate and whether it is satisfied, all evaluated together so a refusal names each
+unmet one at once rather than making an operator fix them a 409 at a time.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPurgePlanPrecondition {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub gates: ::std::vec::Vec<PlatformPurgePlanPreconditionGatesItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inflight: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+}
+///`PlatformPurgePlanPreconditionGatesItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformPurgePlanPreconditionGatesItem {
+    ///What to change, in operator terms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub detail: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub gate: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub satisfied: ::std::option::Option<bool>,
+}
+///`PlatformTelemetryJourney`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryJourney {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub explore: ::std::option::Option<PlatformTelemetryJourneyExplore>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<PlatformTelemetryJourneyKind>,
+    ///What the row is, for a heading — e.g. `hashicorp/aws 5.80.0`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub logs: ::std::option::Option<PlatformTelemetryJourneyPart>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub queries: ::std::option::Option<PlatformTelemetryJourneyQueries>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub retention: ::std::option::Option<PlatformTelemetryJourneyRetention>,
+    ///The D1 row's status. Null for a plan, which has none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub traces: ::std::option::Option<PlatformTelemetryJourneyPart>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window: ::std::option::Option<PlatformTelemetryJourneyWindow>,
+}
+///`PlatformTelemetryJourneyExplore`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryJourneyExplore {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub logs: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub traces: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTelemetryJourneyKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryJourneyKind {
+    #[serde(rename = "build")]
+    Build,
+    #[serde(rename = "scan")]
+    Scan,
+    #[serde(rename = "plan")]
+    Plan,
+}
+impl ::std::fmt::Display for PlatformTelemetryJourneyKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Build => f.write_str("build"),
+            Self::Scan => f.write_str("scan"),
+            Self::Plan => f.write_str("plan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryJourneyKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "build" => Ok(Self::Build),
+            "scan" => Ok(Self::Scan),
+            "plan" => Ok(Self::Plan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryJourneyPart`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryJourneyPart {
+    ///The backend's response verbatim, or null unless `status` is `ok`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub data: ::std::option::Option<::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformTelemetryJourneyPartStatus>,
+}
+///`PlatformTelemetryJourneyPartStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryJourneyPartStatus {
+    #[serde(rename = "ok")]
+    Ok,
+    #[serde(rename = "outside_retention")]
+    OutsideRetention,
+    #[serde(rename = "refused")]
+    Refused,
+    #[serde(rename = "error")]
+    Error,
+}
+impl ::std::fmt::Display for PlatformTelemetryJourneyPartStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Ok => f.write_str("ok"),
+            Self::OutsideRetention => f.write_str("outside_retention"),
+            Self::Refused => f.write_str("refused"),
+            Self::Error => f.write_str("error"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryJourneyPartStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "ok" => Ok(Self::Ok),
+            "outside_retention" => Ok(Self::OutsideRetention),
+            "refused" => Ok(Self::Refused),
+            "error" => Ok(Self::Error),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyPartStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyPartStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryJourneyQueries`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryJourneyQueries {
+    /**Pins `namespace` as well as the journey id. `tm.*` attributes arrive as structured
+    metadata, not labels, so filtering on the id alone would read every stream in Loki
+    first — and would not satisfy the stream-selector guard.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub logql: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub traceql: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTelemetryJourneyRetention`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryJourneyRetention {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub loki: ::std::option::Option<PlatformTelemetryJourneyRetentionLoki>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tempo: ::std::option::Option<PlatformTelemetryJourneyRetentionTempo>,
+}
+///`PlatformTelemetryJourneyRetentionLoki`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryJourneyRetentionLoki {
+    #[serde(rename = "in_retention")]
+    InRetention,
+    #[serde(rename = "outside_retention")]
+    OutsideRetention,
+}
+impl ::std::fmt::Display for PlatformTelemetryJourneyRetentionLoki {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::InRetention => f.write_str("in_retention"),
+            Self::OutsideRetention => f.write_str("outside_retention"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryJourneyRetentionLoki {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "in_retention" => Ok(Self::InRetention),
+            "outside_retention" => Ok(Self::OutsideRetention),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyRetentionLoki {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyRetentionLoki {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryJourneyRetentionTempo`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryJourneyRetentionTempo {
+    #[serde(rename = "in_retention")]
+    InRetention,
+    #[serde(rename = "outside_retention")]
+    OutsideRetention,
+}
+impl ::std::fmt::Display for PlatformTelemetryJourneyRetentionTempo {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::InRetention => f.write_str("in_retention"),
+            Self::OutsideRetention => f.write_str("outside_retention"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryJourneyRetentionTempo {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "in_retention" => Ok(Self::InRetention),
+            "outside_retention" => Ok(Self::OutsideRetention),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyRetentionTempo {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyRetentionTempo {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryJourneyWindow`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryJourneyWindow {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<i64>,
+}
+///`PlatformTelemetryLogsRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct PlatformTelemetryLogsRequest {
+    #[serde(default = "defaults::platform_telemetry_logs_request_direction")]
+    pub direction: PlatformTelemetryLogsRequestDirection,
+    ///LogQL. Every stream selector needs an exact match on `service_name`, `namespace` or `job`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expr: ::std::option::Option<PlatformTelemetryLogsRequestExpr>,
+    ///Epoch ms. Defaults to one hour before `to`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<i64>,
+    ///Lines. Capped at 500 rather than refused.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limit: ::std::option::Option<i64>,
+    ///Epoch ms. Defaults to now.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<i64>,
+}
+impl ::std::default::Default for PlatformTelemetryLogsRequest {
+    fn default() -> Self {
+        Self {
+            direction: defaults::platform_telemetry_logs_request_direction(),
+            expr: Default::default(),
+            from: Default::default(),
+            limit: Default::default(),
+            to: Default::default(),
+        }
+    }
+}
+///`PlatformTelemetryLogsRequestDirection`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryLogsRequestDirection {
+    #[serde(rename = "backward")]
+    Backward,
+    #[serde(rename = "forward")]
+    Forward,
+}
+impl ::std::fmt::Display for PlatformTelemetryLogsRequestDirection {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Backward => f.write_str("backward"),
+            Self::Forward => f.write_str("forward"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryLogsRequestDirection {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "backward" => Ok(Self::Backward),
+            "forward" => Ok(Self::Forward),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryLogsRequestDirection {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryLogsRequestDirection {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::default::Default for PlatformTelemetryLogsRequestDirection {
+    fn default() -> Self {
+        PlatformTelemetryLogsRequestDirection::Backward
+    }
+}
+///LogQL. Every stream selector needs an exact match on `service_name`, `namespace` or `job`.
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct PlatformTelemetryLogsRequestExpr(::std::string::String);
+impl ::std::ops::Deref for PlatformTelemetryLogsRequestExpr {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformTelemetryLogsRequestExpr> for ::std::string::String {
+    fn from(value: PlatformTelemetryLogsRequestExpr) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryLogsRequestExpr {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 4096usize {
+            return Err("longer than 4096 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryLogsRequestExpr {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryLogsRequestExpr {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlatformTelemetryLogsRequestExpr {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`PlatformTelemetryLogsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryLogsResponse {
+    ///Loki's `query_range` response verbatim.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub data: ::std::option::Option<::serde_json::Value>,
+    ///The same query in Grafana Explore. Null when `GRAFANA_PUBLIC_URL` is unset.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub explore_url: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limit: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_lines: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub range: ::std::option::Option<PlatformTelemetryRange>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformTelemetryLogsResponseSource>,
+}
+///`PlatformTelemetryLogsResponseSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryLogsResponseSource {
+    #[serde(rename = "loki")]
+    Loki,
+}
+impl ::std::fmt::Display for PlatformTelemetryLogsResponseSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Loki => f.write_str("loki"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryLogsResponseSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "loki" => Ok(Self::Loki),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryLogsResponseSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryLogsResponseSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryMetricsRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryMetricsRequest {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expr: ::std::option::Option<PlatformTelemetryMetricsRequestExpr>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<i64>,
+    ///Query at `to` instead of over the range.
+    #[serde(default)]
+    pub instant: bool,
+    ///Seconds. Raised to `range/1000` if smaller.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub step: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<i64>,
+}
+///`PlatformTelemetryMetricsRequestExpr`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct PlatformTelemetryMetricsRequestExpr(::std::string::String);
+impl ::std::ops::Deref for PlatformTelemetryMetricsRequestExpr {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformTelemetryMetricsRequestExpr> for ::std::string::String {
+    fn from(value: PlatformTelemetryMetricsRequestExpr) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryMetricsRequestExpr {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 4096usize {
+            return Err("longer than 4096 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryMetricsRequestExpr {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryMetricsRequestExpr {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlatformTelemetryMetricsRequestExpr {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`PlatformTelemetryMetricsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryMetricsResponse {
+    ///Mimir's response, with `data.result` truncated to `max_series` when needed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub data: ::std::option::Option<::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub explore_url: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub instant: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_series: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub range: ::std::option::Option<PlatformTelemetryRange>,
+    ///The true number of series Mimir returned, before truncation.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub series: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub series_truncated: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformTelemetryMetricsResponseSource>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub step: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub step_raised: ::std::option::Option<bool>,
+}
+///`PlatformTelemetryMetricsResponseSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryMetricsResponseSource {
+    #[serde(rename = "mimir")]
+    Mimir,
+}
+impl ::std::fmt::Display for PlatformTelemetryMetricsResponseSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Mimir => f.write_str("mimir"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryMetricsResponseSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "mimir" => Ok(Self::Mimir),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryMetricsResponseSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryMetricsResponseSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryRange`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryRange {
+    /**True when the requested range was wider than the cap. The window is narrowed by moving
+    `from` forward, keeping the most recent part.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub capped: ::std::option::Option<bool>,
+    ///Epoch ms, inclusive — the window actually queried.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<i64>,
+}
+/**Which datasource. The UIDs are pinned in `lib/telemetryQuery.ts` rather than looked up by
+name: a name lookup would make the allowlist follow a rename in Grafana, which is the wrong
+behaviour for an allowlist. If a datasource is recreated its UID changes and the console
+says so instead of quietly querying something else.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetrySource {
+    #[serde(rename = "loki")]
+    Loki,
+    #[serde(rename = "mimir")]
+    Mimir,
+    #[serde(rename = "tempo")]
+    Tempo,
+}
+impl ::std::fmt::Display for PlatformTelemetrySource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Loki => f.write_str("loki"),
+            Self::Mimir => f.write_str("mimir"),
+            Self::Tempo => f.write_str("tempo"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetrySource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "loki" => Ok(Self::Loki),
+            "mimir" => Ok(Self::Mimir),
+            "tempo" => Ok(Self::Tempo),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetrySource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetrySource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTelemetryStatus`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryStatus {
+    ///The limits the routes apply, so the console does not hard-code them.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub caps: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub configured: ::std::option::Option<bool>,
+    ///Grafana's own view of its database, from `/api/health`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub database: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub grafana_version: ::std::option::Option<::std::string::String>,
+    ///Browser-facing Grafana, for Explore links. Never called by the worker.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub public_url: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reachable: ::std::option::Option<bool>,
+    ///`not_configured`, `unreachable`, or `http_<status>`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub sources: ::std::vec::Vec<PlatformTelemetryStatusSourcesItem>,
+}
+///`PlatformTelemetryStatusSourcesItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryStatusSourcesItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformTelemetrySource>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub uid: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTelemetryTraceSearchRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryTraceSearchRequest {
+    ///TraceQL.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expr: ::std::option::Option<PlatformTelemetryTraceSearchRequestExpr>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limit: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<i64>,
+}
+///TraceQL.
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct PlatformTelemetryTraceSearchRequestExpr(::std::string::String);
+impl ::std::ops::Deref for PlatformTelemetryTraceSearchRequestExpr {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformTelemetryTraceSearchRequestExpr> for ::std::string::String {
+    fn from(value: PlatformTelemetryTraceSearchRequestExpr) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryTraceSearchRequestExpr {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 4096usize {
+            return Err("longer than 4096 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryTraceSearchRequestExpr {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryTraceSearchRequestExpr {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlatformTelemetryTraceSearchRequestExpr {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`PlatformTelemetryTraceSearchResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTelemetryTraceSearchResponse {
+    ///Tempo's `/api/search` response verbatim.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub data: ::std::option::Option<::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub explore_url: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limit: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_results: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub range: ::std::option::Option<PlatformTelemetryRange>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PlatformTelemetryTraceSearchResponseSource>,
+}
+///`PlatformTelemetryTraceSearchResponseSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTelemetryTraceSearchResponseSource {
+    #[serde(rename = "tempo")]
+    Tempo,
+}
+impl ::std::fmt::Display for PlatformTelemetryTraceSearchResponseSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Tempo => f.write_str("tempo"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTelemetryTraceSearchResponseSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "tempo" => Ok(Self::Tempo),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTelemetryTraceSearchResponseSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryTraceSearchResponseSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTenantsDetail`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsDetail {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inventory: ::std::option::Option<PlatformTenantsDetailInventory>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub members: ::std::option::Option<PlatformTenantsDetailMembers>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub storage: ::std::option::Option<PlatformTenantsDetailStorage>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant: ::std::option::Option<PlatformTenantsDetailTenant>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub usage: ::std::option::Option<PlatformTenantsDetailUsage>,
+}
+///`PlatformTenantsDetailInventory`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsDetailInventory {
+    ///Providers the org may pull as Terramantle builds.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub entitled_providers: ::std::option::Option<i64>,
+    ///Distinct provider addresses across the org's uploaded lock files.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lockfile_providers: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub modules: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policies: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspaces: ::std::option::Option<i64>,
+}
+///`PlatformTenantsDetailMembers`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsDetailMembers {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub active: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub former: ::std::option::Option<i64>,
+    ///Active members first (owners, admins, members, readers), then former members; at most 200.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformTenantsMember>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub truncated: ::std::option::Option<bool>,
+}
+///`PlatformTenantsDetailStorage`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsDetailStorage {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub modules: ::std::option::Option<PlatformTenantsStorageDomain>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plans: ::std::option::Option<PlatformTenantsStorageDomain>,
+    /**Self-built, unyanked provider bytes this org is entitled to. Shared, not owned:
+    every entitled org counts the same bytes, so never sum this across tenants.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub providers_entitled: ::std::option::Option<PlatformTenantsStorageDomain>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state: ::std::option::Option<PlatformTenantsStorageDomain>,
+}
+///`PlatformTenantsDetailTenant`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsDetailTenant {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub claimed_domain: ::std::option::Option<::std::string::String>,
+    ///Unix ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    ///Unix ms of the soft delete; `null` = live.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downgrade_grace_ends_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub has_stripe_customer: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub has_stripe_subscription: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_demo: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_personal: ::std::option::Option<bool>,
+    ///Active members (not those who have left).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub member_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policies_enabled: ::std::option::Option<bool>,
+    ///`deleted_at` + 30 days; `null` when not deleted.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub purge_due_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub r2_jurisdiction: ::std::option::Option<PlatformTenantsDetailTenantR2Jurisdiction>,
+    ///The stored column, which can differ from `tier` on a personal tenant.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub raw_tier: ::std::option::Option<PlatformTenantsDetailTenantRawTier>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+    ///Effective tier (personal tenants are always `starter`).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<PlatformTenantsDetailTenantTier>,
+    ///State workspaces.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_count: ::std::option::Option<i64>,
+}
+///`PlatformTenantsDetailTenantR2Jurisdiction`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsDetailTenantR2Jurisdiction {
+    #[serde(rename = "default")]
+    Default,
+    #[serde(rename = "eu")]
+    Eu,
+}
+impl ::std::fmt::Display for PlatformTenantsDetailTenantR2Jurisdiction {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Default => f.write_str("default"),
+            Self::Eu => f.write_str("eu"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTenantsDetailTenantR2Jurisdiction {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "default" => Ok(Self::Default),
+            "eu" => Ok(Self::Eu),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantR2Jurisdiction {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTenantR2Jurisdiction {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///The stored column, which can differ from `tier` on a personal tenant.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsDetailTenantRawTier {
+    #[serde(rename = "starter")]
+    Starter,
+    #[serde(rename = "team")]
+    Team,
+    #[serde(rename = "business")]
+    Business,
+    #[serde(rename = "enterprise")]
+    Enterprise,
+}
+impl ::std::fmt::Display for PlatformTenantsDetailTenantRawTier {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Starter => f.write_str("starter"),
+            Self::Team => f.write_str("team"),
+            Self::Business => f.write_str("business"),
+            Self::Enterprise => f.write_str("enterprise"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTenantsDetailTenantRawTier {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "starter" => Ok(Self::Starter),
+            "team" => Ok(Self::Team),
+            "business" => Ok(Self::Business),
+            "enterprise" => Ok(Self::Enterprise),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantRawTier {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTenantRawTier {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Effective tier (personal tenants are always `starter`).
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsDetailTenantTier {
+    #[serde(rename = "starter")]
+    Starter,
+    #[serde(rename = "team")]
+    Team,
+    #[serde(rename = "business")]
+    Business,
+    #[serde(rename = "enterprise")]
+    Enterprise,
+}
+impl ::std::fmt::Display for PlatformTenantsDetailTenantTier {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Starter => f.write_str("starter"),
+            Self::Team => f.write_str("team"),
+            Self::Business => f.write_str("business"),
+            Self::Enterprise => f.write_str("enterprise"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTenantsDetailTenantTier {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "starter" => Ok(Self::Starter),
+            "team" => Ok(Self::Team),
+            "business" => Ok(Self::Business),
+            "enterprise" => Ok(Self::Enterprise),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantTier {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTenantTier {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTenantsDetailUsage`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsDetailUsage {
+    ///`null` is expected on Starter, which writes no tenant audit events.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_audit_event_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_module_publish_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_plan_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_state_push_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_downloads_30d: ::std::option::Option<i64>,
+    ///Downloads of this org's modules (download_events
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_downloads_total: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_last_download_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_downloads_30d: ::std::option::Option<i64>,
+    ///Providers served to this org (provider_download_events
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_downloads_total: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_last_download_at: ::std::option::Option<i64>,
+    ///Distinct namespace/type served in the last 30 days.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub providers_pulled_30d: ::std::option::Option<i64>,
+}
+///`PlatformTenantsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsItem {
+    ///Unix ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    ///Unix ms of the soft delete; `null` = live.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_demo: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_personal: ::std::option::Option<bool>,
+    ///Active members (not those who have left).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub member_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///`deleted_at` + 30 days; `null` when not deleted.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub purge_due_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+    ///Effective tier (personal tenants are always `starter`).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tier: ::std::option::Option<PlatformTenantsItemTier>,
+    ///State workspaces.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_count: ::std::option::Option<i64>,
+}
+///Effective tier (personal tenants are always `starter`).
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsItemTier {
+    #[serde(rename = "starter")]
+    Starter,
+    #[serde(rename = "team")]
+    Team,
+    #[serde(rename = "business")]
+    Business,
+    #[serde(rename = "enterprise")]
+    Enterprise,
+}
+impl ::std::fmt::Display for PlatformTenantsItemTier {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Starter => f.write_str("starter"),
+            Self::Team => f.write_str("team"),
+            Self::Business => f.write_str("business"),
+            Self::Enterprise => f.write_str("enterprise"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTenantsItemTier {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "starter" => Ok(Self::Starter),
+            "team" => Ok(Self::Team),
+            "business" => Ok(Self::Business),
+            "enterprise" => Ok(Self::Enterprise),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTenantsItemTier {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsItemTier {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTenantsList`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsList {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformTenantsItem>,
+    ///`null` on the last page.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsMember`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsMember {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub email: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_billing_admin: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub joined_at: ::std::option::Option<i64>,
+    ///Last authenticated request by this user anywhere on the platform.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_seen_at: ::std::option::Option<i64>,
+    ///`null` = still a member.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub left_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlatformTenantsMemberRole>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub user_id: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsMemberRole`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsMemberRole {
+    #[serde(rename = "owner")]
+    Owner,
+    #[serde(rename = "admin")]
+    Admin,
+    #[serde(rename = "member")]
+    Member,
+    #[serde(rename = "reader")]
+    Reader,
+}
+impl ::std::fmt::Display for PlatformTenantsMemberRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Owner => f.write_str("owner"),
+            Self::Admin => f.write_str("admin"),
+            Self::Member => f.write_str("member"),
+            Self::Reader => f.write_str("reader"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTenantsMemberRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "owner" => Ok(Self::Owner),
+            "admin" => Ok(Self::Admin),
+            "member" => Ok(Self::Member),
+            "reader" => Ok(Self::Reader),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformTenantsMemberRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsMemberRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**One storage domain. `measured_bytes` sums the rows whose size was recorded, and is `null`
+when rows exist but none is measured (render "unmeasured", not 0 B). `complete` is true
+when no row is unmeasured; an empty domain is complete, because its 0 B is a fact.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsStorageDomain {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub complete: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub measured_bytes: ::std::option::Option<i64>,
+    ///Retained rows (every version
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub objects: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub unmeasured: ::std::option::Option<i64>,
+}
+///`PlatformTenantsUsageDay`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageDay {
+    ///Never 0 - a zero day is omitted.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<::std::num::NonZeroU64>,
+    ///UTC day (YYYY-MM-DD).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub date: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsUsagePlatform`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsagePlatform {
+    ///`false` (the default) means demo tenants are left out of every number here.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub include_demo: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub series: ::std::option::Option<PlatformTenantsUsageSeries>,
+    ///At most 10 tenants by `downloads` in the window; tenants with none are left out.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub top_tenants: ::std::vec::Vec<PlatformTenantsUsagePlatformTopTenantsItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub totals: ::std::option::Option<PlatformTenantsUsageTotals>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window: ::std::option::Option<PlatformTenantsUsageWindow>,
+}
+///`PlatformTenantsUsagePlatformTopTenantsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsagePlatformTopTenantsItem {
+    ///`module_downloads` + `provider_downloads`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_demo: ::std::option::Option<bool>,
+    ///Downloads of this tenant's own modules.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///Provider binaries served to this tenant.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+}
+///Sparse daily counts, oldest first. An absent day had zero events.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageSeries {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub module_downloads: ::std::vec::Vec<PlatformTenantsUsageDay>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub module_publishes: ::std::vec::Vec<PlatformTenantsUsageDay>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub plan_uploads: ::std::vec::Vec<PlatformTenantsUsageDay>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub provider_downloads: ::std::vec::Vec<PlatformTenantsUsageDay>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub state_pushes: ::std::vec::Vec<PlatformTenantsUsageDay>,
+}
+///`PlatformTenantsUsageTenant`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenant {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub daily_breakdown: ::std::option::Option<PlatformTenantsUsageTenantDailyBreakdown>,
+    /**Module downloads split by who made them. No user-agent or country is recorded on
+    download events, so the actor kind is the only client dimension there is.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub module_downloads_by_actor:
+        ::std::vec::Vec<PlatformTenantsUsageTenantModuleDownloadsByActorItem>,
+    ///At most 10 os/arch pairs requested. Both are `null` on rows recorded before the platform was captured.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub provider_downloads_by_platform:
+        ::std::vec::Vec<PlatformTenantsUsageTenantProviderDownloadsByPlatformItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub series: ::std::option::Option<PlatformTenantsUsageSeries>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub storage: ::std::option::Option<PlatformTenantsUsageTenantStorage>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tenant_id: ::std::option::Option<::std::string::String>,
+    ///At most 10 of the tenant's modules by downloads in the window; modules with none are left out.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub top_modules: ::std::vec::Vec<PlatformTenantsUsageTenantTopModulesItem>,
+    ///At most 10 providers (namespace/type) served to the tenant in the window.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub top_providers: ::std::vec::Vec<PlatformTenantsUsageTenantTopProvidersItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub totals: ::std::option::Option<PlatformTenantsUsageTotals>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window: ::std::option::Option<PlatformTenantsUsageWindow>,
+}
+/**The two download series split per day, sparse like `series` (the console zero-fills).
+Each sums, day by day, to its total in `series`. They are separate because provider
+downloads typically run an order of magnitude above module downloads, so one shared
+axis flattens the module line; the console charts each on its own axis instead.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantDailyBreakdown {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub module_downloads_by_actor:
+        ::std::vec::Vec<PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub provider_downloads_by_os:
+        ::std::vec::Vec<PlatformTenantsUsageTenantDailyBreakdownProviderDownloadsByOsItem>,
+}
+///`PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_type: ::std::option::Option<
+        PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType,
+    >,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub date: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType {
+    #[serde(rename = "user")]
+    User,
+    #[serde(rename = "machine")]
+    Machine,
+}
+impl ::std::fmt::Display
+    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
+{
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::User => f.write_str("user"),
+            Self::Machine => f.write_str("machine"),
+        }
+    }
+}
+impl ::std::str::FromStr
+    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
+{
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "user" => Ok(Self::User),
+            "machine" => Ok(Self::Machine),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str>
+    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
+{
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTenantsUsageTenantDailyBreakdownProviderDownloadsByOsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantDailyBreakdownProviderDownloadsByOsItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub date: ::std::option::Option<::std::string::String>,
+    ///`null` on rows recorded before os/arch were.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub os: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsUsageTenantModuleDownloadsByActorItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantModuleDownloadsByActorItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_type:
+        ::std::option::Option<PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+}
+///`PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
+    #[serde(rename = "user")]
+    User,
+    #[serde(rename = "machine")]
+    Machine,
+}
+impl ::std::fmt::Display for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::User => f.write_str("user"),
+            Self::Machine => f.write_str("machine"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "user" => Ok(Self::User),
+            "machine" => Ok(Self::Machine),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str>
+    for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType
+{
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformTenantsUsageTenantProviderDownloadsByPlatformItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantProviderDownloadsByPlatformItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub arch: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub os: ::std::option::Option<::std::string::String>,
+}
+///The same object as `PlatformTenantsDetail.storage`; not windowed (it is what is retained now).
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantStorage {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub modules: ::std::option::Option<PlatformTenantsStorageDomain>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plans: ::std::option::Option<PlatformTenantsStorageDomain>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub providers_entitled: ::std::option::Option<PlatformTenantsStorageDomain>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state: ::std::option::Option<PlatformTenantsStorageDomain>,
+}
+///`PlatformTenantsUsageTenantTopModulesItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantTopModulesItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsUsageTenantTopProvidersItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTenantTopProvidersItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+}
+///Sum of each series over the window.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageTotals {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_publishes: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_uploads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider_downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_pushes: ::std::option::Option<i64>,
+}
+///`PlatformTenantsUsageWindow`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformTenantsUsageWindow {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub days: ::std::option::Option<PlatformTenantsUsageWindowDays>,
+    ///First bucket (inclusive).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub from: ::std::option::Option<::std::string::String>,
+    ///Unix ms of the UTC midnight opening the first bucket.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub since: ::std::option::Option<i64>,
+    ///Last bucket (inclusive); today in UTC.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub to: ::std::option::Option<::std::string::String>,
+}
+///`PlatformTenantsUsageWindowDays`
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PlatformTenantsUsageWindowDays(i64);
+impl ::std::ops::Deref for PlatformTenantsUsageWindowDays {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformTenantsUsageWindowDays> for i64 {
+    fn from(value: PlatformTenantsUsageWindowDays) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for PlatformTenantsUsageWindowDays {
+    type Error = self::error::ConversionError;
+    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![30_i64, 90_i64, 365_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlatformTenantsUsageWindowDays {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+    }
+}
+/**Fields that moved between plan and apply WITHOUT withdrawing consent — download counts, row
+counts, object counts. Reported, never blocking: hashing these would mean a provider anyone
+uses could never be wiped.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PlatformVolatileDiff(pub ::std::vec::Vec<PlatformVolatileDiffItem>);
+impl ::std::ops::Deref for PlatformVolatileDiff {
+    type Target = ::std::vec::Vec<PlatformVolatileDiffItem>;
+    fn deref(&self) -> &::std::vec::Vec<PlatformVolatileDiffItem> {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlatformVolatileDiff> for ::std::vec::Vec<PlatformVolatileDiffItem> {
+    fn from(value: PlatformVolatileDiff) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<PlatformVolatileDiffItem>> for PlatformVolatileDiff {
+    fn from(value: ::std::vec::Vec<PlatformVolatileDiffItem>) -> Self {
+        Self(value)
+    }
+}
+///`PlatformVolatileDiffItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformVolatileDiffItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub after: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub before: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub field: ::std::option::Option<::std::string::String>,
+}
+///`PlatformWipePlan`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformWipePlan {
+    ///Why an apply would be refused, available at plan time so it is not a surprise.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub arm_problem: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub armed: ::std::option::Option<bool>,
+    ///Orgs serving the provider, and who downloaded it in the last seven days.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub blast_radius: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub confirmation_required: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expires_at: ::std::option::Option<i64>,
+    /**Row counts per table, the kept-table counts, the cached versions, in-flight work, fork
+    repositories, the vcs-stats rows owned versus shared, the owned versus shared source
+    bundles, the explicitly referenced object keys, and the object prefixes. Prefixes always
+    end in `/` so `aws/` cannot match `aws-x/`.
+    */
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub inventory: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ///What survives the wipe, counted.
+    #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
+    pub kept: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub operation_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_hash: ::std::option::Option<::std::string::String>,
+}
 ///`Policy`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct Policy {
@@ -3150,6 +9802,16 @@ pub struct Policy {
     */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub instance_key: ::std::option::Option<::std::string::String>,
+    /**`1` ⇒ this row **is** the organisation's Danger-zone consumption kill switch for its
+    `artefact_type`, not an authored rule. Read it, do not write it: the generic update,
+    delete, toggle, override and force-inheritance operations all answer `409`
+    `block_all_policy`, and `PATCH /policies/consumption-block` is the only way to change
+    it. Its `rego` is stored for display and is never evaluated — enforcement happens on
+    the serve path — so `eval_total` and `eval_failing` are always `0` for it while its
+    block count in `/policies/coverage` is not.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_block_all: ::std::option::Option<PolicyIsBlockAll>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_enabled: ::std::option::Option<PolicyIsEnabled>,
     ///`1` ⇒ a failing verdict blocks. `0` ⇒ it is recorded and reported only.
@@ -3224,6 +9886,635 @@ impl ::std::convert::TryFrom<::std::string::String> for PolicyArtefactType {
         value.parse()
     }
 }
+///`PolicyCoverage`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyCoverage {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub artefact_type: ::std::option::Option<PolicyCoverageArtefactType>,
+    ///Refusals this policy caused within window_days.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub block_count: ::std::option::Option<i64>,
+    ///Artefact versions whose latest stored verdict for this policy fails.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub fail_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_enabled: ::std::option::Option<PolicyCoverageIsEnabled>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_enforcing: ::std::option::Option<PolicyCoverageIsEnforcing>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub last_block_at: ::std::option::Option<i64>,
+    ///Artefact versions whose latest stored verdict for this policy passes.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub pass_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_name: ::std::option::Option<::std::string::String>,
+}
+///`PolicyCoverageArtefactType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyCoverageArtefactType {
+    #[serde(rename = "module")]
+    Module,
+    #[serde(rename = "state")]
+    State,
+    #[serde(rename = "provider")]
+    Provider,
+    #[serde(rename = "plan")]
+    Plan,
+}
+impl ::std::fmt::Display for PolicyCoverageArtefactType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Module => f.write_str("module"),
+            Self::State => f.write_str("state"),
+            Self::Provider => f.write_str("provider"),
+            Self::Plan => f.write_str("plan"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyCoverageArtefactType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "module" => Ok(Self::Module),
+            "state" => Ok(Self::State),
+            "provider" => Ok(Self::Provider),
+            "plan" => Ok(Self::Plan),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyCoverageArtefactType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyCoverageArtefactType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PolicyCoverageIsEnabled`
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PolicyCoverageIsEnabled(i64);
+impl ::std::ops::Deref for PolicyCoverageIsEnabled {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<PolicyCoverageIsEnabled> for i64 {
+    fn from(value: PolicyCoverageIsEnabled) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for PolicyCoverageIsEnabled {
+    type Error = self::error::ConversionError;
+    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![0_i64, 1_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PolicyCoverageIsEnabled {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+    }
+}
+///`PolicyCoverageIsEnforcing`
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PolicyCoverageIsEnforcing(i64);
+impl ::std::ops::Deref for PolicyCoverageIsEnforcing {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<PolicyCoverageIsEnforcing> for i64 {
+    fn from(value: PolicyCoverageIsEnforcing) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for PolicyCoverageIsEnforcing {
+    type Error = self::error::ConversionError;
+    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![0_i64, 1_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PolicyCoverageIsEnforcing {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+    }
+}
+///`PolicyCoverageList`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyCoverageList {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub coverage: ::std::vec::Vec<PolicyCoverage>,
+    ///Window for block_count only; the verdict counts have no window.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window_days: ::std::option::Option<i64>,
+}
+/**One row of the policy decision ledger. `reason` is the message already shown to the client —
+policy names and counts, never a resource value out of a plan or state file.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyDecision {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_type: ::std::option::Option<PolicyDecisionActorType>,
+    ///Unix ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub decided_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub interaction: ::std::option::Option<PolicyInteraction>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_version_id: ::std::option::Option<::std::string::String>,
+    /**Null for the builtin gate and for a manual block, neither of which has a policies row.
+    Not a foreign key, so deleting a policy does not erase its history.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_id: ::std::option::Option<::std::string::String>,
+    ///Denormalised
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    ///Joins to the log line for the same interaction.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub req_id: ::std::option::Option<::std::string::String>,
+    ///state_apply_runs.id when the decision happened inside a lock.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub run_id: ::std::option::Option<::std::string::String>,
+    /**Which engine or authority decided — `builtin` the synchronous threshold/denylist plan
+    gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
+    `manual` an explicit admin block or approval, `serve_override` a tri-state force.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<PolicyDecisionSource>,
+    /**The subject's row id where one resolved. No foreign key: the subject is polymorphic
+    across five tables, and the ledger must outlive the row it refers to.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_id: ::std::option::Option<::std::string::String>,
+    /**Machine coordinates for the subject, so a client can build a link to it (migration
+    128). One of `workspace:<name>`, `state:<workspace>/<versionId>`,
+    `plan:<workspace>/<planVersionId>`,
+    `module:<namespace>/<name>/<provider>@<version>`, or
+    `provider:<registry>/<namespace>/<type>@<version>`.
+
+    The provider form carries the resolved registry lineage (`terraform.io` /
+    `opentofu.org`), never the raw upstream — the provider policy gate is self-built only,
+    so a key built from the upstream would read `provider:self_built/…` on every policy
+    refusal and route nowhere.
+
+    `null` on a row written before migration 128, and on any row whose coordinates did not
+    fully resolve. It is NOT derivable from `subject_label`, which is lossy display text (a
+    module label carries no provider segment). Clients must render the label unlinked when
+    this is null rather than guessing a route.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_key: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_kind: ::std::option::Option<PolicyDecisionSubjectKind>,
+    ///Human-readable, denormalised at write time.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_label: ::std::option::Option<::std::string::String>,
+    ///terraform | opentofu | other, from the User-Agent.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tool: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tool_version: ::std::option::Option<::std::string::String>,
+    ///Joins to the trace for the same interaction.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub trace_id: ::std::option::Option<::std::string::String>,
+    /**`block` the interaction was refused; `override` a human lifted or imposed a refusal;
+    `warn` evaluated and failed, but the policy was not enforcing.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub verdict: ::std::option::Option<PolicyDecisionVerdict>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_id: ::std::option::Option<::std::string::String>,
+}
+///`PolicyDecisionActorType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyDecisionActorType {
+    #[serde(rename = "human")]
+    Human,
+    #[serde(rename = "bot")]
+    Bot,
+    #[serde(rename = "oidc")]
+    Oidc,
+    #[serde(rename = "vcs")]
+    Vcs,
+    #[serde(rename = "system")]
+    System,
+}
+impl ::std::fmt::Display for PolicyDecisionActorType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Human => f.write_str("human"),
+            Self::Bot => f.write_str("bot"),
+            Self::Oidc => f.write_str("oidc"),
+            Self::Vcs => f.write_str("vcs"),
+            Self::System => f.write_str("system"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyDecisionActorType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "human" => Ok(Self::Human),
+            "bot" => Ok(Self::Bot),
+            "oidc" => Ok(Self::Oidc),
+            "vcs" => Ok(Self::Vcs),
+            "system" => Ok(Self::System),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyDecisionActorType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionActorType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**Counts for the segmented filters, each computed with every filter applied EXCEPT its own
+dimension — so a segment reports how many rows you would get if you switched to it with the
+other filters held.
+
+Deliberately not whole-window totals: the UI disables a zero-count segment on the grounds
+that the bucket holds nothing under the other filters, which a window total would make
+untrue. Equally deliberately not counted client-side over the loaded page: overrides are
+rare and clustered in time, so one page would report "no overrides" for an org that has
+several in the window.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyDecisionFacets {
+    ///Grouped by interaction, with every filter except `interaction` applied.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub interaction: ::std::vec::Vec<PolicyDecisionFacetsInteractionItem>,
+    ///Rows matching every filter — the exact count the list is paging through.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total: ::std::option::Option<i64>,
+    ///Grouped by verdict, with every filter except `verdict` applied.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub verdict: ::std::vec::Vec<PolicyDecisionFacetsVerdictItem>,
+}
+///`PolicyDecisionFacetsInteractionItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyDecisionFacetsInteractionItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub key: ::std::option::Option<PolicyInteraction>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub n: ::std::option::Option<i64>,
+}
+///`PolicyDecisionFacetsVerdictItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyDecisionFacetsVerdictItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub key: ::std::option::Option<PolicyDecisionFacetsVerdictItemKey>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub n: ::std::option::Option<i64>,
+}
+///`PolicyDecisionFacetsVerdictItemKey`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyDecisionFacetsVerdictItemKey {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "override")]
+    Override,
+    #[serde(rename = "warn")]
+    Warn,
+}
+impl ::std::fmt::Display for PolicyDecisionFacetsVerdictItemKey {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Override => f.write_str("override"),
+            Self::Warn => f.write_str("warn"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyDecisionFacetsVerdictItemKey {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "override" => Ok(Self::Override),
+            "warn" => Ok(Self::Warn),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyDecisionFacetsVerdictItemKey {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionFacetsVerdictItemKey {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PolicyDecisionFeed`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyDecisionFeed {
+    /**Refusals (`verdict = 'block'`) per UTC day over `window_days`, oldest first. SPARSE: a
+    day with no refusal is omitted and the client zero-fills, so a dip to the axis is a
+    real gap. Bucketed with `strftime(…, 'unixepoch')`, so the domain the client fills must
+    be UTC too — a locale domain drops or duplicates a day for every viewer west of UTC.
+
+    Honours `policy_id` and `q` so the series agrees with the rows, and ignores `verdict`
+    and `interaction` (it is a refusal series by definition).
+
+    **Present only on the first page (`offset = 0`)** and omitted otherwise: paging cannot
+    change the series, so recomputing it per page would be pure cost.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub daily: ::std::vec::Vec<PolicyDecisionFeedDailyItem>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub decisions: ::std::vec::Vec<PolicyDecision>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub facets: ::std::option::Option<PolicyDecisionFacets>,
+    /**Whether rows remain beyond this page. Exact, because it is derived from `facets.total`
+    rather than guessed from the page size — so a client never issues a speculative request
+    that comes back empty.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub has_more: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limit: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub offset: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window_days: ::std::option::Option<i64>,
+}
+///`PolicyDecisionFeedDailyItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PolicyDecisionFeedDailyItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    ///UTC day, YYYY-MM-DD.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub date: ::std::option::Option<::std::string::String>,
+}
+/**Which engine or authority decided — `builtin` the synchronous threshold/denylist plan
+gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
+`manual` an explicit admin block or approval, `serve_override` a tri-state force.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyDecisionSource {
+    #[serde(rename = "builtin")]
+    Builtin,
+    #[serde(rename = "opa")]
+    Opa,
+    #[serde(rename = "scan")]
+    Scan,
+    #[serde(rename = "manual")]
+    Manual,
+    #[serde(rename = "serve_override")]
+    ServeOverride,
+}
+impl ::std::fmt::Display for PolicyDecisionSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Builtin => f.write_str("builtin"),
+            Self::Opa => f.write_str("opa"),
+            Self::Scan => f.write_str("scan"),
+            Self::Manual => f.write_str("manual"),
+            Self::ServeOverride => f.write_str("serve_override"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyDecisionSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "builtin" => Ok(Self::Builtin),
+            "opa" => Ok(Self::Opa),
+            "scan" => Ok(Self::Scan),
+            "manual" => Ok(Self::Manual),
+            "serve_override" => Ok(Self::ServeOverride),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyDecisionSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PolicyDecisionSubjectKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyDecisionSubjectKind {
+    #[serde(rename = "state_workspace")]
+    StateWorkspace,
+    #[serde(rename = "state_version")]
+    StateVersion,
+    #[serde(rename = "plan_version")]
+    PlanVersion,
+    #[serde(rename = "module_version")]
+    ModuleVersion,
+    #[serde(rename = "provider_version")]
+    ProviderVersion,
+}
+impl ::std::fmt::Display for PolicyDecisionSubjectKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::StateWorkspace => f.write_str("state_workspace"),
+            Self::StateVersion => f.write_str("state_version"),
+            Self::PlanVersion => f.write_str("plan_version"),
+            Self::ModuleVersion => f.write_str("module_version"),
+            Self::ProviderVersion => f.write_str("provider_version"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyDecisionSubjectKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "state_workspace" => Ok(Self::StateWorkspace),
+            "state_version" => Ok(Self::StateVersion),
+            "plan_version" => Ok(Self::PlanVersion),
+            "module_version" => Ok(Self::ModuleVersion),
+            "provider_version" => Ok(Self::ProviderVersion),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyDecisionSubjectKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionSubjectKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**`block` the interaction was refused; `override` a human lifted or imposed a refusal;
+`warn` evaluated and failed, but the policy was not enforcing.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyDecisionVerdict {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "override")]
+    Override,
+    #[serde(rename = "warn")]
+    Warn,
+}
+impl ::std::fmt::Display for PolicyDecisionVerdict {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Override => f.write_str("override"),
+            Self::Warn => f.write_str("warn"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyDecisionVerdict {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "override" => Ok(Self::Override),
+            "warn" => Ok(Self::Warn),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyDecisionVerdict {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionVerdict {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 /**Which artefact kinds this org evaluates policies for. **Enforcement needs `opaTier` as well
 as the toggle** — a toggle on with the tier gate off evaluates and reports but refuses
 nothing.
@@ -3252,6 +10543,127 @@ pub struct PolicyEnablement {
     pub signal_fail_gate: ::std::option::Option<OnMissingSignal>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub state: ::std::option::Option<bool>,
+}
+/**What terraform/tofu (or a human acting on its behalf) was doing when the decision was made.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PolicyInteraction {
+    #[serde(rename = "state.lock")]
+    StateLock,
+    #[serde(rename = "state.push")]
+    StatePush,
+    #[serde(rename = "state.attest")]
+    StateAttest,
+    #[serde(rename = "state.serve_override")]
+    StateServeOverride,
+    #[serde(rename = "plan.push")]
+    PlanPush,
+    #[serde(rename = "plan.approve")]
+    PlanApprove,
+    #[serde(rename = "module.download")]
+    ModuleDownload,
+    #[serde(rename = "provider.download")]
+    ProviderDownload,
+    #[serde(rename = "state.pull")]
+    StatePull,
+}
+impl ::std::fmt::Display for PolicyInteraction {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::StateLock => f.write_str("state.lock"),
+            Self::StatePush => f.write_str("state.push"),
+            Self::StateAttest => f.write_str("state.attest"),
+            Self::StateServeOverride => f.write_str("state.serve_override"),
+            Self::PlanPush => f.write_str("plan.push"),
+            Self::PlanApprove => f.write_str("plan.approve"),
+            Self::ModuleDownload => f.write_str("module.download"),
+            Self::ProviderDownload => f.write_str("provider.download"),
+            Self::StatePull => f.write_str("state.pull"),
+        }
+    }
+}
+impl ::std::str::FromStr for PolicyInteraction {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "state.lock" => Ok(Self::StateLock),
+            "state.push" => Ok(Self::StatePush),
+            "state.attest" => Ok(Self::StateAttest),
+            "state.serve_override" => Ok(Self::StateServeOverride),
+            "plan.push" => Ok(Self::PlanPush),
+            "plan.approve" => Ok(Self::PlanApprove),
+            "module.download" => Ok(Self::ModuleDownload),
+            "provider.download" => Ok(Self::ProviderDownload),
+            "state.pull" => Ok(Self::StatePull),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PolicyInteraction {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PolicyInteraction {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**`1` ⇒ this row **is** the organisation's Danger-zone consumption kill switch for its
+`artefact_type`, not an authored rule. Read it, do not write it: the generic update,
+delete, toggle, override and force-inheritance operations all answer `409`
+`block_all_policy`, and `PATCH /policies/consumption-block` is the only way to change
+it. Its `rego` is stored for display and is never evaluated — enforcement happens on
+the serve path — so `eval_total` and `eval_failing` are always `0` for it while its
+block count in `/policies/coverage` is not.
+*/
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PolicyIsBlockAll(i64);
+impl ::std::ops::Deref for PolicyIsBlockAll {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<PolicyIsBlockAll> for i64 {
+    fn from(value: PolicyIsBlockAll) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for PolicyIsBlockAll {
+    type Error = self::error::ConversionError;
+    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![0_i64, 1_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PolicyIsBlockAll {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+    }
 }
 ///`PolicyIsEnabled`
 #[derive(::serde::Serialize, Clone, Debug)]
@@ -4176,6 +11588,14 @@ what makes the attachment race-safe when two jobs for one provider overlap.
 pub struct ProviderScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub arch: ::std::option::Option<::std::string::String>,
+    /**Archives the malware scan left out because a member inflates past clamd's per-file limit
+    (512 MiB), so ClamAV could not have scanned all of it. A **coverage gap, not a
+    detection**: `malware_detected` is unaffected. Stored as JSON on the shared row; omitted
+    or empty when nothing was left out. Older scanners never send it.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub clamav_unscanned:
+        ::std::option::Option<::std::vec::Vec<ProviderScanResultsBodyClamavUnscannedItem>>,
     ///Job-level reason, or this version's reason on a `failed`/`skipped` report.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub error_message: ::std::option::Option<::std::string::String>,
@@ -4238,6 +11658,19 @@ pub struct ProviderScanResultsBody {
     pub upstream: ::std::option::Option<ProviderUpstream>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
+}
+///`ProviderScanResultsBodyClamavUnscannedItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ProviderScanResultsBodyClamavUnscannedItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub expanded_bytes: ::std::option::Option<i64>,
+    ///The archive member that exceeded the limit; `null` for a single-file `.gz`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub member: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub path: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sha256: ::std::option::Option<::std::string::String>,
 }
 /**`published` ⇒ scanned. `failed` ⇒ attempted and failed (enters the retry tier).
 `skipped` ⇒ **never attempted** because the job ran out of wall budget: no result row is
@@ -5401,178 +12834,6 @@ impl ::std::convert::TryFrom<::std::string::String> for StateFindingSeverity {
         value.parse()
     }
 }
-///`StateGraph`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct StateGraph {
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub edges: ::std::vec::Vec<StateGraphEdge>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub nodes: ::std::vec::Vec<StateGraphNode>,
-}
-///`StateGraphEdge`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct StateGraphEdge {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub from: ::std::option::Option<::std::string::String>,
-    ///`locks` = workspace → provider (from a lock file). `requires` = module → provider.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub rel: ::std::option::Option<StateGraphEdgeRel>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub to: ::std::option::Option<::std::string::String>,
-}
-///`locks` = workspace → provider (from a lock file). `requires` = module → provider.
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-)]
-pub enum StateGraphEdgeRel {
-    #[serde(rename = "locks")]
-    Locks,
-    #[serde(rename = "requires")]
-    Requires,
-}
-impl ::std::fmt::Display for StateGraphEdgeRel {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Locks => f.write_str("locks"),
-            Self::Requires => f.write_str("requires"),
-        }
-    }
-}
-impl ::std::str::FromStr for StateGraphEdgeRel {
-    type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "locks" => Ok(Self::Locks),
-            "requires" => Ok(Self::Requires),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for StateGraphEdgeRel {
-    type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for StateGraphEdgeRel {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-/**Node ids are namespaced by kind — `ws:{id}`, `prov:{namespace}/{type}`,
-`mod:{namespace}/{name}/{provider}` — so a single id space holds all three without
-collision. Which optional fields are present depends on `kind`.
-*/
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct StateGraphNode {
-    ///Workspace nodes: the policy gate will reject the next apply.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub blocked: ::std::option::Option<bool>,
-    ///Module nodes.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub deprecated: ::std::option::Option<bool>,
-    /**Provider nodes: auto-discovered from a lock file or module scan, versus added by hand.
-    A node present only because something locks it is discovered by definition.
-    */
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub discovered: ::std::option::Option<bool>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub id: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub kind: ::std::option::Option<StateGraphNodeKind>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub label: ::std::option::Option<::std::string::String>,
-    ///Module nodes.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub latest_version: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub module_name: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub module_namespace: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub module_provider: ::std::option::Option<::std::string::String>,
-    ///Provider nodes.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub namespace: ::std::option::Option<::std::string::String>,
-    ///Provider nodes: some workspace pins an older version than its constraint allows.
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub outdated: ::std::option::Option<bool>,
-    ///Provider nodes.
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub type_: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub workspace_name: ::std::option::Option<::std::string::String>,
-}
-///`StateGraphNodeKind`
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-)]
-pub enum StateGraphNodeKind {
-    #[serde(rename = "workspace")]
-    Workspace,
-    #[serde(rename = "module")]
-    Module,
-    #[serde(rename = "provider")]
-    Provider,
-}
-impl ::std::fmt::Display for StateGraphNodeKind {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Workspace => f.write_str("workspace"),
-            Self::Module => f.write_str("module"),
-            Self::Provider => f.write_str("provider"),
-        }
-    }
-}
-impl ::std::str::FromStr for StateGraphNodeKind {
-    type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "workspace" => Ok(Self::Workspace),
-            "module" => Ok(Self::Module),
-            "provider" => Ok(Self::Provider),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for StateGraphNodeKind {
-    type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for StateGraphNodeKind {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
 /**A held lock. The actor-origin fields (`actor_ip`, `actor_country`, `actor_city`,
 `actor_name`, `info`) are **omitted for a `reader`** — they are personal data. They are
 display and audit only and never feed an authorization decision.
@@ -5604,6 +12865,119 @@ pub struct StateLock {
     pub operation: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub who: ::std::option::Option<::std::string::String>,
+}
+/**The `423` body on LOCK. Deliberately two things at once: the stable machine contract
+(`error`, `message`) that API and CLI clients read, and terraform's own `LockInfo` shape,
+which is the only part either CLI will render on this path.
+
+A genuine lock conflict (`error: locked`) fills `ID`/`Operation`/`Who`/`Created` from the
+real `state_locks` row. A policy refusal (`error: policy_blocked`) fills all seven with a
+synthetic record describing the refusal. See the operation's `423` for the constraints the
+CLIs impose on these values.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateLockRefusal {
+    ///RFC3339. Must parse as a Go `time.Time` or the whole body fails to unmarshal.
+    #[serde(
+        rename = "Created",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub created: ::std::option::Option<::std::string::String>,
+    ///The machine contract. This, not the status, distinguishes the two cases.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error: ::std::option::Option<StateLockRefusalError>,
+    /**`POLICY-BLOCK-<req_id>` for a refusal, the held lock's id for a conflict. Terraform
+    prints it as `HTTP remote state already locked: ID=...`, the only text on its first
+    line. Non-empty makes the error retriable under a non-zero `-lock-timeout`.
+    */
+    #[serde(rename = "ID", skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    /**Multi-line detail: why, what to do, and links to the decision record and the
+    workspace. Every line begins with a space, because terraform's diagnostic renderer
+    word-wraps only lines that do not — which would break the URLs mid-token.
+    */
+    #[serde(
+        rename = "Info",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub info: ::std::option::Option<::std::string::String>,
+    ///Human prose. Not a contract — do not match on it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub message: ::std::option::Option<::std::string::String>,
+    ///For a refusal, a phrase contradicting the CLI's "someone holds the lock".
+    #[serde(
+        rename = "Operation",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub operation: ::std::option::Option<::std::string::String>,
+    ///`<org>/<workspace>`. Absent on a genuine conflict.
+    #[serde(
+        rename = "Path",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub path: ::std::option::Option<::std::string::String>,
+    /**Repurposed for a refusal: the responsible policy's id, self-labelled because the field
+    label no longer means a semver.
+    */
+    #[serde(
+        rename = "Version",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub version: ::std::option::Option<::std::string::String>,
+    ///For a refusal, what refused — a policy name, an org owner or an org admin.
+    #[serde(rename = "Who", skip_serializing_if = "::std::option::Option::is_none")]
+    pub who: ::std::option::Option<::std::string::String>,
+}
+///The machine contract. This, not the status, distinguishes the two cases.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum StateLockRefusalError {
+    #[serde(rename = "locked")]
+    Locked,
+    #[serde(rename = "policy_blocked")]
+    PolicyBlocked,
+}
+impl ::std::fmt::Display for StateLockRefusalError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Locked => f.write_str("locked"),
+            Self::PolicyBlocked => f.write_str("policy_blocked"),
+        }
+    }
+}
+impl ::std::str::FromStr for StateLockRefusalError {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "locked" => Ok(Self::Locked),
+            "policy_blocked" => Ok(Self::PolicyBlocked),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StateLockRefusalError {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StateLockRefusalError {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 /**Terraform's lock info, as the `http` backend sends it. Field names are Terraform's
 (capitalised) and are stored verbatim for display.
@@ -5661,6 +13035,25 @@ pub struct StatePromoteResult {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version_id: ::std::option::Option<::std::string::String>,
 }
+///One provider observed in a state file's managed resources.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateProviderInput {
+    ///The namespace segment of the provider address, e.g. `hashicorp`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub namespace: ::std::option::Option<::std::string::String>,
+    ///The type segment, e.g. `aws`.
+    #[serde(
+        rename = "type",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    /**Derived from the address host, matching how lock-file and module discovery resolve it:
+    an explicit `registry.opentofu.org` means `opentofu.org`, anything else defaults to
+    `terraform.io`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub upstream: ::std::option::Option<ProviderUpstream>,
+}
 ///`StateResourceDeleteResult`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct StateResourceDeleteResult {
@@ -5705,6 +13098,23 @@ pub struct StateScanResultsBody {
     */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_results: ::std::option::Option<::std::vec::Vec<ScanPolicyResultInput>>,
+    /**The providers backing this state's **managed** resources, parsed from each resource's
+    provider address. Feeds provider discovery, so each one becomes a discovered artefact
+    for the org and gets scanned.
+
+    This is the second of two discovery sources, and the one that reaches most orgs. The
+    first is an uploaded `.terraform.lock.hcl`, which carries pinned versions but which
+    few workspaces ever upload — so without this, the providers of every workspace
+    without a lock file never became artefacts at all and were invisible to CVE and
+    outdated-version reporting.
+
+    Carries no version on purpose: state records *which* provider is in use, never which
+    version. Where a lock file names the same provider, its pinned constraint wins.
+
+    Optional and additive, so a scanner can ship ahead of the Worker; absent is a no-op.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub providers: ::std::option::Option<::std::vec::Vec<StateProviderInput>>,
     /**Best-effort. Absent (older scanner) or `null` (classifier bailout) leaves the stored
     columns untouched — which is also how pre-classification versions get backfilled.
     */
@@ -6063,6 +13473,33 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryBlocked {
             .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
     }
 }
+///`StateWorkspaceTimeline`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceTimeline {
+    ///Newest first, by `at`.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub entries: ::std::vec::Vec<StateWorkspaceTimelineEntriesItem>,
+    ///The limit actually applied.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limit: ::std::option::Option<i64>,
+}
+///`StateWorkspaceTimelineEntriesItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum StateWorkspaceTimelineEntriesItem {
+    RunEntry(TimelineRunEntry),
+    DecisionEntry(TimelineDecisionEntry),
+}
+impl ::std::convert::From<TimelineRunEntry> for StateWorkspaceTimelineEntriesItem {
+    fn from(value: TimelineRunEntry) -> Self {
+        Self::RunEntry(value)
+    }
+}
+impl ::std::convert::From<TimelineDecisionEntry> for StateWorkspaceTimelineEntriesItem {
+    fn from(value: TimelineDecisionEntry) -> Self {
+        Self::DecisionEntry(value)
+    }
+}
 ///`StripeRedirect`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct StripeRedirect {
@@ -6282,6 +13719,520 @@ pub struct TierFeatureFlags {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub users: ::std::option::Option<i64>,
 }
+///`TimelineDecisionEntry`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct TimelineDecisionEntry {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_type: ::std::option::Option<TimelineDecisionEntryActorType>,
+    ///Same value as decided_at.
+    pub at: i64,
+    ///Unix ms.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub decided_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub interaction: ::std::option::Option<PolicyInteraction>,
+    pub kind: TimelineDecisionEntryKind,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_version_id: ::std::option::Option<::std::string::String>,
+    /**Null for the builtin gate and for a manual block, neither of which has a policies row.
+    Not a foreign key, so deleting a policy does not erase its history.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_id: ::std::option::Option<::std::string::String>,
+    ///Denormalised
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub policy_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+    ///Joins to the log line for the same interaction.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub req_id: ::std::option::Option<::std::string::String>,
+    ///state_apply_runs.id when the decision happened inside a lock.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub run_id: ::std::option::Option<::std::string::String>,
+    /**Which engine or authority decided — `builtin` the synchronous threshold/denylist plan
+    gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
+    `manual` an explicit admin block or approval, `serve_override` a tri-state force.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub source: ::std::option::Option<TimelineDecisionEntrySource>,
+    /**The subject's row id where one resolved. No foreign key: the subject is polymorphic
+    across five tables, and the ledger must outlive the row it refers to.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_id: ::std::option::Option<::std::string::String>,
+    /**Machine coordinates for the subject, so a client can build a link to it (migration
+    128). One of `workspace:<name>`, `state:<workspace>/<versionId>`,
+    `plan:<workspace>/<planVersionId>`,
+    `module:<namespace>/<name>/<provider>@<version>`, or
+    `provider:<registry>/<namespace>/<type>@<version>`.
+
+    The provider form carries the resolved registry lineage (`terraform.io` /
+    `opentofu.org`), never the raw upstream — the provider policy gate is self-built only,
+    so a key built from the upstream would read `provider:self_built/…` on every policy
+    refusal and route nowhere.
+
+    `null` on a row written before migration 128, and on any row whose coordinates did not
+    fully resolve. It is NOT derivable from `subject_label`, which is lossy display text (a
+    module label carries no provider segment). Clients must render the label unlinked when
+    this is null rather than guessing a route.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_key: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_kind: ::std::option::Option<TimelineDecisionEntrySubjectKind>,
+    ///Human-readable, denormalised at write time.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub subject_label: ::std::option::Option<::std::string::String>,
+    ///terraform | opentofu | other, from the User-Agent.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tool: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub tool_version: ::std::option::Option<::std::string::String>,
+    ///Joins to the trace for the same interaction.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub trace_id: ::std::option::Option<::std::string::String>,
+    /**`block` the interaction was refused; `override` a human lifted or imposed a refusal;
+    `warn` evaluated and failed, but the policy was not enforcing.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub verdict: ::std::option::Option<TimelineDecisionEntryVerdict>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace_id: ::std::option::Option<::std::string::String>,
+}
+///`TimelineDecisionEntryActorType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineDecisionEntryActorType {
+    #[serde(rename = "human")]
+    Human,
+    #[serde(rename = "bot")]
+    Bot,
+    #[serde(rename = "oidc")]
+    Oidc,
+    #[serde(rename = "vcs")]
+    Vcs,
+    #[serde(rename = "system")]
+    System,
+}
+impl ::std::fmt::Display for TimelineDecisionEntryActorType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Human => f.write_str("human"),
+            Self::Bot => f.write_str("bot"),
+            Self::Oidc => f.write_str("oidc"),
+            Self::Vcs => f.write_str("vcs"),
+            Self::System => f.write_str("system"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineDecisionEntryActorType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "human" => Ok(Self::Human),
+            "bot" => Ok(Self::Bot),
+            "oidc" => Ok(Self::Oidc),
+            "vcs" => Ok(Self::Vcs),
+            "system" => Ok(Self::System),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineDecisionEntryActorType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntryActorType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TimelineDecisionEntryKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineDecisionEntryKind {
+    #[serde(rename = "decision")]
+    Decision,
+}
+impl ::std::fmt::Display for TimelineDecisionEntryKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Decision => f.write_str("decision"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineDecisionEntryKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "decision" => Ok(Self::Decision),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineDecisionEntryKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntryKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**Which engine or authority decided — `builtin` the synchronous threshold/denylist plan
+gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
+`manual` an explicit admin block or approval, `serve_override` a tri-state force.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineDecisionEntrySource {
+    #[serde(rename = "builtin")]
+    Builtin,
+    #[serde(rename = "opa")]
+    Opa,
+    #[serde(rename = "scan")]
+    Scan,
+    #[serde(rename = "manual")]
+    Manual,
+    #[serde(rename = "serve_override")]
+    ServeOverride,
+}
+impl ::std::fmt::Display for TimelineDecisionEntrySource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Builtin => f.write_str("builtin"),
+            Self::Opa => f.write_str("opa"),
+            Self::Scan => f.write_str("scan"),
+            Self::Manual => f.write_str("manual"),
+            Self::ServeOverride => f.write_str("serve_override"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineDecisionEntrySource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "builtin" => Ok(Self::Builtin),
+            "opa" => Ok(Self::Opa),
+            "scan" => Ok(Self::Scan),
+            "manual" => Ok(Self::Manual),
+            "serve_override" => Ok(Self::ServeOverride),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineDecisionEntrySource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntrySource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TimelineDecisionEntrySubjectKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineDecisionEntrySubjectKind {
+    #[serde(rename = "state_workspace")]
+    StateWorkspace,
+    #[serde(rename = "state_version")]
+    StateVersion,
+    #[serde(rename = "plan_version")]
+    PlanVersion,
+    #[serde(rename = "module_version")]
+    ModuleVersion,
+    #[serde(rename = "provider_version")]
+    ProviderVersion,
+}
+impl ::std::fmt::Display for TimelineDecisionEntrySubjectKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::StateWorkspace => f.write_str("state_workspace"),
+            Self::StateVersion => f.write_str("state_version"),
+            Self::PlanVersion => f.write_str("plan_version"),
+            Self::ModuleVersion => f.write_str("module_version"),
+            Self::ProviderVersion => f.write_str("provider_version"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineDecisionEntrySubjectKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "state_workspace" => Ok(Self::StateWorkspace),
+            "state_version" => Ok(Self::StateVersion),
+            "plan_version" => Ok(Self::PlanVersion),
+            "module_version" => Ok(Self::ModuleVersion),
+            "provider_version" => Ok(Self::ProviderVersion),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineDecisionEntrySubjectKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntrySubjectKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+/**`block` the interaction was refused; `override` a human lifted or imposed a refusal;
+`warn` evaluated and failed, but the policy was not enforcing.
+*/
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineDecisionEntryVerdict {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "override")]
+    Override,
+    #[serde(rename = "warn")]
+    Warn,
+}
+impl ::std::fmt::Display for TimelineDecisionEntryVerdict {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Override => f.write_str("override"),
+            Self::Warn => f.write_str("warn"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineDecisionEntryVerdict {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "override" => Ok(Self::Override),
+            "warn" => Ok(Self::Warn),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineDecisionEntryVerdict {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntryVerdict {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///One LOCK...UNLOCK cycle that actually acquired its lock.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct TimelineRunEntry {
+    ///Unix ms the lock was taken (locked_at).
+    pub at: i64,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub hold_duration_ms: ::std::option::Option<i64>,
+    ///state_apply_runs.id
+    pub id: ::std::string::String,
+    pub kind: TimelineRunEntryKind,
+    ///Terraform operation, e.g. OperationTypeApply.
+    pub operation: ::std::string::String,
+    ///The plan this apply was attested against.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_version_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub push_duration_ms: ::std::option::Option<i64>,
+    ///State serial pushed in this run
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serial: ::std::option::Option<i64>,
+    pub status: TimelineRunEntryStatus,
+    ///The state version pushed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub who: ::std::option::Option<::std::string::String>,
+}
+///`TimelineRunEntryKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineRunEntryKind {
+    #[serde(rename = "run")]
+    Run,
+}
+impl ::std::fmt::Display for TimelineRunEntryKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Run => f.write_str("run"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineRunEntryKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "run" => Ok(Self::Run),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineRunEntryKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineRunEntryKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TimelineRunEntryStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TimelineRunEntryStatus {
+    #[serde(rename = "active")]
+    Active,
+    #[serde(rename = "completed")]
+    Completed,
+    #[serde(rename = "no_push")]
+    NoPush,
+    #[serde(rename = "abandoned")]
+    Abandoned,
+}
+impl ::std::fmt::Display for TimelineRunEntryStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Active => f.write_str("active"),
+            Self::Completed => f.write_str("completed"),
+            Self::NoPush => f.write_str("no_push"),
+            Self::Abandoned => f.write_str("abandoned"),
+        }
+    }
+}
+impl ::std::str::FromStr for TimelineRunEntryStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "active" => Ok(Self::Active),
+            "completed" => Ok(Self::Completed),
+            "no_push" => Ok(Self::NoPush),
+            "abandoned" => Ok(Self::Abandoned),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TimelineRunEntryStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TimelineRunEntryStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Epoch milliseconds, matching the D1 column behind it.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
@@ -6382,7 +14333,9 @@ impl ::std::convert::TryFrom<::std::string::String> for TokenPermission {
 }
 /**What a machine token can reach.
 
-- `global` — every org its creator administers.
+- `global` — **every** org on the platform (write on modules), not just the orgs its creator
+  administers. Creatable only by a platform operator; still listed here because existing
+  global tokens appear in token listings.
 - `org` — one org, with per-domain read/write via `include_modules` / `include_state`.
 - `state_workspaces` — one org, but state only on the workspaces in `state_grants`.
 */
@@ -7026,24 +14979,12 @@ pub struct WorkspaceProvidersResponseLockFile {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub uploaded_by: ::std::option::Option<::std::string::String>,
 }
-///`YankProviderVersionResponse`
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
-pub struct YankProviderVersionResponse {
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub ok: ::std::option::Option<bool>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub type_: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub upstream: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub version: ::std::option::Option<::std::string::String>,
-    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub yanked_rows: ::std::option::Option<i64>,
+/// Generation of default values for serde.
+pub mod defaults {
+    pub(super) fn platform_telemetry_logs_request_direction(
+    ) -> super::PlatformTelemetryLogsRequestDirection {
+        super::PlatformTelemetryLogsRequestDirection::Backward
+    }
 }
 /// Error types.
 pub mod error {

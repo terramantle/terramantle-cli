@@ -302,7 +302,7 @@ fn codegen(check: bool) -> Res<()> {
         println!("            union arms keeping `required`: {}", union_arms.join(", "));
     }
     if !collapsed.is_empty() {
-        println!("            collapsed nullable enum(s): {}", collapsed.join(", "));
+        println!("            collapsed nullable schema(s): {}", collapsed.join(", "));
     }
     println!("operations: {} -> crates/tm-api/src/generated/operations.rs", ops.len());
     println!("tombstoned: {} (no constants emitted: {})", tombstones.len(), tombstones.join(", "));

@@ -36,6 +36,17 @@ pub const ADD_ORG_PROVIDER: Op = Op {
     query: &[],
     success: 201,
 };
+/// `POST /api/orgs/{orgId}/policies/baseline`
+///
+/// Tag: Policies. Success: `201`.
+pub const APPLY_POLICY_BASELINE: Op = Op {
+    id: "applyPolicyBaseline",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/policies/baseline",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 201,
+};
 /// `POST /api/v1/{orgId}/plans/{workspace}/versions/{versionId}/approve`
 ///
 /// Tag: Plans. Success: `200`.
@@ -489,6 +500,17 @@ pub const GET_CLI_DISCOVERY: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/orgs/{orgId}/policies/consumption-block`
+///
+/// Tag: Policies. Success: `200`.
+pub const GET_CONSUMPTION_BLOCK: Op = Op {
+    id: "getConsumptionBlock",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/policies/consumption-block",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/auth/me`
 ///
 /// Tag: Orgs & Members. Success: `200`.
@@ -558,17 +580,6 @@ pub const GET_MODULE_ARCHIVE: Op = Op {
         ("version", ParamKind::Segment),
     ],
     query: &["sig"],
-    success: 200,
-};
-/// `GET /api/graph`
-///
-/// Tag: Analytics. Success: `200`.
-pub const GET_MODULE_DEPENDENCY_GRAPH: Op = Op {
-    id: "getModuleDependencyGraph",
-    method: Method::Get,
-    template: "/api/graph",
-    params: &[],
-    query: &[],
     success: 200,
 };
 /// `GET /v1/modules/{namespace}/{name}/{provider}/{version}`
@@ -648,6 +659,17 @@ pub const GET_ORG_ANALYTICS: Op = Op {
     id: "getOrgAnalytics",
     method: Method::Get,
     template: "/api/orgs/{orgId}/analytics",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `GET /api/v1/{orgId}/graph`
+///
+/// Tag: Analytics. Success: `200`.
+pub const GET_ORG_DEPENDENCY_GRAPH: Op = Op {
+    id: "getOrgDependencyGraph",
+    method: Method::Get,
+    template: "/api/v1/{orgId}/graph",
     params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
@@ -896,6 +918,17 @@ pub const GET_POLICY: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/orgs/{orgId}/policies/coverage`
+///
+/// Tag: Policies. Success: `200`.
+pub const GET_POLICY_COVERAGE: Op = Op {
+    id: "getPolicyCoverage",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/policies/coverage",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/policy-schema`
 ///
 /// Tag: Public. Success: `200`.
@@ -1127,17 +1160,6 @@ pub const GET_STATE: Op = Op {
     query: &[],
     success: 200,
 };
-/// `GET /api/v1/{orgId}/state/graph`
-///
-/// Tag: State Management. Success: `200`.
-pub const GET_STATE_GRAPH: Op = Op {
-    id: "getStateGraph",
-    method: Method::Get,
-    template: "/api/v1/{orgId}/state/graph",
-    params: &[("orgId", ParamKind::Segment)],
-    query: &[],
-    success: 200,
-};
 /// `GET /api/v1/{orgId}/state/{workspace}/lock`
 ///
 /// Tag: State Management. Success: `200`.
@@ -1194,6 +1216,20 @@ pub const GET_STATE_WORKSPACE_ACTIVITY: Op = Op {
         ("workspace", ParamKind::Segment),
     ],
     query: &[],
+    success: 200,
+};
+/// `GET /api/v1/{orgId}/state/{workspace}/decisions`
+///
+/// Tag: State Management. Success: `200`.
+pub const GET_STATE_WORKSPACE_DECISIONS: Op = Op {
+    id: "getStateWorkspaceDecisions",
+    method: Method::Get,
+    template: "/api/v1/{orgId}/state/{workspace}/decisions",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &["limit"],
     success: 200,
 };
 /// `GET /.well-known/terraform.json`
@@ -1409,6 +1445,26 @@ pub const LIST_POLICIES: Op = Op {
     template: "/api/orgs/{orgId}/policies",
     params: &[("orgId", ParamKind::Segment)],
     query: &["artefact_type"],
+    success: 200,
+};
+/// `GET /api/orgs/{orgId}/policies/decisions`
+///
+/// Tag: Policies. Success: `200`.
+pub const LIST_POLICY_DECISIONS: Op = Op {
+    id: "listPolicyDecisions",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/policies/decisions",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[
+        "interaction",
+        "verdict",
+        "policy_id",
+        "since",
+        "q",
+        "req_id",
+        "limit",
+        "offset",
+    ],
     success: 200,
 };
 /// `GET /api/orgs/{orgId}/provider-flows`
@@ -1942,6 +1998,17 @@ pub const UNDEPRECATE_MODULE_VERSION: Op = Op {
     query: &[],
     success: 200,
 };
+/// `PATCH /api/orgs/{orgId}/policies/consumption-block`
+///
+/// Tag: Policies. Success: `200`.
+pub const UPDATE_CONSUMPTION_BLOCK: Op = Op {
+    id: "updateConsumptionBlock",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/policies/consumption-block",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `PATCH /api/orgs/{orgId}/members/{userId}`
 ///
 /// Tag: Orgs & Members. Success: `200`.
@@ -2054,6 +2121,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &ADD_ORG_PROVIDER,
     #[allow(deprecated)]
+    &APPLY_POLICY_BASELINE,
+    #[allow(deprecated)]
     &APPROVE_PLAN_VERSION,
     #[allow(deprecated)]
     &ATTEST_PROVIDER_POLICY_BLOCK,
@@ -2122,6 +2191,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_CLI_DISCOVERY,
     #[allow(deprecated)]
+    &GET_CONSUMPTION_BLOCK,
+    #[allow(deprecated)]
     &GET_CURRENT_USER,
     #[allow(deprecated)]
     &GET_DOCS,
@@ -2134,8 +2205,6 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_MODULE_ARCHIVE,
     #[allow(deprecated)]
-    &GET_MODULE_DEPENDENCY_GRAPH,
-    #[allow(deprecated)]
     &GET_MODULE_VERSION,
     #[allow(deprecated)]
     &GET_MODULE_VERSION_GRAPH,
@@ -2147,6 +2216,8 @@ pub const ALL: &[&Op] = &[
     &GET_OPEN_API_YAML,
     #[allow(deprecated)]
     &GET_ORG_ANALYTICS,
+    #[allow(deprecated)]
+    &GET_ORG_DEPENDENCY_GRAPH,
     #[allow(deprecated)]
     &GET_ORG_PROVIDER,
     #[allow(deprecated)]
@@ -2180,6 +2251,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_POLICY,
     #[allow(deprecated)]
+    &GET_POLICY_COVERAGE,
+    #[allow(deprecated)]
     &GET_POLICY_INPUT_SCHEMA,
     #[allow(deprecated)]
     &GET_POLICY_SETTINGS,
@@ -2210,8 +2283,6 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_STATE,
     #[allow(deprecated)]
-    &GET_STATE_GRAPH,
-    #[allow(deprecated)]
     &GET_STATE_LOCK,
     #[allow(deprecated)]
     &GET_STATE_VERSION_POLICY_RESULTS,
@@ -2219,6 +2290,8 @@ pub const ALL: &[&Op] = &[
     &GET_STATE_VERSION_RESOURCES,
     #[allow(deprecated)]
     &GET_STATE_WORKSPACE_ACTIVITY,
+    #[allow(deprecated)]
+    &GET_STATE_WORKSPACE_DECISIONS,
     #[allow(deprecated)]
     &GET_TERRAFORM_DISCOVERY,
     #[allow(deprecated)]
@@ -2255,6 +2328,8 @@ pub const ALL: &[&Op] = &[
     &LIST_PLAN_VERSIONS,
     #[allow(deprecated)]
     &LIST_POLICIES,
+    #[allow(deprecated)]
+    &LIST_POLICY_DECISIONS,
     #[allow(deprecated)]
     &LIST_PROVIDER_FLOWS,
     #[allow(deprecated)]
@@ -2333,6 +2408,8 @@ pub const ALL: &[&Op] = &[
     &UNDEPRECATE_MODULE,
     #[allow(deprecated)]
     &UNDEPRECATE_MODULE_VERSION,
+    #[allow(deprecated)]
+    &UPDATE_CONSUMPTION_BLOCK,
     #[allow(deprecated)]
     &UPDATE_ORG_MEMBER_ROLE,
     #[allow(deprecated)]
