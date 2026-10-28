@@ -90,6 +90,13 @@ pub enum Command {
         #[command(subcommand)]
         command: StateCommand,
     },
+    /// Which repos the org trusts for keyless CI auth.
+    Trust {
+        #[command(subcommand)]
+        command: TrustCommand,
+    },
+    /// Check a scaffolded repo is wired up correctly (read-only).
+    Doctor(DoctorArgs),
     /// Whole-repo release operations (mono module tagging).
     Repo {
         #[command(subcommand)]
@@ -487,6 +494,36 @@ pub struct UpgradeArgs {
     /// Restrict the re-scaffold to one output category.
     #[arg(long, value_enum)]
     pub only: Option<OnlyFilter>,
+}
+
+/// `terramantle trust` — the org's VCS trust table.
+///
+/// A trust entry is what lets the registry accept a GitHub/GitLab OIDC token
+/// from a repo: the stored subject is matched against the token's `sub` claim.
+/// Without one, a correctly scaffolded pipeline still 401s on every call, and
+/// nothing in the repo explains why — the missing state is server-side.
+#[derive(Debug, Subcommand)]
+pub enum TrustCommand {
+    /// List the org's trusted subjects.
+    Ls,
+    /// Trust a repo. Defaults to this repo's `origin` remote.
+    Add {
+        /// Subject to trust, e.g. `repo:acme/infra` or
+        /// `project_path:group/infra`. Derived from `origin` when omitted.
+        #[arg(long)]
+        subject: Option<String>,
+        /// `github` | `gitlab`. Inferred from the remote when omitted.
+        #[arg(long)]
+        provider: Option<VcsProvider>,
+    },
+}
+
+/// `terramantle doctor` — read-only checks on a scaffolded repo.
+#[derive(Debug, Args, Default)]
+pub struct DoctorArgs {
+    /// Skip the checks that call the registry (trust, workspaces).
+    #[arg(long)]
+    pub offline: bool,
 }
 
 /// `--only` category filter for `upgrade`.

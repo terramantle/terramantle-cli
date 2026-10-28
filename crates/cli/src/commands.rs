@@ -59,6 +59,8 @@ pub fn dispatch(cli: &Cli) -> CmdResult {
         Command::Modules { command } => crate::discovery::modules(command, cli),
         Command::Lock { command } => lock(command, cli),
         Command::State { command } => crate::state::state(command, cli),
+        Command::Trust { command } => crate::trust::dispatch(command, cli),
+        Command::Doctor(args) => crate::doctor::run(cli, args),
         Command::Repo { command } => repo(command, cli),
         Command::Auth { command } => crate::auth::dispatch(command, cli),
     }

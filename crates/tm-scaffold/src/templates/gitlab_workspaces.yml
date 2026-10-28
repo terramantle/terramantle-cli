@@ -13,11 +13,7 @@
 # artifacts via the runner API unless the project's CI/CD artifact visibility
 # is set to "Only project members".
 #
-# Auth is keyless. `terramantle auth env --terraform` detects GITLAB_CI, reads
-# the JWT that `id_tokens:` minted, and exports TF_HTTP_PASSWORD plus the
-# TF_TOKEN_* registry credentials. The org must trust this project under VCS
-# Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.
-#
+{{AUTH_NOTE}}#
 # Required CI/CD variables:
 {{GITLAB_REQUIRED_VARS}}
 stages: [check, plan, apply, publish]
@@ -75,14 +71,7 @@ variables:
 # `extends:` with hidden jobs, not YAML anchors: GitLab documents extends as the
 # recommended mechanism and it deep-merges, which anchors do not.
 
-# Job-level `id_tokens` does NOT merge with `default:id_tokens` — the job's
-# definition wins outright. Keeping it in a hidden job pulled in by `extends:`
-# avoids that trap, and means the `check` job gets no OIDC identity at all.
-.oidc:
-  id_tokens:
-    TERRAMANTLE_ID_TOKEN:
-      aud: "{{OIDC_AUDIENCE}}"
-
+{{GITLAB_AUTH_FRAGMENT}}
 .tools:
   image: debian:stable-slim
   before_script:
@@ -164,7 +153,7 @@ variables:
         eval "val=\${$v:-}"
         if [ -z "$val" ]; then
           echo "ERROR: $v was not exported by 'terramantle auth env --terraform'."
-          echo "ERROR: check TERRAMANTLE_ORG is set and id_tokens aud == {{OIDC_AUDIENCE}}"
+          echo "ERROR: check TERRAMANTLE_ORG is set and CI auth is configured (see the file header)."
           exit 1
         fi
       done
@@ -172,7 +161,7 @@ variables:
 # ── 1. drift gate, formatting, lint ──────────────────────────────────────────
 check:
   stage: check
-  extends: [.tools]        # deliberately not .oidc — this job needs no identity
+  extends: [.tools]     # deliberately not .ci_auth — this job needs no identity
   interruptible: true
   timeout: 20m
   script:
@@ -201,7 +190,7 @@ check:
 # ── 2. plan every selected stack, bundle the plans ───────────────────────────
 plan:
   stage: plan
-  extends: [.tools, .oidc]
+  extends: [.tools, .ci_auth]
   interruptible: true
   timeout: 45m
   needs: ["check"]
@@ -287,7 +276,7 @@ plan:
 # ── 3. apply the saved plans (default branch only) ───────────────────────────
 apply:
   stage: apply
-  extends: [.tools, .oidc]
+  extends: [.tools, .ci_auth]
   interruptible: false
   resource_group: terramantle-apply-$CI_COMMIT_REF_SLUG
   timeout: 90m
@@ -349,7 +338,7 @@ apply:
 # ── 4. publish lock files + posture gate ─────────────────────────────────────
 publish:
   stage: publish
-  extends: [.tools, .oidc]
+  extends: [.tools, .ci_auth]
   interruptible: false
   resource_group: terramantle-publish-$CI_COMMIT_REF_SLUG
   timeout: 20m

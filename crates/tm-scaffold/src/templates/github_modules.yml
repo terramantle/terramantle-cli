@@ -10,9 +10,7 @@
 # does not follow it fails with a message saying so — pass `--provider` to
 # override.
 #
-# Auth is keyless; the org must trust this repo under VCS Trust with subject
-# `{{TRUST_SUBJECT}}` or publishing 401s.
-name: terramantle
+{{AUTH_NOTE}}name: terramantle
 
 on:
   pull_request:
@@ -35,7 +33,7 @@ env:
   TERRAMANTLE_API_URL: "{{API_URL}}"
   TF_IN_AUTOMATION: "1"
   TF_INPUT: "0"
-
+{{GH_BOT_ENV}}
 jobs:
   validate:
     name: validate
@@ -76,8 +74,7 @@ jobs:
     permissions:
       # `repo tag` pushes the <module>@<version> tags.
       contents: write
-      id-token: write
-    steps:
+{{GH_OIDC_PERM}}    steps:
       - uses: {{USES_CHECKOUT}}
         with:
           fetch-depth: 0

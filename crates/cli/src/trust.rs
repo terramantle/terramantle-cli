@@ -12,6 +12,8 @@
 use tm_api::Client;
 use tm_scaffold::{Manifest, VcsProvider};
 
+use crate::commands::CmdResult;
+
 /// The trust subject CI will present.
 ///
 /// GitHub mints `repo:<owner>/<repo>:<more claims>`; GitLab mints
@@ -169,3 +171,107 @@ mod tests {
         }
     }
 }
+
+// ---- `terramantle trust` --------------------------------------------------
+
+/// `terramantle trust …`.
+pub fn dispatch(command: &crate::cli::TrustCommand, cli: &crate::cli::Cli) -> CmdResult {
+    match command {
+        crate::cli::TrustCommand::Ls => ls(cli),
+        crate::cli::TrustCommand::Add { subject, provider } => {
+            add(cli, subject.as_deref(), *provider)
+        }
+    }
+}
+
+fn ls(cli: &crate::cli::Cli) -> CmdResult {
+    let (client, org) = match crate::discovery::client_and_org(cli) {
+        Ok(v) => v,
+        Err(code) => return Ok(code),
+    };
+    let entries = match client.vcs_trust_list(&org) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return Ok(e.exit_code());
+        }
+    };
+    if entries.is_empty() {
+        eprintln!("no trusted subjects in org '{org}'");
+    }
+    let rows: Vec<TrustRow> = entries
+        .into_iter()
+        .map(|e| TrustRow {
+            provider: e.provider,
+            subject: e.subject,
+        })
+        .collect();
+    if crate::output::print_structured(&rows, cli.global.output.unwrap_or_default())? {
+        return Ok(0);
+    }
+    let mut table = crate::output::TableView::new(["provider", "subject"]);
+    for r in &rows {
+        table.row([r.provider.clone(), r.subject.clone()]);
+    }
+    println!("{}", table.render());
+    Ok(0)
+}
+
+#[derive(serde::Serialize)]
+struct TrustRow {
+    provider: String,
+    subject: String,
+}
+
+/// Trust a repo. The subject defaults to this repo's `origin` remote, which is
+/// the case that matters: the thing a user needs trusted is almost always the
+/// repo they are standing in.
+fn add(cli: &crate::cli::Cli, subject: Option<&str>, provider: Option<VcsProvider>) -> CmdResult {
+    let root = std::env::current_dir()?;
+    let remote = tm_scaffold::vcs::origin_remote(&root);
+
+    let provider = match provider.or_else(|| {
+        remote
+            .as_deref()
+            .and_then(tm_scaffold::vcs::infer_from_remote)
+    }) {
+        Some(p) => p,
+        None => {
+            eprintln!("error: could not infer the provider; pass --provider github|gitlab");
+            return Ok(EXIT_USAGE);
+        }
+    };
+
+    let subject = match subject
+        .map(str::to_string)
+        .or_else(|| remote.as_deref().and_then(|r| subject_for(r, provider)))
+    {
+        Some(s) => s,
+        None => {
+            eprintln!("error: could not derive a subject from the `origin` remote; pass --subject");
+            return Ok(EXIT_USAGE);
+        }
+    };
+
+    let (client, org) = match crate::discovery::client_and_org(cli) {
+        Ok(v) => v,
+        Err(code) => return Ok(code),
+    };
+    let provider_str = match provider {
+        VcsProvider::Github => "github",
+        VcsProvider::Gitlab => "gitlab",
+    };
+    match client.vcs_trust_create(&org, provider_str, &subject) {
+        Ok(()) => {
+            eprintln!("trusted {subject} ({provider_str}) in org '{org}'");
+            Ok(0)
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            Ok(e.exit_code())
+        }
+    }
+}
+
+/// Exit 2: a usage error (no subject, no provider).
+const EXIT_USAGE: i32 = 2;

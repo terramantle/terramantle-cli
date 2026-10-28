@@ -10,9 +10,7 @@
 # does not follow it fails with a message saying so — pass `--provider` to
 # override.
 #
-# Auth is keyless; the org must trust this project under VCS Trust with subject
-# `{{TRUST_SUBJECT}}` or publishing 401s.
-#
+{{AUTH_NOTE}}#
 # !! TAG PUSHES NEED A WRITABLE REMOTE !! `terramantle repo tag` pushes tags,
 # and CI_JOB_TOKEN cannot push. Create a Project Access Token with
 # `write_repository`, expose it as the masked variable GIT_PUSH_TOKEN, and the
@@ -50,13 +48,7 @@ variables:
   TF_INPUT: "0"
   DEBIAN_FRONTEND: noninteractive
 
-# Job-level `id_tokens` does NOT merge with `default:id_tokens`, so it lives in
-# a hidden job pulled in with `extends:` and only lands on jobs that need it.
-.oidc:
-  id_tokens:
-    TERRAMANTLE_ID_TOKEN:
-      aud: "{{OIDC_AUDIENCE}}"
-
+{{GITLAB_AUTH_FRAGMENT}}
 .tools:
   image: debian:stable-slim
   before_script:
@@ -86,7 +78,7 @@ variables:
 
 validate:
   stage: validate
-  extends: [.tools]        # no identity needed: `modules changed` is offline
+  extends: [.tools]     # no identity needed: `modules changed` is offline
   interruptible: true
   timeout: 20m
   script:
@@ -95,7 +87,7 @@ validate:
 {{LINT_STEPS}}
 publish:
   stage: publish
-  extends: [.tools, .oidc]
+  extends: [.tools, .ci_auth]
   interruptible: false
   resource_group: terramantle-publish-$CI_COMMIT_REF_SLUG
   timeout: 30m

@@ -12,11 +12,7 @@
 # downloaded by anyone, so this pipeline is only safe on a private or internal
 # repo. Retention is 1 day to bound the exposure.
 #
-# Auth is keyless. `terramantle auth env --terraform` detects GITHUB_ACTIONS,
-# mints the ambient OIDC token itself, and exports TF_HTTP_PASSWORD plus the
-# TF_TOKEN_* registry host credentials. The org must trust this repo under VCS
-# Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.
-name: terramantle
+{{AUTH_NOTE}}name: terramantle
 
 on:
   pull_request:
@@ -55,7 +51,7 @@ env:
   # planning options, but honours these.
   TF_IN_AUTOMATION: "1"
   TF_INPUT: "0"
-  # "1" always selects every stack (manifest ci.change_base = all).
+{{GH_BOT_ENV}}  # "1" always selects every stack (manifest ci.change_base = all).
   TM_CHANGE_BASE_ALL: "{{CHANGE_BASE_ALL}}"
 
 jobs:
@@ -234,8 +230,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
-    strategy:
+{{GH_OIDC_PERM}}    strategy:
       fail-fast: false
       max-parallel: 5
       matrix:
@@ -363,8 +358,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      id-token: write
-    steps:
+{{GH_OIDC_PERM}}    steps:
       - uses: {{USES_CHECKOUT}}
         with:
           fetch-depth: 0
@@ -466,8 +460,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write
-    steps:
+{{GH_OIDC_PERM}}    steps:
       - uses: {{USES_CHECKOUT}}
         with:
           fetch-depth: 0

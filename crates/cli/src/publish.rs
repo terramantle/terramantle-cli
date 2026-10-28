@@ -239,6 +239,13 @@ pub fn changed(cli: &Cli, all: bool) -> CmdResult {
 struct PublishRow {
     name: String,
     path: String,
+    /// The `<name>/<provider>` segments of the registry address, derived from
+    /// the directory name. Per module, not per repo: a mono repo may hold
+    /// modules targeting different providers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    registry_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    provider: Option<String>,
     /// `published` | `would-publish` (dry-run) | `skipped`.
     action: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -255,7 +262,6 @@ struct PublishRow {
 #[derive(Debug, Clone, Serialize)]
 struct PublishSummary {
     dry_run: bool,
-    provider: String,
     modules: Vec<PublishRow>,
 }
 
@@ -271,12 +277,11 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         return Ok(EXIT_USAGE);
     }
 
-    // provider is not carried by the manifest (name = dir basename), so it must be
-    // supplied explicitly (§6 step 4).
-    let Some(provider) = args.provider.as_deref() else {
-        eprintln!("error: --provider is required (module name = directory basename)");
-        return Ok(EXIT_USAGE);
-    };
+    // The registry address is derived per module from its directory name
+    // (`terraform-<provider>-<name>`), with `--provider` overriding the
+    // provider segment. It is resolved inside the loop rather than once here,
+    // because a mono repo may hold modules targeting different providers.
+    let provider_override = args.provider.as_deref();
 
     // --version is validated as strict semver2 up front; a bad value is exit 2.
     let version_override = match &args.version {
@@ -307,7 +312,7 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
     };
     if targets.is_empty() {
         eprintln!("nothing to publish (no changed modules; pass --all or --module)");
-        return finish_publish(cli, args.dry_run, provider, Vec::new());
+        return finish_publish(cli, args.dry_run, Vec::new());
     }
 
     let run_docs = !matches!(args.docs, Some(DocsMode::Skip)) && manifest.ci.docs;
@@ -326,11 +331,23 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
     let mut exit = 0;
 
     for plan in targets {
+        // Fail before doing any work: a directory that cannot yield an address
+        // would otherwise be packaged and only rejected at upload.
+        let address = match tm_release::resolve_address(&plan.name, provider_override) {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return Ok(EXIT_USAGE);
+            }
+        };
+
         let Some(version) = plan_version(plan, version_override.as_ref(), bump_override) else {
             eprintln!("==> {} · skipped (no release-worthy commits)", plan.name);
             rows.push(PublishRow {
                 name: plan.name.clone(),
                 path: plan.rel_dir.clone(),
+                registry_name: Some(address.name.clone()),
+                provider: Some(address.provider.clone()),
                 action: "skipped",
                 version: None,
                 tag: None,
@@ -344,7 +361,10 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         // The tag this version maps to — created by `terramantle repo tag`, not
         // here: publish uploads the artefact, `repo tag` stamps the git tags.
         let tag = tag_name(manifest.structure, &plan.name, &version);
-        eprintln!("==> {} · {version} ({tag})", plan.name);
+        eprintln!(
+            "==> {} · {version} ({tag}) → {}/{}",
+            plan.name, address.name, address.provider
+        );
 
         if run_docs {
             regen_docs(&root, &dir);
@@ -367,6 +387,8 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
             rows.push(PublishRow {
                 name: plan.name.clone(),
                 path: plan.rel_dir.clone(),
+                registry_name: Some(address.name.clone()),
+                provider: Some(address.provider.clone()),
                 action: "would-publish",
                 version: Some(version.to_string()),
                 tag: Some(tag),
@@ -381,8 +403,8 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
             .expect("client resolved for non-dry-run");
         let ack = client.module_publish(
             org,
-            &plan.name,
-            provider,
+            &address.name,
+            &address.provider,
             &version.to_string(),
             &tarball,
             args.description.as_deref(),
@@ -408,6 +430,8 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
                 rows.push(PublishRow {
                     name: plan.name.clone(),
                     path: plan.rel_dir.clone(),
+                    registry_name: Some(address.name.clone()),
+                    provider: Some(address.provider.clone()),
                     action: "published",
                     version: Some(version.to_string()),
                     tag: Some(tag),
@@ -422,16 +446,14 @@ pub fn publish(cli: &Cli, args: &ModulePublishArgs) -> CmdResult {
         }
     }
 
-    finish_publish(cli, args.dry_run, provider, rows)
-        .map(|code| if exit != 0 { exit } else { code })
+    finish_publish(cli, args.dry_run, rows).map(|code| if exit != 0 { exit } else { code })
 }
 
 /// Emit the `-o json` publish summary (if requested) and return exit 0.
-fn finish_publish(cli: &Cli, dry_run: bool, provider: &str, rows: Vec<PublishRow>) -> CmdResult {
+fn finish_publish(cli: &Cli, dry_run: bool, rows: Vec<PublishRow>) -> CmdResult {
     let format = cli.global.output.unwrap_or_default();
     let summary = PublishSummary {
         dry_run,
-        provider: provider.to_string(),
         modules: rows,
     };
     output::print_structured(&summary, format)?;
@@ -724,7 +746,23 @@ pub fn state_publish(cli: &Cli, args: &StatePublishArgs) -> CmdResult {
     // Select: explicit names (each must resolve to a discovered lock), else all.
     let selected: Vec<(String, PathBuf)> = if args.workspaces.is_empty() {
         if discovered.is_empty() {
-            eprintln!("no workspaces with a {LOCK_FILE_NAME} found");
+            // Exit 6, not 0. Discovering nothing to publish looks identical to
+            // publishing everything when the exit code is the same: CI goes
+            // green having uploaded no lock files at all, and the posture gate
+            // that was supposed to run never ran. `lock push` already exits 6
+            // for the same condition on a single directory.
+            eprintln!(
+                "error: no workspaces with a {LOCK_FILE_NAME} found under {}.\n       \
+                 Run `tofu init` in each workspace and commit the lock file, or check that\n       \
+                 `discovery.include` in {} matches the directory layout.",
+                manifest
+                    .discovery
+                    .as_ref()
+                    .map(|d| d.include.join(", "))
+                    .unwrap_or_else(|| ".".to_string()),
+                tm_scaffold::Manifest::FILENAME,
+            );
+            return Ok(EXIT_NOT_FOUND);
         }
         discovered
     } else {

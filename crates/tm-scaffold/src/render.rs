@@ -30,7 +30,8 @@
 use std::path::PathBuf;
 
 use crate::manifest::{
-    Artefact, ChangeBase, Manifest, Structure, Terramate, VcsProvider, DEFAULT_TERRAMATE_VERSION,
+    Artefact, ChangeBase, CiAuth, Manifest, Structure, Terramate, VcsProvider,
+    DEFAULT_TERRAMATE_VERSION,
 };
 use crate::pins;
 
@@ -363,7 +364,85 @@ fn conditional_blocks(m: &Manifest) -> Vec<(&'static str, String)> {
         String::new()
     };
 
+    // ---- CI auth grant --------------------------------------------------
+    //
+    // OIDC is keyless: GitHub mints an ambient token (needs `id-token: write`),
+    // GitLab mints one through `id_tokens:`. Bot is client-credentials from CI
+    // secrets, and must NOT carry the OIDC permission — leaving it on would let
+    // the CLI's auth detection pick the ambient token over the configured
+    // credentials and fail confusingly.
+    let oidc = m.ci.auth == CiAuth::Oidc;
+    let gh_oidc_perm = if oidc {
+        "      id-token: write\n".to_string()
+    } else {
+        String::new()
+    };
+    let gh_bot_env = if oidc {
+        String::new()
+    } else {
+        "  # auth=bot: client credentials from repo secrets. The explicit auth mode\n\
+         \x20 # stops detection falling through to the ambient GitHub OIDC token.\n\
+         \x20 TERRAMANTLE_AUTH_MODE: client\n\
+         \x20 TERRAMANTLE_CLIENT_ID: ${{ secrets.TERRAMANTLE_CLIENT_ID }}\n\
+         \x20 TERRAMANTLE_CLIENT_SECRET: ${{ secrets.TERRAMANTLE_CLIENT_SECRET }}\n"
+            .to_string()
+    };
+    let gitlab_auth_fragment = if oidc {
+        format!(
+            "# Job-level `id_tokens` does NOT merge with `default:id_tokens` — the job's\n\
+             # definition wins outright. Keeping it in a hidden job pulled in by `extends:`\n\
+             # avoids that trap, and means the `check` job gets no identity at all.\n\
+             .ci_auth:\n  \
+             id_tokens:\n    \
+             TERRAMANTLE_ID_TOKEN:\n      \
+             aud: \"{}\"\n",
+            registry_url(m)
+        )
+    } else {
+        "# auth=bot: client credentials from masked CI/CD variables\n\
+         # (TERRAMANTLE_CLIENT_ID / TERRAMANTLE_CLIENT_SECRET on the project).\n\
+         # The explicit mode stops detection falling through to GitLab OIDC.\n\
+         .ci_auth:\n  \
+         variables:\n    \
+         TERRAMANTLE_AUTH_MODE: client\n"
+            .to_string()
+    };
+
+    // The header has to describe the grant the file actually uses; a generated
+    // comment explaining OIDC on a bot pipeline is worse than none.
+    let github = m.vcs == VcsProvider::Github;
+    let auth_note = match (oidc, github) {
+        (true, true) => {
+            "# Auth is keyless. `terramantle auth env --terraform` detects GITHUB_ACTIONS,\n\
+             # mints the ambient OIDC token itself, and exports TF_HTTP_PASSWORD plus the\n\
+             # TF_TOKEN_* registry credentials. The org must trust this repo under VCS\n\
+             # Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.\n"
+        }
+        (true, false) => {
+            "# Auth is keyless. `terramantle auth env --terraform` detects GITLAB_CI, reads\n\
+             # the JWT that `id_tokens:` minted, and exports TF_HTTP_PASSWORD plus the\n\
+             # TF_TOKEN_* registry credentials. The org must trust this project under VCS\n\
+             # Trust with subject `{{TRUST_SUBJECT}}` or every call 401s.\n"
+        }
+        (false, true) => {
+            "# Auth uses bot client credentials, not OIDC. Set the repo secrets\n\
+             # TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET (Settings → Secrets and\n\
+             # variables → Actions). No VCS trust entry is needed for this grant.\n"
+        }
+        (false, false) => {
+            "# Auth uses bot client credentials, not OIDC — self-managed GitLab cannot use\n\
+             # keyless auth, because the registry trusts only the literal gitlab.com issuer.\n\
+             # Set TERRAMANTLE_CLIENT_ID and TERRAMANTLE_CLIENT_SECRET as masked CI/CD\n\
+             # variables. No VCS trust entry is needed for this grant.\n"
+        }
+    }
+    .to_string();
+
     vec![
+        ("AUTH_NOTE", auth_note),
+        ("GH_OIDC_PERM", gh_oidc_perm),
+        ("GH_BOT_ENV", gh_bot_env),
+        ("GITLAB_AUTH_FRAGMENT", gitlab_auth_fragment),
         ("LINT_STEPS", lint),
         ("DOCS_STEPS", docs),
         ("PR_COMMENT_JOB", pr_comment),
@@ -1010,8 +1089,8 @@ mod tests {
             Artefact::Workspaces,
             VcsProvider::Gitlab,
         ));
-        assert!(ci.contains(".oidc:"));
-        assert!(ci.contains("extends: [.tools, .oidc]"));
+        assert!(ci.contains(".ci_auth:"));
+        assert!(ci.contains("extends: [.tools, .ci_auth]"));
         assert!(!ci.contains("<<: *"), "YAML merge anchors are legacy here");
         assert!(ci.contains("GIT_DEPTH: \"0\""));
         // The plan bundle is cleartext and must not be world-readable.
@@ -1085,6 +1164,49 @@ mod tests {
                 assert!(!ci.contains("[ \"0\" = \"1\" ]"));
             }
         }
+    }
+
+    /// Keyless OIDC needs the ambient-token permission; bot must NOT have it.
+    /// Leaving `id-token: write` on a bot pipeline lets the CLI's auth
+    /// detection pick the ambient token over the configured credentials and
+    /// fail confusingly — which is exactly how v1's bot mode broke.
+    #[test]
+    fn auth_grant_selects_the_right_credentials() {
+        for artefact in [Artefact::Modules, Artefact::Workspaces] {
+            let mut m = base(Structure::Mono, artefact, VcsProvider::Github);
+
+            let oidc = pipeline_of(&m);
+            assert!(oidc.contains("id-token: write"), "{artefact:?} oidc");
+            assert!(!oidc.contains("TERRAMANTLE_CLIENT_SECRET"));
+
+            m.ci.auth = CiAuth::Bot;
+            let bot = pipeline_of(&m);
+            assert!(
+                !bot.contains("id-token: write"),
+                "{artefact:?} bot still asks for an OIDC token"
+            );
+            assert!(bot.contains("TERRAMANTLE_CLIENT_ID: ${{ secrets.TERRAMANTLE_CLIENT_ID }}"));
+            assert!(bot.contains("TERRAMANTLE_AUTH_MODE: client"));
+            // v1 emitted names nothing reads.
+            assert!(!bot.contains("TERRAMANTLE_BOT_CLIENT_ID"));
+        }
+    }
+
+    #[test]
+    fn gitlab_auth_fragment_switches_with_the_grant() {
+        let mut m = base(Structure::Mono, Artefact::Workspaces, VcsProvider::Gitlab);
+
+        let oidc = pipeline_of(&m);
+        assert!(oidc.contains("TERRAMANTLE_ID_TOKEN:"));
+        assert!(oidc.contains("aud: \"https://registry.terramantle.dev\""));
+
+        m.ci.auth = CiAuth::Bot;
+        let bot = pipeline_of(&m);
+        assert!(!bot.contains("id_tokens:"), "bot must not mint an ID token");
+        assert!(bot.contains("TERRAMANTLE_AUTH_MODE: client"));
+        // The hidden job must still exist, or every `extends:` breaks.
+        assert!(bot.contains(".ci_auth:"));
+        assert!(bot.contains("extends: [.tools, .ci_auth]"));
     }
 
     #[test]

@@ -6,6 +6,7 @@ mod commands;
 mod confirm;
 mod console;
 mod discovery;
+mod doctor;
 mod lock;
 mod output;
 mod publish;

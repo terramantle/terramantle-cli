@@ -12,6 +12,7 @@
 //!   last version, changed set, bump, and proposed next version.
 //! * [`package`] — reproducible `tar.gz` + `sha256` of an artefact dir.
 
+pub mod address;
 pub mod changed;
 pub mod conventional;
 pub mod error;
@@ -20,6 +21,7 @@ pub mod package;
 pub mod tag;
 pub mod version;
 
+pub use address::{from_dir_name, resolve as resolve_address, AddressError, ModuleAddress};
 pub use changed::{
     artefacts, changed_artefacts, plan_all, Artefact, ArtefactPlan, ChangedArtefact,
 };
