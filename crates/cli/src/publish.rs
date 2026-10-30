@@ -784,10 +784,17 @@ pub fn state_publish(cli: &Cli, args: &StatePublishArgs) -> CmdResult {
     };
     let _ = args.all; // selection is name-list-or-all; `--all` documents intent.
 
-    let repo_url = args
-        .repo_url
-        .map(str::to_string)
-        .or_else(|| tm_scaffold::vcs::origin_remote(&root));
+    // The header is validated server-side, so the raw `origin` remote will not do:
+    // an scp-style `git@host:org/repo` has no scheme and is rejected. An explicit
+    // --repo-url is normalised the same way, but one we cannot rewrite is sent as
+    // given — the backend's 422 is a better answer than quietly publishing without
+    // the attribution that was asked for.
+    let repo_url = match args.repo_url {
+        Some(u) => Some(tm_scaffold::vcs::web_remote_url(u).unwrap_or_else(|| u.to_string())),
+        None => tm_scaffold::vcs::origin_remote(&root)
+            .as_deref()
+            .and_then(tm_scaffold::vcs::web_remote_url),
+    };
 
     let mut rows: Vec<StatePublishRow> = Vec::new();
     let mut published = 0usize;

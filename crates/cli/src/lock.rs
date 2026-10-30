@@ -396,7 +396,11 @@ pub fn push(cli: &Cli, args: &PushArgs) -> CmdResult {
     // ==> Uploading (spinner on TTY; plain header otherwise)
     step("Uploading", tty, json);
     let spinner = spinner_for("uploading lock file", tty, json);
-    let upload = client.lock_push(&org, &workspace, &bytes, args.repo_url);
+    // Normalised for the same reason as `state publish` — see vcs::web_remote_url.
+    let repo_url = args
+        .repo_url
+        .map(|u| tm_scaffold::vcs::web_remote_url(u).unwrap_or_else(|| u.to_string()));
+    let upload = client.lock_push(&org, &workspace, &bytes, repo_url.as_deref());
     if let Some(pb) = spinner {
         pb.finish_and_clear();
     }
