@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -LsSf \
-            "https://github.com/terramantle/terramantle-cli/releases/download/v0.9.1/cli-installer.sh" | sh
+            "https://github.com/terramantle/terramantle-cli/releases/download/v0.9.2/cli-installer.sh" | sh
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - run: tofu fmt -check -recursive -no-color .
@@ -120,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -LsSf \
-            "https://github.com/terramantle/terramantle-cli/releases/download/v0.9.1/cli-installer.sh" | sh
+            "https://github.com/terramantle/terramantle-cli/releases/download/v0.9.2/cli-installer.sh" | sh
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Install terraform-docs
