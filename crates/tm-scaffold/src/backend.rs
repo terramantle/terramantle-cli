@@ -52,14 +52,31 @@ pub fn workspace_from_text(text: &str) -> Option<String> {
             continue;
         }
         let url = value.trim().trim_matches('"');
-        let segment = url.trim_end_matches('/').rsplit('/').next()?;
+        let workspace = workspace_from_address(url)?;
         // A Terraform variable or interpolation is not a literal workspace.
-        if segment.is_empty() || segment.contains("${") {
+        if workspace.is_empty() || workspace.contains("${") {
             return None;
         }
-        return Some(segment.to_string());
+        return Some(workspace.to_string());
     }
     None
+}
+
+/// Everything after `/state/<org>/` in a backend address.
+///
+/// The wire path is `/state/{org}/{key}`, and `{key}` is a wildcard segment
+/// that can itself contain slashes — `terramate.stack.path.relative` makes
+/// exactly that the default workspace name, so a stack nested two directories
+/// deep gets a workspace like `stacks/data/platform`. Taking only the final
+/// `/`-separated segment (the previous implementation) silently flattened
+/// every such workspace onto its basename, so `state publish` uploaded the
+/// lock file to a workspace — `platform` — that no state was ever written
+/// to, auto-creating it empty rather than erroring.
+fn workspace_from_address(url: &str) -> Option<&str> {
+    let after_state = url.split("/state/").nth(1)?;
+    let after_state = after_state.split(['?', '#']).next().unwrap_or(after_state);
+    let (_org, workspace) = after_state.split_once('/')?;
+    Some(workspace.trim_end_matches('/'))
 }
 
 #[cfg(test)]
@@ -128,6 +145,33 @@ terraform {
     #[test]
     fn no_backend_block_yields_nothing() {
         assert_eq!(workspace_from_text("terraform {}\n"), None);
+    }
+
+    /// `terramate.stack.path.relative` is slash-separated, so a stack nested
+    /// under `stacks/data/platform` gets a workspace of the same shape. This
+    /// is the case the final-segment guess got wrong: it kept `platform` and
+    /// `state publish` silently created a brand-new empty workspace by that
+    /// name instead of writing to `stacks/data/platform`.
+    #[test]
+    fn reads_a_nested_workspace_path_in_full() {
+        let text = r#"
+    address        = "https://registry.terramantle.dev/state/acme-demo/stacks/data/platform"
+    lock_address   = "https://registry.terramantle.dev/state/acme-demo/stacks/data/platform.lock"
+    unlock_address = "https://registry.terramantle.dev/state/acme-demo/stacks/data/platform.lock"
+"#;
+        assert_eq!(
+            workspace_from_text(text).as_deref(),
+            Some("stacks/data/platform")
+        );
+    }
+
+    #[test]
+    fn a_nested_path_with_a_trailing_slash_is_trimmed() {
+        assert_eq!(
+            workspace_from_text(r#"address = "https://r.example/state/acme/stacks/network/""#)
+                .as_deref(),
+            Some("stacks/network")
+        );
     }
 
     #[test]
