@@ -8,6 +8,58 @@
 //! `xtask/src/normalise.rs` for the policy and the handful of exceptions.
 #![allow(clippy::all)]
 
+///`AccessRulesPreview`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AccessRulesPreview {
+    ///Always true since migration 135. Kept so clients written against the earlier `false` still read correctly; `asn_missing` is the real caveat.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub asn_evaluated: ::std::option::Option<bool>,
+    ///Samples that carried no ASN (recorded before migration 135, or off-edge) and were evaluated with `asn: null`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub asn_missing: ::std::option::Option<i64>,
+    ///Refusals by the ASN the origin was recorded from. An origin with no recorded ASN is in `denied_by_country` (possibly as `??`) but not here.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub denied_by_asn: ::std::vec::Vec<AccessRulesPreviewDeniedByAsnItem>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub denied_by_country: ::std::vec::Vec<AccessRulesPreviewDeniedByCountryItem>,
+    ///Set when the draft lists ASNs and `asn_missing > 0`; otherwise null.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub note: ::std::option::Option<::std::string::String>,
+    ///Recorded origins replayed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sampled: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sources: ::std::option::Option<AccessRulesPreviewSources>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub window_days: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub would_deny: ::std::option::Option<i64>,
+}
+///`AccessRulesPreviewDeniedByAsnItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AccessRulesPreviewDeniedByAsnItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub asn: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+}
+///`AccessRulesPreviewDeniedByCountryItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AccessRulesPreviewDeniedByCountryItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub count: ::std::option::Option<i64>,
+    ///`??` when the recorded origin had no country.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub country: ::std::option::Option<::std::string::String>,
+}
+///`AccessRulesPreviewSources`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AccessRulesPreviewSources {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub machine_clients: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_locks: ::std::option::Option<i64>,
+}
 /**How the acting identity authenticated. Display and audit only — never an input to an
 authorization decision.
 
@@ -15,7 +67,8 @@ The values are what `deriveActor` writes (`lib/vcsProvenance.ts`), and nothing e
 ever stored:
 
 - `human` — an interactive user token, named by `name`, else `email`, else `sub`.
-- `bot_token` — a machine `client_credentials` token, named by its `azp`.
+- `bot_token` — a machine `client_credentials` token, named by its service-account
+  username (a bot's `sub`), or by `azp` for an internal service identity.
 - `vcs` — a native GitHub/GitLab OIDC token presented by CI, named by its `sub`.
 
 This schema previously read `[user, machine, oidc]`, which no code path has ever
@@ -75,6 +128,80 @@ impl ::std::convert::TryFrom<::std::string::String> for ActorType {
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+#[doc = "The refs a CI token from a trust entry may **push** from. Each entry is a branch glob\n(`main`, `release/*`) or a tag glob prefixed `tag:` (`tag:v*`); `*` matches one or more\ncharacters within a single path segment and never crosses `/`. At most 32 entries.\n\n`null` means any ref. The API never defaults to it: it is either an explicit choice or the\nstate of an entry created before the rule existed.\n"]
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct AllowedRefs(pub ::std::option::Option<::std::vec::Vec<AllowedRefsItem>>);
+impl ::std::ops::Deref for AllowedRefs {
+    type Target = ::std::option::Option<::std::vec::Vec<AllowedRefsItem>>;
+    fn deref(&self) -> &::std::option::Option<::std::vec::Vec<AllowedRefsItem>> {
+        &self.0
+    }
+}
+impl ::std::convert::From<AllowedRefs> for ::std::option::Option<::std::vec::Vec<AllowedRefsItem>> {
+    fn from(value: AllowedRefs) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::std::option::Option<::std::vec::Vec<AllowedRefsItem>>> for AllowedRefs {
+    fn from(value: ::std::option::Option<::std::vec::Vec<AllowedRefsItem>>) -> Self {
+        Self(value)
+    }
+}
+///`AllowedRefsItem`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct AllowedRefsItem(::std::string::String);
+impl ::std::ops::Deref for AllowedRefsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<AllowedRefsItem> for ::std::string::String {
+    fn from(value: AllowedRefsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for AllowedRefsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
+            ::std::sync::LazyLock::new(|| {
+                ::regress::Regex::new("^(tag:)?[A-Za-z0-9._/+*-]+$").unwrap()
+            });
+        if PATTERN.find(value).is_none() {
+            return Err("doesn't match pattern \"^(tag:)?[A-Za-z0-9._/+*-]+$\"".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for AllowedRefsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for AllowedRefsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for AllowedRefsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
     }
 }
 /**Where this deployment's machine-readable contract lives. Advertised for the same reason the
@@ -233,6 +360,94 @@ pub struct ApprovePlanVersionResponse {
     pub cleared: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub ok: ::std::option::Option<bool>,
+}
+/**What a hard delete actually did.
+
+`complete: false` is NOT a failure. It means the object-store budget ran out, so no rows
+were deleted and the same call may simply be repeated — the rows that still name the
+surviving objects are what makes that resumable. `notes` says which case it is in prose.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ArtefactDeleteResult {
+    ///False when objects remain and the rows were therefore left alone. Repeat the call.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub complete: ::std::option::Option<bool>,
+    /**`policy_decisions` rows that now point at a row which is gone. Not a problem to fix —
+    the refusal ledger is append-only and its schema says it must outlive its subject — but
+    a number the operator should have seen. The console shows them as plain text afterwards.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub dangling_decisions: ::std::option::Option<i64>,
+    /**Prose about what was left behind and why: a kept workspace block, a moved current-state
+    pointer, a broken lock, a kept module row, unresolved inbound dependencies, or the
+    reason the call was incomplete. Written to be read, not parsed.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub notes: ::std::vec::Vec<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub objects: ::std::option::Option<ArtefactDeleteResultObjects>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    ///The sum of `rows`
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub row_total: ::std::option::Option<i64>,
+    /**Rows removed per table; only non-zero tables appear. An empty object with
+    `complete: true` means the rows were already gone and only objects were reclaimed.
+    */
+    #[serde(
+        default,
+        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
+    )]
+    pub rows: ::std::collections::HashMap<::std::string::String, i64>,
+}
+///`ArtefactDeleteResultObjects`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ArtefactDeleteResultObjects {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deleted: ::std::option::Option<i64>,
+    /**Per-key failures. A bulk delete that throws is retried one key at a time, so a
+    single bad key cannot make the other 999 look like failures.
+    */
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub failed: ::std::vec::Vec<ArtefactDeleteResultObjectsFailedItem>,
+    /**Object keys this call did not reach, or prefix pages it did not finish. Non-zero
+    implies `complete: false`. Also non-zero when no R2 binding is configured at all,
+    which is reported rather than counted as a successful zero.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub remaining: ::std::option::Option<i64>,
+}
+///`ArtefactDeleteResultObjectsFailedItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ArtefactDeleteResultObjectsFailedItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub key: ::std::option::Option<::std::string::String>,
+}
+///`AsnLookup`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AsnLookup {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub asns: ::std::vec::Vec<AsnName>,
+    /**`true` only when `asns` is empty because the mirror has never been populated. An empty
+    `asns` with `stale: false` is a genuine "no match".
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub stale: ::std::option::Option<bool>,
+}
+///`AsnName`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct AsnName {
+    ///The autonomous system number, without the `AS` prefix.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub asn: ::std::option::Option<i64>,
+    ///ISO-3166 alpha-2 of the registering RIR record, or `null` when the file carries none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub country: ::std::option::Option<::std::string::String>,
+    ///RIPE's label verbatim, typically `HANDLE - Organisation`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
 }
 ///`AttestProviderPolicyBlockResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -490,6 +705,55 @@ pub struct BacklogProviderRef {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
 }
+/**The seat line for the current billing month. The handler computes it from
+`tenant_member_activity` (migration 132): a user is **billable** for a month when they, as
+a human member, made any tenant-scoped request to this org during that UTC calendar month
+— the portal, the API, the CLI, a module or provider download, a state read or lock, all
+with their own login. A member who was idle all month is not a seat. Bot tokens and CI
+OIDC identities are never counted; they are limited and priced separately.
+
+`billable_extra` and `estimated_overage_pence` are what the overage line would charge if
+the month ended now. They are `0` whenever the tier has no `included` allowance
+(Enterprise) or no `extra_user_pence` (Starter), and they are an estimate even when
+`metered` is true, because the month is not over.
+*/
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct BillingSeats {
+    ///Distinct humans active in this org so far this month.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub active: ::std::option::Option<i64>,
+    ///`max(0, active − included)`, or `0` when no overage exists on the tier.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub billable_extra: ::std::option::Option<i64>,
+    ///`billable_extra × extra_user_pence`, or `0` when there is no overage price.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub estimated_overage_pence: ::std::option::Option<i64>,
+    ///Mirrors `limits.extraUserPencePerMonth`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_user_pence: ::std::option::Option<i64>,
+    ///Member ceiling; mirrors `limits.users`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub hard_limit: ::std::option::Option<i64>,
+    ///Seats inside the flat price; mirrors `limits.includedUsers`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub included: ::std::option::Option<i64>,
+    /**Whether the estimate is actually being invoiced. `false` while the beta free period is
+    on or when no Stripe subscription backs the org, so a UI can show the count without
+    implying a charge.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub metered: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub period: ::std::option::Option<BillingSeatsPeriod>,
+}
+///The UTC calendar month the counts cover. `start` inclusive, `end` exclusive.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct BillingSeatsPeriod {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub end: ::std::option::Option<Timestamp>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub start: ::std::option::Option<Timestamp>,
+}
 ///`BillingState`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct BillingState {
@@ -503,6 +767,8 @@ pub struct BillingState {
     pub is_personal: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub limits: ::std::option::Option<TierFeatureFlags>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub seats: ::std::option::Option<BillingSeats>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub tier: ::std::option::Option<Tier>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -522,6 +788,7 @@ pub struct BillingStateGracePeriod {
 pub struct BillingStateUsage {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub modules: ::std::option::Option<i64>,
+    ///Current members, regardless of activity. Not the billable count.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub users: ::std::option::Option<i64>,
 }
@@ -529,8 +796,8 @@ pub struct BillingStateUsage {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct BuildCompleteBody {
     /**Which queue DELIVERY this workflow ran for (`0` = first). **The retry discriminator**: a
-    higher attempt than the stored row's re-opens a terminal row; equal-or-lower is a
-    duplicate and is ignored.
+    higher attempt than the stored row's re-opens a FAILED row; equal-or-lower is a
+    duplicate and is ignored. A completed row is never re-opened.
     */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub attempt: ::std::option::Option<i64>,
@@ -568,6 +835,11 @@ pub struct BuildCompleteBody {
     ///The revision being published (`<base>-0.0.<rev>`).
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
+    /**`{{workflow.uid}}` of the Workflow sending the report. Must equal the uid the queue
+    supervisor recorded for the job; see the operation description for the rollout rule.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workflow_uid: ::std::option::Option<::std::string::String>,
 }
 /**The gates a self-built provider must clear before it is signed. `G2_HIGH` is the
 high-severity tier of `G2`, overridable separately from the rest.
@@ -690,6 +962,7 @@ pub struct CliDiscoveryOidc {
     account under this single provider, so the `client_credentials` grant sends
     `client_id` = this value, `username` = the token's Client ID and `password` =
     its Client Secret — not the client_id/client_secret pair the grant name suggests.
+    It is not the scanner's provider, because internal routes trust that identity.
     Advertised here so the CLI does not compile in a deployment-specific name.
     */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -1171,8 +1444,6 @@ pub enum FormTier {
     Team,
     Business,
     Enterprise,
-    #[serde(rename = "Founding member")]
-    FoundingMember,
     #[serde(rename = "")]
     X,
 }
@@ -1183,7 +1454,6 @@ impl ::std::fmt::Display for FormTier {
             Self::Team => f.write_str("Team"),
             Self::Business => f.write_str("Business"),
             Self::Enterprise => f.write_str("Enterprise"),
-            Self::FoundingMember => f.write_str("Founding member"),
             Self::X => f.write_str(""),
         }
     }
@@ -1196,7 +1466,6 @@ impl ::std::str::FromStr for FormTier {
             "Team" => Ok(Self::Team),
             "Business" => Ok(Self::Business),
             "Enterprise" => Ok(Self::Enterprise),
-            "Founding member" => Ok(Self::FoundingMember),
             "" => Ok(Self::X),
             _ => Err("invalid value".into()),
         }
@@ -1752,6 +2021,12 @@ pub struct ListProviderFlowsResponse {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub flows: ::std::vec::Vec<ProviderFlowSummary>,
 }
+///`ListSeenAsnsResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct ListSeenAsnsResponse {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub asns: ::std::vec::Vec<SeenAsn>,
+}
 ///`ListStateFindingsResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ListStateFindingsResponse {
@@ -1848,7 +2123,10 @@ pub struct MachineTokenSummary {
     pub last_used_at: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
-    ///The token's `azp`. This is the identity the API authorizes.
+    /**The IdP service-account username. This is the identity the API authorizes: every
+    bot token shares one provider and so one `azp`, and this value is the token's `sub`.
+    Sent as `username` in the `client_credentials` grant.
+    */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub oidc_client_id: ::std::option::Option<::std::string::String>,
     ///`null` for a global token.
@@ -1920,7 +2198,10 @@ pub struct MachineTokenWithSecret {
     pub last_used_at: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
-    ///The token's `azp`. This is the identity the API authorizes.
+    /**The IdP service-account username. This is the identity the API authorizes: every
+    bot token shares one provider and so one `azp`, and this value is the token's `sub`.
+    Sent as `username` in the `client_credentials` grant.
+    */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub oidc_client_id: ::std::option::Option<::std::string::String>,
     ///`null` for a global token.
@@ -2113,6 +2394,10 @@ pub struct ModuleScanResultsBody {
     pub findings: ::std::vec::Vec<InternalModuleFindingInput>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_results: ::std::option::Option<::std::vec::Vec<ScanPolicyResultInput>>,
+    /**Raw markdown, stored as-is apart from two bounds: control characters other than tab and
+    newline are dropped, and anything past 256 KiB is cut. The registry API serves it raw,
+    so a renderer must sanitise it; the portal does.
+    */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub readme: ::std::option::Option<::std::string::String>,
     ///Drives provider discovery. Additive — an older scanner omits it.
@@ -3142,7 +3427,10 @@ pub struct OrgMachineToken {
     pub last_used_at: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
-    ///The token's `azp`. This is the identity the API authorizes.
+    /**The IdP service-account username. This is the identity the API authorizes: every
+    bot token shares one provider and so one `azp`, and this value is the token's `sub`.
+    Sent as `username` in the `client_credentials` grant.
+    */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub oidc_client_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5934,7 +6222,7 @@ pub struct PlatformInboundForm {
     pub name: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub submitted_at: ::std::option::Option<i64>,
-    ///The tier the visitor picked (`Solo`, `Team`, `Business`, `Enterprise`, `Founding member`), if any.
+    ///The tier the visitor picked (`Solo`, `Team`, `Business`, `Enterprise`), if any. Older rows can also hold `Founding member`, a retired option.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub tier: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -6239,6 +6527,312 @@ pub struct PlatformIntegrityRunSummary {
     ///Checks of severity `warn` that returned rows.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub warned: ::std::option::Option<i64>,
+}
+///`PlatformModuleDetail`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformModuleDetail {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module: ::std::option::Option<PlatformModuleDetailModule>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub truncated: ::std::option::Option<bool>,
+    ///Newest published first, capped at 300.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub versions: ::std::vec::Vec<PlatformModuleVersion>,
+}
+///`PlatformModuleDetailModule`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformModuleDetailModule {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated_message: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub description: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    /**Other modules whose `source` block names this one. Those rows SURVIVE a delete, so
+    this is a warning about the dependency graph rather than something the delete tidies.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub inbound_dependencies: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serve_override: ::std::option::Option<PlatformModuleDetailModuleServeOverride>,
+}
+///`PlatformModuleDetailModuleServeOverride`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformModuleDetailModuleServeOverride {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "allow")]
+    Allow,
+}
+impl ::std::fmt::Display for PlatformModuleDetailModuleServeOverride {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Allow => f.write_str("allow"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformModuleDetailModuleServeOverride {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "allow" => Ok(Self::Allow),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformModuleDetailModuleServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformModuleDetailModuleServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlatformModuleList`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformModuleList {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<PlatformModuleListItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub summary: ::std::option::Option<PlatformModuleListSummary>,
+}
+///`PlatformModuleListItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformModuleListItem {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated_at: ::std::option::Option<i64>,
+    ///All-time
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///`null` = no versions.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_published_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_version: ::std::option::Option<::std::string::String>,
+    ///`null` = versions exist, none measured.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub measured_bytes: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_name: ::std::option::Option<::std::string::String>,
+    ///Also the registry namespace.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub provider: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serve_override: ::std::option::Option<PlatformModuleListItemServeOverride>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub unmeasured: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_count: ::std::option::Option<i64>,
+}
+///`PlatformModuleListItemServeOverride`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformModuleListItemServeOverride {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "allow")]
+    Allow,
+}
+impl ::std::fmt::Display for PlatformModuleListItemServeOverride {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Allow => f.write_str("allow"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformModuleListItemServeOverride {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "allow" => Ok(Self::Allow),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformModuleListItemServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformModuleListItemServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Whole-table totals under the same filters.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformModuleListSummary {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub measured_bytes: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub module_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub modules: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub unmeasured: ::std::option::Option<i64>,
+}
+///`PlatformModuleVersion`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct PlatformModuleVersion {
+    ///False when a policy blocked it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub consumable: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub deprecated_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub downloads: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub findings: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    /**The version a bare constraint resolves to. Deleting it needs `force`, because it changes
+    what every consumer's `init` picks.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_latest: ::std::option::Option<bool>,
+    ///The admin kill switch
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub manually_blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub published_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub size_bytes: ::std::option::Option<i64>,
+    ///`module_versions.status` — the publish/scan pipeline state.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PlatformModuleVersionStatus>,
+    ///R2 key: `modules/{tenantHash(orgSlug)}/{uuid}.tar.gz`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub storage_key: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version: ::std::option::Option<::std::string::String>,
+}
+///`module_versions.status` — the publish/scan pipeline state.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlatformModuleVersionStatus {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "processing")]
+    Processing,
+    #[serde(rename = "published")]
+    Published,
+    #[serde(rename = "failed")]
+    Failed,
+}
+impl ::std::fmt::Display for PlatformModuleVersionStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pending => f.write_str("pending"),
+            Self::Processing => f.write_str("processing"),
+            Self::Published => f.write_str("published"),
+            Self::Failed => f.write_str("failed"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlatformModuleVersionStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "processing" => Ok(Self::Processing),
+            "published" => Ok(Self::Published),
+            "failed" => Ok(Self::Failed),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlatformModuleVersionStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlatformModuleVersionStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///`PlatformOperation`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -11635,6 +12229,10 @@ pub struct ProviderScanResultsBody {
     pub repo_url: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub rule_id: ::std::option::Option<::std::string::String>,
+    /**The key the `sbom-url` route returned for this job and version
+    (`provider-sboms/shared/<upstream>/<namespace>/<type>/<version>/<os>-<arch>.spdx.json`).
+    Any other key is refused with `invalid_sbom_key`.
+    */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub sbom_key: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -12479,8 +13077,18 @@ pub struct RescanAllModuleVersionsResponse {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub queued: ::std::option::Option<i64>,
 }
-/**Org role, ranked `reader` < `member` < `admin` < `owner`. A guard states a minimum, so a
-higher role always passes. Machine identities never exceed `member` whatever this says.
+/**Org role, ranked `reader` < `member` < `admin` < `privileged_admin` < `owner`. A guard
+states a minimum, so a higher role always passes. Machine identities never exceed `member`
+whatever this says.
+
+`privileged_admin` holds everything `admin` does **plus policy governance**: creating,
+editing, deleting and toggling policies and their enforcement, and the org's policy
+settings. It exists so an org can separate "runs the org" from "decides what the org's
+pipelines may ship". Every `admin` was moved to `privileged_admin` when the role arrived
+(migration 137), so nobody lost access; plain `admin` is what an owner grants from then on.
+
+Role changes have a ceiling: only an `owner` assigns `owner` or touches another owner;
+anyone else assigns only roles below their own, to members below their own.
 */
 #[derive(
     ::serde::Deserialize,
@@ -12501,6 +13109,8 @@ pub enum Role {
     Member,
     #[serde(rename = "admin")]
     Admin,
+    #[serde(rename = "privileged_admin")]
+    PrivilegedAdmin,
     #[serde(rename = "owner")]
     Owner,
 }
@@ -12510,6 +13120,7 @@ impl ::std::fmt::Display for Role {
             Self::Reader => f.write_str("reader"),
             Self::Member => f.write_str("member"),
             Self::Admin => f.write_str("admin"),
+            Self::PrivilegedAdmin => f.write_str("privileged_admin"),
             Self::Owner => f.write_str("owner"),
         }
     }
@@ -12521,6 +13132,7 @@ impl ::std::str::FromStr for Role {
             "reader" => Ok(Self::Reader),
             "member" => Ok(Self::Member),
             "admin" => Ok(Self::Admin),
+            "privileged_admin" => Ok(Self::PrivilegedAdmin),
             "owner" => Ok(Self::Owner),
             _ => Err("invalid value".into()),
         }
@@ -12571,6 +13183,18 @@ pub struct ScanPolicyResultInput {
     pub policy_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_name: ::std::option::Option<::std::string::String>,
+}
+///`SeenAsn`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct SeenAsn {
+    ///The edge's organisation label for the network at last use; null when the edge gave none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub as_org: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub asn: ::std::option::Option<i64>,
+    ///How many of the org's tokens were last seen from this network.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub clients: ::std::option::Option<i64>,
 }
 /**Whether an org's registry answers for this provider.
 
@@ -13176,6 +13800,167 @@ impl ::std::convert::TryFrom<::std::string::String> for StateScanResultsBodyStat
         value.parse()
     }
 }
+///`StateSerial`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateSerial {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub actor_type: ::std::option::Option<StateSerialActorType>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub findings: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    /**The serial the next apply works from — the highest one. Deleting it needs `force`, and
+    moves the workspace's current-state pointer back.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub is_current: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lineage: ::std::option::Option<::std::string::String>,
+    ///Non-null means this serial came from a restore, not a normal apply.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub promoted_from_serial: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub pushed_at: ::std::option::Option<i64>,
+    /**Real infrastructure only, instance-level. `null` means not yet classified — a legacy
+    row or a classifier bailout — which is distinct from `0`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub real_resource_count: ::std::option::Option<i64>,
+    ///Block-level
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub resource_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scan_status: ::std::option::Option<StateSerialScanStatus>,
+    ///Terraform's own serial from the state JSON.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serial: ::std::option::Option<i64>,
+    ///`null` = never measured.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub size_bytes: ::std::option::Option<i64>,
+    ///R2 key: `state/{orgId}/{workspaceId}/{serial}.tfstate`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub storage_key: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_ref: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub vcs_repository: ::std::option::Option<::std::string::String>,
+}
+///`StateSerialActorType`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum StateSerialActorType {
+    #[serde(rename = "vcs")]
+    Vcs,
+    #[serde(rename = "bot_token")]
+    BotToken,
+    #[serde(rename = "human")]
+    Human,
+}
+impl ::std::fmt::Display for StateSerialActorType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Vcs => f.write_str("vcs"),
+            Self::BotToken => f.write_str("bot_token"),
+            Self::Human => f.write_str("human"),
+        }
+    }
+}
+impl ::std::str::FromStr for StateSerialActorType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "vcs" => Ok(Self::Vcs),
+            "bot_token" => Ok(Self::BotToken),
+            "human" => Ok(Self::Human),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StateSerialActorType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StateSerialActorType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`StateSerialScanStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum StateSerialScanStatus {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "processing")]
+    Processing,
+    #[serde(rename = "published")]
+    Published,
+    #[serde(rename = "failed")]
+    Failed,
+}
+impl ::std::fmt::Display for StateSerialScanStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pending => f.write_str("pending"),
+            Self::Processing => f.write_str("processing"),
+            Self::Published => f.write_str("published"),
+            Self::Failed => f.write_str("failed"),
+        }
+    }
+}
+impl ::std::str::FromStr for StateSerialScanStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "processing" => Ok(Self::Processing),
+            "published" => Ok(Self::Published),
+            "failed" => Ok(Self::Failed),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StateSerialScanStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StateSerialScanStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///One workspace a `state_workspaces`-scoped token may touch, and how.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct StateTokenGrant {
@@ -13365,6 +14150,247 @@ pub struct StateWorkspaceActivityTotals {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version_count: ::std::option::Option<i64>,
 }
+///`StateWorkspaceDetail`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceDetail {
+    ///Newest first, capped at 300. See `truncated`.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub serials: ::std::vec::Vec<StateSerial>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub total_serials: ::std::option::Option<i64>,
+    /**True when the workspace holds more serials than were listed, so a "delete every serial"
+    action covers more than the table shows.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub truncated: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspace: ::std::option::Option<StateWorkspaceDetailWorkspace>,
+}
+///`StateWorkspaceDetailWorkspace`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceDetailWorkspace {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked_reason: ::std::option::Option<::std::string::String>,
+    /**May name a serial that no longer exists: it carries no foreign key, and deleting the
+    blocked serial nulls this while KEEPING `blocked`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked_version_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_lineage: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_serial: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lock: ::std::option::Option<StateWorkspaceDetailWorkspaceLock>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_count: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serve_override: ::std::option::Option<StateWorkspaceDetailWorkspaceServeOverride>,
+}
+///The live state lock, or `null`. Non-null means a delete needs `force`.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceDetailWorkspaceLock {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub created_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lock_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub operation: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub who: ::std::option::Option<::std::string::String>,
+}
+///`StateWorkspaceDetailWorkspaceServeOverride`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum StateWorkspaceDetailWorkspaceServeOverride {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "allow")]
+    Allow,
+}
+impl ::std::fmt::Display for StateWorkspaceDetailWorkspaceServeOverride {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Allow => f.write_str("allow"),
+        }
+    }
+}
+impl ::std::str::FromStr for StateWorkspaceDetailWorkspaceServeOverride {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "allow" => Ok(Self::Allow),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StateWorkspaceDetailWorkspaceServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StateWorkspaceDetailWorkspaceServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`StateWorkspaceList`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceList {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub items: ::std::vec::Vec<StateWorkspaceListItem>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub next_cursor: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub summary: ::std::option::Option<StateWorkspaceListSummary>,
+}
+///`StateWorkspaceListItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceListItem {
+    ///The policy LOCK gate is shut, so the next apply is refused.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked_reason: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current_serial: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<::std::string::String>,
+    ///`null` = never pushed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub latest_push_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub locked_at: ::std::option::Option<i64>,
+    ///Who holds the live state lock. Non-null means a delete needs `force`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub locked_by: ::std::option::Option<::std::string::String>,
+    /**Sum of the measured `size_bytes`. `null` means versions exist and NONE is measured —
+    render that as "unmeasured", never as 0 B. An empty workspace reports `0`.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub measured_bytes: ::std::option::Option<i64>,
+    ///The terraform workspace name
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///Non-null means the owning org is soft-deleted. These are listed, not hidden.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_deleted_at: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_id: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_name: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub org_slug: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_count: ::std::option::Option<i64>,
+    ///Independent of `blocked`. `null` is Auto (policy decides).
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub serve_override: ::std::option::Option<StateWorkspaceListItemServeOverride>,
+    ///Versions whose size was never recorded.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub unmeasured: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub version_count: ::std::option::Option<i64>,
+}
+///Independent of `blocked`. `null` is Auto (policy decides).
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum StateWorkspaceListItemServeOverride {
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "allow")]
+    Allow,
+}
+impl ::std::fmt::Display for StateWorkspaceListItemServeOverride {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Block => f.write_str("block"),
+            Self::Allow => f.write_str("allow"),
+        }
+    }
+}
+impl ::std::str::FromStr for StateWorkspaceListItemServeOverride {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "block" => Ok(Self::Block),
+            "allow" => Ok(Self::Allow),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StateWorkspaceListItemServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StateWorkspaceListItemServeOverride {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Whole-table totals under the SAME filters, not totals of this page.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceListSummary {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub blocked: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub locked: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub measured_bytes: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_versions: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub unmeasured: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub workspaces: ::std::option::Option<i64>,
+}
 ///`StateWorkspaceSummary`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct StateWorkspaceSummary {
@@ -13506,6 +14532,498 @@ pub struct StripeRedirect {
     ///Where to send the browser.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub url: ::std::option::Option<::std::string::String>,
+}
+///`TenantAccessRules`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct TenantAccessRules {
+    ///`machine`: bot tokens and CI OIDC only. `all`: humans too (self-lockout guarded).
+    #[serde(default = "defaults::tenant_access_rules_applies_to")]
+    pub applies_to: TenantAccessRulesAppliesTo,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub asns: ::std::vec::Vec<u32>,
+    ///IPv4 or IPv6 CIDRs. A bare address is a /32 or /128.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub cidrs: ::std::vec::Vec<::std::string::String>,
+    ///ISO-3166 alpha-2 codes, plus Cloudflare's `T1` (Tor) and `XX` (unknown). Case-insensitive on input.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub countries: ::std::vec::Vec<TenantAccessRulesCountriesItem>,
+    ///The switch. A draft can be saved disabled and previewed before it is armed.
+    #[serde(default)]
+    pub enabled: bool,
+    ///`allow`: must match a listed entry. `deny`: must match none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub mode: ::std::option::Option<TenantAccessRulesMode>,
+    ///`null` when no rule set has ever been saved for this org.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub updated_at: ::std::option::Option<Timestamp>,
+}
+impl ::std::default::Default for TenantAccessRules {
+    fn default() -> Self {
+        Self {
+            applies_to: defaults::tenant_access_rules_applies_to(),
+            asns: Default::default(),
+            cidrs: Default::default(),
+            countries: Default::default(),
+            enabled: Default::default(),
+            mode: Default::default(),
+            updated_at: Default::default(),
+        }
+    }
+}
+///`machine`: bot tokens and CI OIDC only. `all`: humans too (self-lockout guarded).
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TenantAccessRulesAppliesTo {
+    #[serde(rename = "machine")]
+    Machine,
+    #[serde(rename = "all")]
+    All,
+}
+impl ::std::fmt::Display for TenantAccessRulesAppliesTo {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Machine => f.write_str("machine"),
+            Self::All => f.write_str("all"),
+        }
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesAppliesTo {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "machine" => Ok(Self::Machine),
+            "all" => Ok(Self::All),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesAppliesTo {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesAppliesTo {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::default::Default for TenantAccessRulesAppliesTo {
+    fn default() -> Self {
+        TenantAccessRulesAppliesTo::Machine
+    }
+}
+///`TenantAccessRulesCountriesItem`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TenantAccessRulesCountriesItem(::std::string::String);
+impl ::std::ops::Deref for TenantAccessRulesCountriesItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TenantAccessRulesCountriesItem> for ::std::string::String {
+    fn from(value: TenantAccessRulesCountriesItem) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesCountriesItem {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
+            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^([A-Za-z]{2}|T1|XX)$").unwrap());
+        if PATTERN.find(value).is_none() {
+            return Err("doesn't match pattern \"^([A-Za-z]{2}|T1|XX)$\"".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesCountriesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesCountriesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TenantAccessRulesCountriesItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`TenantAccessRulesInput`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct TenantAccessRulesInput {
+    ///`machine`: bot tokens and CI OIDC only. `all`: humans too (self-lockout guarded).
+    #[serde(default = "defaults::tenant_access_rules_input_applies_to")]
+    pub applies_to: TenantAccessRulesInputAppliesTo,
+    ///Autonomous system numbers, as `64512` or `"AS64512"`.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub asns: ::std::vec::Vec<TenantAccessRulesInputAsnsItem>,
+    ///IPv4 or IPv6 CIDRs. A bare address is a /32 or /128.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub cidrs: ::std::vec::Vec<::std::string::String>,
+    ///ISO-3166 alpha-2 codes, plus Cloudflare's `T1` (Tor) and `XX` (unknown). Case-insensitive on input.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub countries: ::std::vec::Vec<TenantAccessRulesInputCountriesItem>,
+    ///The switch. A draft can be saved disabled and previewed before it is armed.
+    #[serde(default)]
+    pub enabled: bool,
+    ///`allow`: must match a listed entry. `deny`: must match none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub mode: ::std::option::Option<TenantAccessRulesInputMode>,
+}
+impl ::std::default::Default for TenantAccessRulesInput {
+    fn default() -> Self {
+        Self {
+            applies_to: defaults::tenant_access_rules_input_applies_to(),
+            asns: Default::default(),
+            cidrs: Default::default(),
+            countries: Default::default(),
+            enabled: Default::default(),
+            mode: Default::default(),
+        }
+    }
+}
+///`machine`: bot tokens and CI OIDC only. `all`: humans too (self-lockout guarded).
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TenantAccessRulesInputAppliesTo {
+    #[serde(rename = "machine")]
+    Machine,
+    #[serde(rename = "all")]
+    All,
+}
+impl ::std::fmt::Display for TenantAccessRulesInputAppliesTo {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Machine => f.write_str("machine"),
+            Self::All => f.write_str("all"),
+        }
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesInputAppliesTo {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "machine" => Ok(Self::Machine),
+            "all" => Ok(Self::All),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputAppliesTo {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputAppliesTo {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::default::Default for TenantAccessRulesInputAppliesTo {
+    fn default() -> Self {
+        TenantAccessRulesInputAppliesTo::Machine
+    }
+}
+///`TenantAccessRulesInputAsnsItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum TenantAccessRulesInputAsnsItem {
+    Integer(u32),
+    String(TenantAccessRulesInputAsnsItemString),
+}
+impl ::std::fmt::Display for TenantAccessRulesInputAsnsItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match self {
+            Self::Integer(x) => x.fmt(f),
+            Self::String(x) => x.fmt(f),
+        }
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesInputAsnsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if let Ok(v) = value.parse() {
+            Ok(Self::Integer(v))
+        } else if let Ok(v) = value.parse() {
+            Ok(Self::String(v))
+        } else {
+            Err("string conversion failed for all variants".into())
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputAsnsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputAsnsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::From<u32> for TenantAccessRulesInputAsnsItem {
+    fn from(value: u32) -> Self {
+        Self::Integer(value)
+    }
+}
+impl ::std::convert::From<TenantAccessRulesInputAsnsItemString> for TenantAccessRulesInputAsnsItem {
+    fn from(value: TenantAccessRulesInputAsnsItemString) -> Self {
+        Self::String(value)
+    }
+}
+///`TenantAccessRulesInputAsnsItemString`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TenantAccessRulesInputAsnsItemString(::std::string::String);
+impl ::std::ops::Deref for TenantAccessRulesInputAsnsItemString {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TenantAccessRulesInputAsnsItemString> for ::std::string::String {
+    fn from(value: TenantAccessRulesInputAsnsItemString) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesInputAsnsItemString {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
+            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^(AS|as)?\\d{1,10}$").unwrap());
+        if PATTERN.find(value).is_none() {
+            return Err("doesn't match pattern \"^(AS|as)?\\d{1,10}$\"".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputAsnsItemString {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputAsnsItemString {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TenantAccessRulesInputAsnsItemString {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`TenantAccessRulesInputCountriesItem`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TenantAccessRulesInputCountriesItem(::std::string::String);
+impl ::std::ops::Deref for TenantAccessRulesInputCountriesItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TenantAccessRulesInputCountriesItem> for ::std::string::String {
+    fn from(value: TenantAccessRulesInputCountriesItem) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesInputCountriesItem {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
+            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^([A-Za-z]{2}|T1|XX)$").unwrap());
+        if PATTERN.find(value).is_none() {
+            return Err("doesn't match pattern \"^([A-Za-z]{2}|T1|XX)$\"".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputCountriesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputCountriesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TenantAccessRulesInputCountriesItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`allow`: must match a listed entry. `deny`: must match none.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TenantAccessRulesInputMode {
+    #[serde(rename = "allow")]
+    Allow,
+    #[serde(rename = "deny")]
+    Deny,
+}
+impl ::std::fmt::Display for TenantAccessRulesInputMode {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Allow => f.write_str("allow"),
+            Self::Deny => f.write_str("deny"),
+        }
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesInputMode {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "allow" => Ok(Self::Allow),
+            "deny" => Ok(Self::Deny),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputMode {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputMode {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`allow`: must match a listed entry. `deny`: must match none.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum TenantAccessRulesMode {
+    #[serde(rename = "allow")]
+    Allow,
+    #[serde(rename = "deny")]
+    Deny,
+}
+impl ::std::fmt::Display for TenantAccessRulesMode {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Allow => f.write_str("allow"),
+            Self::Deny => f.write_str("deny"),
+        }
+    }
+}
+impl ::std::str::FromStr for TenantAccessRulesMode {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "allow" => Ok(Self::Allow),
+            "deny" => Ok(Self::Deny),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TenantAccessRulesMode {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesMode {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 /**The org dashboard's payload. Rollup counts and series only — no resource values and no
 state or plan contents.
@@ -13666,6 +15184,22 @@ pub struct TierFeatureFlags {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub bot_tokens: ::std::option::Option<i64>,
+    /**Flat monthly price, in pence, for each billable user past `includedUsers`. `null` ⇒
+    no overage exists on this tier (Starter hard-caps, Enterprise negotiates).
+    */
+    #[serde(
+        rename = "extraUserPencePerMonth",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub extra_user_pence_per_month: ::std::option::Option<i64>,
+    /**Seats inside the flat org price; `null` ⇒ negotiated (Enterprise). What makes a user
+    billable is activity, not membership: see `BillingState.seats`.
+    */
+    #[serde(
+        rename = "includedUsers",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub included_users: ::std::option::Option<i64>,
     #[serde(
         rename = "maxVersionsPerModule",
         skip_serializing_if = "::std::option::Option::is_none"
@@ -13716,6 +15250,10 @@ pub struct TierFeatureFlags {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub state_backend: ::std::option::Option<bool>,
+    /**Hard ceiling on org members; `null` ⇒ none. Only Starter has one. Team and Business
+    are uncapped because a member past `includedUsers` becomes a billable seat rather
+    than a refusal, so adding members never answers `402` on those tiers.
+    */
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub users: ::std::option::Option<i64>,
 }
@@ -14593,6 +16131,11 @@ pub struct VcsStats {
 ///`VcsTrustEntry`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct VcsTrustEntry {
+    /**See `AllowedRefs`. An empty list is not creatable but can be returned: it means the
+    stored rule failed to parse, and the entry denies every push until it is re-saved.
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub allowed_refs: ::std::option::Option<AllowedRefs>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub created_at: ::std::option::Option<Timestamp>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -14984,6 +16527,12 @@ pub mod defaults {
     pub(super) fn platform_telemetry_logs_request_direction(
     ) -> super::PlatformTelemetryLogsRequestDirection {
         super::PlatformTelemetryLogsRequestDirection::Backward
+    }
+    pub(super) fn tenant_access_rules_applies_to() -> super::TenantAccessRulesAppliesTo {
+        super::TenantAccessRulesAppliesTo::Machine
+    }
+    pub(super) fn tenant_access_rules_input_applies_to() -> super::TenantAccessRulesInputAppliesTo {
+        super::TenantAccessRulesInputAppliesTo::Machine
     }
 }
 /// Error types.
