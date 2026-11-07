@@ -99,11 +99,19 @@
     },
     {
       "name": "VCS Trust",
-      "description": "Keyless CI authentication: trust a GitHub Actions / GitLab CI OIDC `sub` pattern for an org\nso a pipeline needs no long-lived secret.\n"
+      "description": "Keyless CI authentication: trust a GitHub Actions / GitLab CI OIDC `sub` pattern for an org\nso a pipeline needs no long-lived secret, and say which refs it may push from.\n"
+    },
+    {
+      "name": "Access Rules",
+      "description": "Per-org network access rules: which countries, ASNs or IP ranges the org's machine callers\n(and, when opted in, humans) may act from. Decided in the Worker from the Cloudflare edge's\nview of the request, never by Rego; a refusal is `403 access_rule_denied` on any org-bound\ncall.\n"
     },
     {
       "name": "Analytics",
       "description": "Download, apply and usage rollups for an org."
+    },
+    {
+      "name": "Reference",
+      "description": "Reference data behind the portal's pickers - the AS-names directory for the Access Rules\ntab. Authenticated but not tenant-scoped; mirrored from public registries by the Worker.\n"
     },
     {
       "name": "Public",
@@ -215,7 +223,7 @@
         "name": "orgId",
         "in": "path",
         "required": true,
-        "description": "Org UUID **or** slug. Both are accepted everywhere `orgId` appears.",
+        "description": "Org UUID **or** slug. Both are accepted everywhere `orgId` appears, and both resolve only\na live org: a soft-deleted org is `404` by UUID exactly as by slug, for its whole purge\nwindow.\n",
         "schema": {
           "type": "string"
         },
@@ -639,7 +647,7 @@
         }
       },
       "Forbidden": {
-        "description": "Authenticated, but not allowed: insufficient role, not a member of this org, a machine\ntoken on a human-only action, or a blocked artefact.\n",
+        "description": "Authenticated, but not allowed: insufficient role, not a member of this org, a machine\ntoken on a human-only action, or a blocked artefact.\n\nAny org-bound call can also answer `access_rule_denied`: the org has network access rules\nenabled and the request's country, ASN or IP is refused by them. They apply to machine\ncallers (bot tokens and CI OIDC) by default and to humans only when the org opted in. The\nbody never names the rule or the origin — an admin reads the rule in Organisation settings,\nand the Worker log carries the origin under `access_rule.denied`.\n",
         "content": {
           "application/json": {
             "schema": {
@@ -658,6 +666,13 @@
                 "value": {
                   "error": "forbidden",
                   "message": "This action must be performed by a human user"
+                }
+              },
+              "access_rule": {
+                "summary": "Refused by the org's network access rules",
+                "value": {
+                  "error": "access_rule_denied",
+                  "message": "Request origin is not permitted by this organisation's access rules"
                 }
               }
             }
@@ -792,6 +807,49 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "DestructiveNotArmed": {
+        "description": "`not_armed` — PLATFORM_DESTRUCTIVE_ENABLED is unset (a deploy-time decision, so the console\ncannot arm itself) or PLATFORM_DESTRUCTIVE_PAUSED is engaged (liftable on the Brakes page).\nEvery GET in this file answers anyway: reading what a delete would remove must not require\narming the thing that removes it.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "not_armed",
+              "message": "Destructive operations are not armed on this worker (PLATFORM_DESTRUCTIVE_ENABLED)."
+            }
+          }
+        }
+      },
+      "ForceRequired": {
+        "description": "The delete would change what somebody else's next command does, and `force` was not set.\n`message` names which of the three cases it is and what force would mean; `error` is the\nstable code `force_required`.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "force_parameter": {
+                      "type": "string",
+                      "description": "How to set it, for a client that wants to offer a one-click retry.",
+                      "example": "force=1"
+                    }
+                  }
+                }
+              ]
+            },
+            "example": {
+              "error": "force_required",
+              "message": "Serial 42 is the workspace's current state. Deleting it leaves the next `terraform apply` working from an older state. Use force to do it anyway.",
+              "force_parameter": "force=1"
             }
           }
         }
@@ -1086,11 +1144,12 @@
       "Role": {
         "type": "string",
         "title": "Role",
-        "description": "Org role, ranked `reader` < `member` < `admin` < `owner`. A guard states a minimum, so a\nhigher role always passes. Machine identities never exceed `member` whatever this says.\n",
+        "description": "Org role, ranked `reader` < `member` < `admin` < `privileged_admin` < `owner`. A guard\nstates a minimum, so a higher role always passes. Machine identities never exceed `member`\nwhatever this says.\n\n`privileged_admin` holds everything `admin` does **plus policy governance**: creating,\nediting, deleting and toggling policies and their enforcement, and the org's policy\nsettings. It exists so an org can separate \"runs the org\" from \"decides what the org's\npipelines may ship\". Every `admin` was moved to `privileged_admin` when the role arrived\n(migration 137), so nobody lost access; plain `admin` is what an owner grants from then on.\n\nRole changes have a ceiling: only an `owner` assigns `owner` or touches another owner;\nanyone else assigns only roles below their own, to members below their own.\n",
         "enum": [
           "reader",
           "member",
           "admin",
+          "privileged_admin",
           "owner"
         ]
       },
@@ -1162,7 +1221,7 @@
       "ActorType": {
         "type": "string",
         "title": "ActorType",
-        "description": "How the acting identity authenticated. Display and audit only — never an input to an\nauthorization decision.\n\nThe values are what `deriveActor` writes (`lib/vcsProvenance.ts`), and nothing else is\never stored:\n\n- `human` — an interactive user token, named by `name`, else `email`, else `sub`.\n- `bot_token` — a machine `client_credentials` token, named by its `azp`.\n- `vcs` — a native GitHub/GitLab OIDC token presented by CI, named by its `sub`.\n\nThis schema previously read `[user, machine, oidc]`, which no code path has ever\nproduced. It went unnoticed because the field is only ever read for display and every\nclient modelled it as a free string; a client that generates a closed enum from this\nschema rejects every real response instead.\n",
+        "description": "How the acting identity authenticated. Display and audit only — never an input to an\nauthorization decision.\n\nThe values are what `deriveActor` writes (`lib/vcsProvenance.ts`), and nothing else is\never stored:\n\n- `human` — an interactive user token, named by `name`, else `email`, else `sub`.\n- `bot_token` — a machine `client_credentials` token, named by its service-account\n  username (a bot's `sub`), or by `azp` for an internal service identity.\n- `vcs` — a native GitHub/GitLab OIDC token presented by CI, named by its `sub`.\n\nThis schema previously read `[user, machine, oidc]`, which no code path has ever\nproduced. It went unnoticed because the field is only ever read for display and every\nclient modelled it as a free string; a client that generates a closed enum from this\nschema rejects every real response instead.\n",
         "enum": [
           "human",
           "bot_token",
@@ -1590,7 +1649,7 @@
                   "string",
                   "null"
                 ],
-                "description": "Confidential provider every bot token authenticates against, or `null` when the\ndeployment has not provisioned one.\n\nThere is no per-bot client. A bot token created in the portal is an IdP service\naccount under this single provider, so the `client_credentials` grant sends\n`client_id` = this value, `username` = the token's Client ID and `password` =\nits Client Secret — not the client_id/client_secret pair the grant name suggests.\nAdvertised here so the CLI does not compile in a deployment-specific name.\n"
+                "description": "Confidential provider every bot token authenticates against, or `null` when the\ndeployment has not provisioned one.\n\nThere is no per-bot client. A bot token created in the portal is an IdP service\naccount under this single provider, so the `client_credentials` grant sends\n`client_id` = this value, `username` = the token's Client ID and `password` =\nits Client Secret — not the client_id/client_secret pair the grant name suggests.\nIt is not the scanner's provider, because internal routes trust that identity.\nAdvertised here so the CLI does not compile in a deployment-specific name.\n"
               },
               "scopes": {
                 "type": "string",
@@ -1614,7 +1673,7 @@
               "audience": "https://registry.terramantle.dev",
               "vcs_audience": "https://registry.terramantle.dev",
               "device_client_id": "terramantle-cli",
-              "bot_client_id": "terramantle-scanner",
+              "bot_client_id": "terramantle-bots",
               "scopes": "openid profile email offline_access terramantle"
             }
           }
@@ -2292,6 +2351,7 @@
           },
           "findings": {
             "type": "array",
+            "maxItems": 10000,
             "items": {
               "$ref": "#/components/schemas/InternalModuleFindingInput"
             }
@@ -2309,7 +2369,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Raw markdown, stored as-is apart from two bounds: control characters other than tab and\nnewline are dropped, and anything past 256 KiB is cut. The registry API serves it raw,\nso a renderer must sanitise it; the portal does.\n"
           },
           "policy_results": {
             "oneOf": [
@@ -2612,6 +2673,7 @@
           },
           "findings": {
             "type": "array",
+            "maxItems": 10000,
             "items": {
               "$ref": "#/components/schemas/ProviderFindingInput"
             }
@@ -2665,7 +2727,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The key the `sbom-url` route returned for this job and version\n(`provider-sboms/shared/<upstream>/<namespace>/<type>/<version>/<os>-<arch>.spdx.json`).\nAny other key is refused with `invalid_sbom_key`.\n"
           },
           "sbom_size": {
             "type": [
@@ -2826,7 +2889,13 @@
           },
           "attempt": {
             "type": "integer",
-            "description": "Which queue DELIVERY this workflow ran for (`0` = first). **The retry discriminator**: a\nhigher attempt than the stored row's re-opens a terminal row; equal-or-lower is a\nduplicate and is ignored.\n"
+            "minimum": 0,
+            "maximum": 10,
+            "description": "Which queue DELIVERY this workflow ran for (`0` = first). **The retry discriminator**: a\nhigher attempt than the stored row's re-opens a FAILED row; equal-or-lower is a\nduplicate and is ignored. A completed row is never re-opened.\n"
+          },
+          "workflow_uid": {
+            "type": "string",
+            "description": "`{{workflow.uid}}` of the Workflow sending the report. Must equal the uid the queue\nsupervisor recorded for the job; see the operation description for the rollout rule.\n"
           },
           "patch_provenance": {
             "$ref": "#/components/schemas/PatchProvenanceInput"
@@ -3208,6 +3277,35 @@
           "gitlab"
         ]
       },
+      "AllowedRefs": {
+        "title": "AllowedRefs",
+        "description": "The refs a CI token from a trust entry may **push** from. Each entry is a branch glob\n(`main`, `release/*`) or a tag glob prefixed `tag:` (`tag:v*`); `*` matches one or more\ncharacters within a single path segment and never crosses `/`. At most 32 entries.\n\n`null` means any ref. The API never defaults to it: it is either an explicit choice or the\nstate of an entry created before the rule existed.\n",
+        "oneOf": [
+          {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "pattern": "^(tag:)?[A-Za-z0-9._/+*-]+$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "examples": [
+          [
+            "main"
+          ],
+          [
+            "main",
+            "release/*",
+            "tag:v*"
+          ],
+          null
+        ]
+      },
       "VcsTrustEntry": {
         "type": "object",
         "title": "VcsTrustEntry",
@@ -3215,6 +3313,7 @@
           "id",
           "provider",
           "subject",
+          "allowed_refs",
           "created_at"
         ],
         "properties": {
@@ -3228,8 +3327,241 @@
             "type": "string",
             "description": "Pattern matched against the CI token's `sub`."
           },
+          "allowed_refs": {
+            "$ref": "#/components/schemas/AllowedRefs",
+            "description": "See `AllowedRefs`. An empty list is not creatable but can be returned: it means the\nstored rule failed to parse, and the entry denies every push until it is re-saved.\n"
+          },
           "created_at": {
             "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "TenantAccessRulesInput": {
+        "type": "object",
+        "title": "TenantAccessRulesInput",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "The switch. A draft can be saved disabled and previewed before it is armed."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ],
+            "description": "`allow`: must match a listed entry. `deny`: must match none."
+          },
+          "countries": {
+            "type": "array",
+            "maxItems": 250,
+            "items": {
+              "type": "string",
+              "pattern": "^([A-Za-z]{2}|T1|XX)$"
+            },
+            "description": "ISO-3166 alpha-2 codes, plus Cloudflare's `T1` (Tor) and `XX` (unknown). Case-insensitive on input."
+          },
+          "asns": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(AS|as)?\\d{1,10}$"
+                }
+              ]
+            },
+            "description": "Autonomous system numbers, as `64512` or `\"AS64512\"`."
+          },
+          "cidrs": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "type": "string"
+            },
+            "description": "IPv4 or IPv6 CIDRs. A bare address is a /32 or /128."
+          },
+          "applies_to": {
+            "type": "string",
+            "enum": [
+              "machine",
+              "all"
+            ],
+            "default": "machine",
+            "description": "`machine`: bot tokens and CI OIDC only. `all`: humans too (self-lockout guarded)."
+          }
+        }
+      },
+      "TenantAccessRules": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TenantAccessRulesInput"
+          },
+          {
+            "type": "object",
+            "title": "TenantAccessRules",
+            "required": [
+              "enabled",
+              "mode",
+              "countries",
+              "asns",
+              "cidrs",
+              "applies_to",
+              "updated_at"
+            ],
+            "properties": {
+              "asns": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "description": "Normalised to integers on the way out."
+              },
+              "updated_at": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Timestamp"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`null` when no rule set has ever been saved for this org."
+              }
+            }
+          }
+        ]
+      },
+      "AccessRulesPreview": {
+        "type": "object",
+        "title": "AccessRulesPreview",
+        "required": [
+          "sampled",
+          "would_deny",
+          "sources",
+          "denied_by_country",
+          "denied_by_asn",
+          "window_days",
+          "asn_evaluated",
+          "asn_missing",
+          "note"
+        ],
+        "properties": {
+          "sampled": {
+            "type": "integer",
+            "description": "Recorded origins replayed."
+          },
+          "would_deny": {
+            "type": "integer"
+          },
+          "sources": {
+            "type": "object",
+            "required": [
+              "state_locks",
+              "machine_clients"
+            ],
+            "properties": {
+              "state_locks": {
+                "type": "integer"
+              },
+              "machine_clients": {
+                "type": "integer"
+              }
+            }
+          },
+          "denied_by_country": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "country",
+                "count"
+              ],
+              "properties": {
+                "country": {
+                  "type": "string",
+                  "description": "`??` when the recorded origin had no country."
+                },
+                "count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "denied_by_asn": {
+            "type": "array",
+            "description": "Refusals by the ASN the origin was recorded from. An origin with no recorded ASN is in `denied_by_country` (possibly as `??`) but not here.",
+            "items": {
+              "type": "object",
+              "required": [
+                "asn",
+                "count"
+              ],
+              "properties": {
+                "asn": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "window_days": {
+            "type": "integer"
+          },
+          "asn_evaluated": {
+            "type": "boolean",
+            "const": true,
+            "description": "Always true since migration 135. Kept so clients written against the earlier `false` still read correctly; `asn_missing` is the real caveat."
+          },
+          "asn_missing": {
+            "type": "integer",
+            "description": "Samples that carried no ASN (recorded before migration 135, or off-edge) and were evaluated with `asn: null`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set when the draft lists ASNs and `asn_missing > 0`; otherwise null."
+          }
+        }
+      },
+      "SeenAsn": {
+        "type": "object",
+        "title": "SeenAsn",
+        "required": [
+          "asn",
+          "as_org",
+          "clients"
+        ],
+        "properties": {
+          "asn": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "as_org": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The edge's organisation label for the network at last use; null when the edge gave none."
+          },
+          "clients": {
+            "type": "integer",
+            "description": "How many of the org's tokens were last seen from this network."
           }
         }
       },
@@ -3367,7 +3699,7 @@
           },
           "oidc_client_id": {
             "type": "string",
-            "description": "The token's `azp`. This is the identity the API authorizes."
+            "description": "The IdP service-account username. This is the identity the API authorizes: every\nbot token shares one provider and so one `azp`, and this value is the token's `sub`.\nSent as `username` in the `client_credentials` grant.\n"
           },
           "tenant_id": {
             "type": [
@@ -3551,7 +3883,22 @@
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "Hard ceiling on org members; `null` ⇒ none. Only Starter has one. Team and Business\nare uncapped because a member past `includedUsers` becomes a billable seat rather\nthan a refusal, so adding members never answers `402` on those tiers.\n"
+          },
+          "includedUsers": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Seats inside the flat org price; `null` ⇒ negotiated (Enterprise). What makes a user\nbillable is activity, not membership: see `BillingState.seats`.\n"
+          },
+          "extraUserPencePerMonth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Flat monthly price, in pence, for each billable user past `includedUsers`. `null` ⇒\nno overage exists on this tier (Starter hard-caps, Enterprise negotiates).\n"
           },
           "botTokens": {
             "type": [
@@ -3575,6 +3922,7 @@
           "is_personal",
           "limits",
           "usage",
+          "seats",
           "grace_period",
           "has_stripe"
         ],
@@ -3600,9 +3948,13 @@
                 "type": "integer"
               },
               "users": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Current members, regardless of activity. Not the billable count."
               }
             }
+          },
+          "seats": {
+            "$ref": "#/components/schemas/BillingSeats"
           },
           "grace_period": {
             "oneOf": [
@@ -3632,6 +3984,89 @@
             "type": "boolean",
             "description": "Whether a Stripe subscription backs this org."
           }
+        }
+      },
+      "BillingSeats": {
+        "type": "object",
+        "title": "BillingSeats",
+        "description": "The seat line for the current billing month. The handler computes it from\n`tenant_member_activity` (migration 132): a user is **billable** for a month when they, as\na human member, made any tenant-scoped request to this org during that UTC calendar month\n— the portal, the API, the CLI, a module or provider download, a state read or lock, all\nwith their own login. A member who was idle all month is not a seat. Bot tokens and CI\nOIDC identities are never counted; they are limited and priced separately.\n\n`billable_extra` and `estimated_overage_pence` are what the overage line would charge if\nthe month ended now. They are `0` whenever the tier has no `included` allowance\n(Enterprise) or no `extra_user_pence` (Starter), and they are an estimate even when\n`metered` is true, because the month is not over.\n",
+        "required": [
+          "period",
+          "included",
+          "hard_limit",
+          "active",
+          "billable_extra",
+          "extra_user_pence",
+          "estimated_overage_pence",
+          "metered"
+        ],
+        "properties": {
+          "period": {
+            "type": "object",
+            "description": "The UTC calendar month the counts cover. `start` inclusive, `end` exclusive.",
+            "required": [
+              "start",
+              "end"
+            ],
+            "properties": {
+              "start": {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              "end": {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            }
+          },
+          "included": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Seats inside the flat price; mirrors `limits.includedUsers`."
+          },
+          "hard_limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Member ceiling; mirrors `limits.users`."
+          },
+          "active": {
+            "type": "integer",
+            "description": "Distinct humans active in this org so far this month."
+          },
+          "billable_extra": {
+            "type": "integer",
+            "description": "`max(0, active − included)`, or `0` when no overage exists on the tier."
+          },
+          "extra_user_pence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Mirrors `limits.extraUserPencePerMonth`."
+          },
+          "estimated_overage_pence": {
+            "type": "integer",
+            "description": "`billable_extra × extra_user_pence`, or `0` when there is no overage price."
+          },
+          "metered": {
+            "type": "boolean",
+            "description": "Whether the estimate is actually being invoiced. `false` while the beta free period is\non or when no Stripe subscription backs the org, so a UI can show the count without\nimplying a charge.\n"
+          }
+        },
+        "example": {
+          "period": {
+            "start": 1761955200000,
+            "end": 1764547200000
+          },
+          "included": 10,
+          "hard_limit": null,
+          "active": 13,
+          "billable_extra": 3,
+          "extra_user_pence": 300,
+          "estimated_overage_pence": 900,
+          "metered": false
         }
       },
       "AuditAction": {
@@ -4675,6 +5110,788 @@
           "revoked": {
             "type": "boolean",
             "description": "True when a row was removed (DELETE only)."
+          }
+        }
+      },
+      "ArtefactDeleteResult": {
+        "type": "object",
+        "description": "What a hard delete actually did.\n\n`complete: false` is NOT a failure. It means the object-store budget ran out, so no rows\nwere deleted and the same call may simply be repeated — the rows that still name the\nsurviving objects are what makes that resumable. `notes` says which case it is in prose.\n",
+        "required": [
+          "ok",
+          "complete",
+          "rows",
+          "row_total",
+          "objects",
+          "dangling_decisions",
+          "notes"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when objects remain and the rows were therefore left alone. Repeat the call."
+          },
+          "rows": {
+            "type": "object",
+            "description": "Rows removed per table; only non-zero tables appear. An empty object with\n`complete: true` means the rows were already gone and only objects were reclaimed.\n",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "state_scan_findings": 12,
+              "state_versions": 1
+            }
+          },
+          "row_total": {
+            "type": "integer",
+            "description": "The sum of `rows`",
+            "so a caller need not add them up.": null
+          },
+          "objects": {
+            "type": "object",
+            "required": [
+              "deleted",
+              "failed",
+              "remaining"
+            ],
+            "properties": {
+              "deleted": {
+                "type": "integer"
+              },
+              "failed": {
+                "type": "array",
+                "description": "Per-key failures. A bulk delete that throws is retried one key at a time, so a\nsingle bad key cannot make the other 999 look like failures.\n",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "error"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "remaining": {
+                "type": "integer",
+                "description": "Object keys this call did not reach, or prefix pages it did not finish. Non-zero\nimplies `complete: false`. Also non-zero when no R2 binding is configured at all,\nwhich is reported rather than counted as a successful zero.\n"
+              }
+            }
+          },
+          "dangling_decisions": {
+            "type": "integer",
+            "description": "`policy_decisions` rows that now point at a row which is gone. Not a problem to fix —\nthe refusal ledger is append-only and its schema says it must outlive its subject — but\na number the operator should have seen. The console shows them as plain text afterwards.\n"
+          },
+          "notes": {
+            "type": "array",
+            "description": "Prose about what was left behind and why: a kept workspace block, a moved current-state\npointer, a broken lock, a kept module row, unresolved inbound dependencies, or the\nreason the call was incomplete. Written to be read, not parsed.\n",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "example": {
+          "ok": true,
+          "complete": true,
+          "rows": {
+            "state_scan_findings": 4,
+            "state_versions": 1
+          },
+          "row_total": 5,
+          "objects": {
+            "deleted": 1,
+            "failed": [],
+            "remaining": 0
+          },
+          "dangling_decisions": 2,
+          "notes": [
+            "The current-state pointer moved back to serial 41. The next apply works from that state.",
+            "2 policy decision(s) still reference these serials. The refusal ledger is append-only and outlives its subject by design, so those entries stay and render as plain text."
+          ]
+        }
+      },
+      "StateWorkspaceListItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "org_id",
+          "org_slug",
+          "org_name",
+          "org_deleted_at",
+          "blocked",
+          "blocked_reason",
+          "serve_override",
+          "current_serial",
+          "version_count",
+          "plan_count",
+          "measured_bytes",
+          "unmeasured",
+          "latest_push_at",
+          "locked_by",
+          "locked_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "The terraform workspace name",
+            "e.g. `prod`.": null
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "org_slug": {
+            "type": "string"
+          },
+          "org_name": {
+            "type": "string"
+          },
+          "org_deleted_at": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Non-null means the owning org is soft-deleted. These are listed, not hidden."
+          },
+          "blocked": {
+            "type": "boolean",
+            "description": "The policy LOCK gate is shut, so the next apply is refused."
+          },
+          "blocked_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "serve_override": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "block",
+              "allow",
+              null
+            ],
+            "description": "Independent of `blocked`. `null` is Auto (policy decides)."
+          },
+          "current_serial": {
+            "type": "integer",
+            "nullable": true
+          },
+          "version_count": {
+            "type": "integer"
+          },
+          "plan_count": {
+            "type": "integer"
+          },
+          "measured_bytes": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Sum of the measured `size_bytes`. `null` means versions exist and NONE is measured —\nrender that as \"unmeasured\", never as 0 B. An empty workspace reports `0`.\n"
+          },
+          "unmeasured": {
+            "type": "integer",
+            "description": "Versions whose size was never recorded."
+          },
+          "latest_push_at": {
+            "type": "integer",
+            "nullable": true,
+            "description": "`null` = never pushed."
+          },
+          "locked_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who holds the live state lock. Non-null means a delete needs `force`."
+          },
+          "locked_at": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "StateWorkspaceList": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor",
+          "summary"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StateWorkspaceListItem"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "type": "object",
+            "description": "Whole-table totals under the SAME filters, not totals of this page.",
+            "required": [
+              "workspaces",
+              "state_versions",
+              "measured_bytes",
+              "unmeasured",
+              "locked",
+              "blocked"
+            ],
+            "properties": {
+              "workspaces": {
+                "type": "integer"
+              },
+              "state_versions": {
+                "type": "integer"
+              },
+              "measured_bytes": {
+                "type": "integer",
+                "nullable": true
+              },
+              "unmeasured": {
+                "type": "integer"
+              },
+              "locked": {
+                "type": "integer"
+              },
+              "blocked": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "StateSerial": {
+        "type": "object",
+        "required": [
+          "id",
+          "serial",
+          "storage_key",
+          "size_bytes",
+          "lineage",
+          "resource_count",
+          "real_resource_count",
+          "pushed_at",
+          "scan_status",
+          "findings",
+          "actor_type",
+          "actor_name",
+          "vcs_repository",
+          "vcs_ref",
+          "promoted_from_serial",
+          "is_current"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "integer",
+            "description": "Terraform's own serial from the state JSON."
+          },
+          "storage_key": {
+            "type": "string",
+            "description": "R2 key: `state/{orgId}/{workspaceId}/{serial}.tfstate`."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "nullable": true,
+            "description": "`null` = never measured."
+          },
+          "lineage": {
+            "type": "string",
+            "nullable": true
+          },
+          "resource_count": {
+            "type": "integer",
+            "description": "Block-level",
+            "managed + data. Legacy column.": null
+          },
+          "real_resource_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Real infrastructure only, instance-level. `null` means not yet classified — a legacy\nrow or a classifier bailout — which is distinct from `0`.\n"
+          },
+          "pushed_at": {
+            "type": "integer"
+          },
+          "scan_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "published",
+              "failed"
+            ]
+          },
+          "findings": {
+            "type": "integer"
+          },
+          "actor_type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "vcs",
+              "bot_token",
+              "human",
+              null
+            ]
+          },
+          "actor_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "vcs_repository": {
+            "type": "string",
+            "nullable": true
+          },
+          "vcs_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "promoted_from_serial": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Non-null means this serial came from a restore, not a normal apply."
+          },
+          "is_current": {
+            "type": "boolean",
+            "description": "The serial the next apply works from — the highest one. Deleting it needs `force`, and\nmoves the workspace's current-state pointer back.\n"
+          }
+        }
+      },
+      "StateWorkspaceDetail": {
+        "type": "object",
+        "required": [
+          "workspace",
+          "serials",
+          "truncated",
+          "total_serials"
+        ],
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "org_id",
+              "org_slug",
+              "org_name",
+              "org_deleted_at",
+              "blocked",
+              "blocked_reason",
+              "blocked_version_id",
+              "serve_override",
+              "current_serial",
+              "current_lineage",
+              "created_at",
+              "plan_count",
+              "lock"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "org_id": {
+                "type": "string"
+              },
+              "org_slug": {
+                "type": "string"
+              },
+              "org_name": {
+                "type": "string"
+              },
+              "org_deleted_at": {
+                "type": "integer",
+                "nullable": true
+              },
+              "blocked": {
+                "type": "boolean"
+              },
+              "blocked_reason": {
+                "type": "string",
+                "nullable": true
+              },
+              "blocked_version_id": {
+                "type": "string",
+                "nullable": true,
+                "description": "May name a serial that no longer exists: it carries no foreign key, and deleting the\nblocked serial nulls this while KEEPING `blocked`.\n"
+              },
+              "serve_override": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "block",
+                  "allow",
+                  null
+                ]
+              },
+              "current_serial": {
+                "type": "integer",
+                "nullable": true
+              },
+              "current_lineage": {
+                "type": "string",
+                "nullable": true
+              },
+              "created_at": {
+                "type": "integer"
+              },
+              "plan_count": {
+                "type": "integer"
+              },
+              "lock": {
+                "type": "object",
+                "nullable": true,
+                "description": "The live state lock, or `null`. Non-null means a delete needs `force`.",
+                "required": [
+                  "who",
+                  "operation",
+                  "lock_id",
+                  "created_at"
+                ],
+                "properties": {
+                  "who": {
+                    "type": "string"
+                  },
+                  "operation": {
+                    "type": "string",
+                    "example": "OperationTypeApply"
+                  },
+                  "lock_id": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "serials": {
+            "type": "array",
+            "description": "Newest first, capped at 300. See `truncated`.",
+            "items": {
+              "$ref": "#/components/schemas/StateSerial"
+            }
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when the workspace holds more serials than were listed, so a \"delete every serial\"\naction covers more than the table shows.\n"
+          },
+          "total_serials": {
+            "type": "integer"
+          }
+        }
+      },
+      "PlatformModuleListItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "org_id",
+          "org_slug",
+          "org_name",
+          "org_deleted_at",
+          "deprecated_at",
+          "serve_override",
+          "created_at",
+          "version_count",
+          "measured_bytes",
+          "unmeasured",
+          "downloads",
+          "latest_version",
+          "latest_published_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "org_slug": {
+            "type": "string",
+            "description": "Also the registry namespace."
+          },
+          "org_name": {
+            "type": "string"
+          },
+          "org_deleted_at": {
+            "type": "integer",
+            "nullable": true
+          },
+          "deprecated_at": {
+            "type": "integer",
+            "nullable": true
+          },
+          "serve_override": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "block",
+              "allow",
+              null
+            ]
+          },
+          "created_at": {
+            "type": "integer"
+          },
+          "version_count": {
+            "type": "integer"
+          },
+          "measured_bytes": {
+            "type": "integer",
+            "nullable": true,
+            "description": "`null` = versions exist, none measured."
+          },
+          "unmeasured": {
+            "type": "integer"
+          },
+          "downloads": {
+            "type": "integer",
+            "description": "All-time",
+            "across every version.": null
+          },
+          "latest_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "latest_published_at": {
+            "type": "integer",
+            "nullable": true,
+            "description": "`null` = no versions."
+          }
+        }
+      },
+      "PlatformModuleList": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor",
+          "summary"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformModuleListItem"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "type": "object",
+            "description": "Whole-table totals under the same filters.",
+            "required": [
+              "modules",
+              "module_versions",
+              "measured_bytes",
+              "unmeasured",
+              "deprecated"
+            ],
+            "properties": {
+              "modules": {
+                "type": "integer"
+              },
+              "module_versions": {
+                "type": "integer"
+              },
+              "measured_bytes": {
+                "type": "integer",
+                "nullable": true
+              },
+              "unmeasured": {
+                "type": "integer"
+              },
+              "deprecated": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "PlatformModuleVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "storage_key",
+          "size_bytes",
+          "published_at",
+          "status",
+          "deprecated_at",
+          "manually_blocked",
+          "consumable",
+          "findings",
+          "downloads",
+          "is_latest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "storage_key": {
+            "type": "string",
+            "description": "R2 key: `modules/{tenantHash(orgSlug)}/{uuid}.tar.gz`."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "published_at": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "published",
+              "failed"
+            ],
+            "description": "`module_versions.status` — the publish/scan pipeline state."
+          },
+          "deprecated_at": {
+            "type": "integer",
+            "nullable": true
+          },
+          "manually_blocked": {
+            "type": "boolean",
+            "description": "The admin kill switch",
+            "distinct from a policy block.": null
+          },
+          "consumable": {
+            "type": "boolean",
+            "description": "False when a policy blocked it."
+          },
+          "findings": {
+            "type": "integer"
+          },
+          "downloads": {
+            "type": "integer"
+          },
+          "is_latest": {
+            "type": "boolean",
+            "description": "The version a bare constraint resolves to. Deleting it needs `force`, because it changes\nwhat every consumer's `init` picks.\n"
+          }
+        }
+      },
+      "PlatformModuleDetail": {
+        "type": "object",
+        "required": [
+          "module",
+          "versions",
+          "truncated",
+          "total_versions"
+        ],
+        "properties": {
+          "module": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "provider",
+              "org_id",
+              "org_slug",
+              "org_name",
+              "org_deleted_at",
+              "description",
+              "deprecated_at",
+              "deprecated_message",
+              "serve_override",
+              "created_at",
+              "inbound_dependencies"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "org_id": {
+                "type": "string"
+              },
+              "org_slug": {
+                "type": "string"
+              },
+              "org_name": {
+                "type": "string"
+              },
+              "org_deleted_at": {
+                "type": "integer",
+                "nullable": true
+              },
+              "description": {
+                "type": "string",
+                "nullable": true
+              },
+              "deprecated_at": {
+                "type": "integer",
+                "nullable": true
+              },
+              "deprecated_message": {
+                "type": "string",
+                "nullable": true
+              },
+              "serve_override": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "block",
+                  "allow",
+                  null
+                ]
+              },
+              "created_at": {
+                "type": "integer"
+              },
+              "inbound_dependencies": {
+                "type": "integer",
+                "description": "Other modules whose `source` block names this one. Those rows SURVIVE a delete, so\nthis is a warning about the dependency graph rather than something the delete tidies.\n"
+              }
+            }
+          },
+          "versions": {
+            "type": "array",
+            "description": "Newest published first, capped at 300.",
+            "items": {
+              "$ref": "#/components/schemas/PlatformModuleVersion"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "total_versions": {
+            "type": "integer"
           }
         }
       },
@@ -6250,7 +7467,7 @@
             ]
           },
           "tier": {
-            "description": "The tier the visitor picked (`Solo`, `Team`, `Business`, `Enterprise`, `Founding member`), if any.",
+            "description": "The tier the visitor picked (`Solo`, `Team`, `Business`, `Enterprise`), if any. Older rows can also hold `Founding member`, a retired option.",
             "type": [
               "string",
               "null"
@@ -11419,7 +12636,6 @@
           "Team",
           "Business",
           "Enterprise",
-          "Founding member",
           ""
         ]
       },
@@ -11535,6 +12751,52 @@
             }
           }
         ]
+      },
+      "AsnName": {
+        "type": "object",
+        "required": [
+          "asn",
+          "name",
+          "country"
+        ],
+        "properties": {
+          "asn": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The autonomous system number, without the `AS` prefix.",
+            "example": 16509
+          },
+          "name": {
+            "type": "string",
+            "description": "RIPE's label verbatim, typically `HANDLE - Organisation`.",
+            "example": "AMAZON-02 - Amazon.com, Inc."
+          },
+          "country": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-3166 alpha-2 of the registering RIR record, or `null` when the file carries none.",
+            "example": "US"
+          }
+        }
+      },
+      "AsnLookup": {
+        "type": "object",
+        "required": [
+          "asns",
+          "stale"
+        ],
+        "properties": {
+          "asns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AsnName"
+            }
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "`true` only when `asns` is empty because the mirror has never been populated. An empty\n`asns` with `stale: false` is a genuine \"no match\".\n"
+          }
+        }
       },
       "OkMessage": {
         "type": "object",
@@ -13798,6 +15060,20 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "More than 10,000 findings in one report. Oversized individual fields are truncated, not\nrefused (title 512 characters, description 16 KiB, meta 32 KiB serialised, replaced by\n`{\"truncated\": true}` above that), because one verbose tool message must not drop a\nwhole scan; an oversized array is not a real report. The largest real provider report\non record held 2,239 findings.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_many_findings",
+                  "message": "A report may carry at most 10000 findings"
+                }
+              }
+            }
           }
         }
       }
@@ -13897,6 +15173,20 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "More than 10,000 findings in one report. Oversized individual fields are truncated, not\nrefused (title 512 characters, description 16 KiB, meta 32 KiB serialised, replaced by\n`{\"truncated\": true}` above that), because one verbose tool message must not drop a\nwhole scan; an oversized array is not a real report. The largest real provider report\non record held 2,239 findings.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_many_findings",
+                  "message": "A report may carry at most 10000 findings"
+                }
+              }
+            }
           }
         }
       }
@@ -13951,7 +15241,7 @@
       "post": {
         "operationId": "ingestProviderScanResults",
         "summary": "Ingest one provider version's scan result (internal)",
-        "description": "One scan job covers several versions and emits **one of these per version**. Results attach\nto the job by `job_id`, which is what makes the attachment race-safe when two jobs for the\nsame provider briefly overlap.\n\n`status` distinguishes three outcomes that must not be conflated:\n\n- `published` — scanned. The result and findings are written.\n- `failed` — attempted and failed. Enters the retry tier.\n- `skipped` — **never attempted**, because the job ran out of wall-clock budget. No result\n  row is written and the backlog marker is re-armed for the next drain tick.\n\n`job_failed: true` is a job-level terminal failure instead — for example a constraint that\nmatched no versions — and carries none of the per-version fields.\n\nResults land in a **cross-org cache** keyed by provider version, so one scan serves every\norg that manages that provider.\n",
+        "description": "One scan job covers several versions and emits **one of these per version**. Results attach\nto the job by `job_id`, which is what makes the attachment race-safe when two jobs for the\nsame provider briefly overlap.\n\n`status` distinguishes three outcomes that must not be conflated:\n\n- `published` — scanned. The result and findings are written.\n- `failed` — attempted and failed. Enters the retry tier.\n- `skipped` — **never attempted**, because the job ran out of wall-clock budget. No result\n  row is written and the backlog marker is re-armed for the next drain tick.\n\n`job_failed: true` is a job-level terminal failure instead — for example a constraint that\nmatched no versions — and carries none of the per-version fields.\n\nResults land in a **cross-org cache** keyed by provider version, so one scan serves every\norg that manages that provider.\n\n**The report is bound to its job row.** Every scanner pod presents the same credential, and\nthe cache this route writes is the one the serve path reads, so the body's `namespace`,\n`provider_type`, `upstream` and `version` are only trusted once they match what the Worker\nrecorded when it enqueued the job: the provider identity, and either the exact version list\nthe job was sent or the constraint the scanner resolved. Any mismatch is `409\njob_identity_mismatch` naming the field. A job older than seven days takes no reports, and a\nrow enqueued before the scope was recorded is accepted only while it is still in flight.\n`sbom_key`, when present, must be a key the `sbom-url` route mints for this job's identity\nand this version, because the SBOM download route presigns whatever key is stored.\n\n**A moved release tag is not a clean result.** The first completed scan of a version pins the\ncommit its tag resolved to. A later scan that finds the tag on another commit is stored as\n`failed` with `error_message` starting `source_tag_moved:`, the cache row keeps the pinned\ncommit, and every later rescan stays failed until an operator deletes the version's cache\nrows to re-pin. Orgs serving the provider are mailed once, on first detection.\n",
         "tags": [
           "Internal — Scanners"
         ],
@@ -13982,13 +15272,78 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "Malformed body, missing `job_id`/`version`, or `invalid_sbom_key`: the key was not minted\nfor this job and version.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "invalid_sbom_key",
+                  "message": "sbom_key was not minted for this job and version"
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`job_identity_mismatch`: the report names a provider, upstream or version its job was not\nenqueued for, or the job is outside its report window. `field` says which check failed:\n`namespace`, `provider_type`, `upstream`, `version`, `job_expired` or\n`legacy_job_not_in_flight`. The scanner should not retry; the report is wrong, not late.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "field",
+                    "message"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "job_identity_mismatch"
+                    },
+                    "field": {
+                      "type": "string",
+                      "enum": [
+                        "namespace",
+                        "provider_type",
+                        "upstream",
+                        "version",
+                        "job_expired",
+                        "legacy_job_not_in_flight"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "error": "job_identity_mismatch",
+                  "field": "namespace",
+                  "message": "Report does not match the scan job it names"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "More than 10,000 findings in one report. Oversized individual fields are truncated, not\nrefused (title 512 characters, description 16 KiB, meta 32 KiB serialised, replaced by\n`{\"truncated\": true}` above that), because one verbose tool message must not drop a\nwhole scan; an oversized array is not a real report. The largest real provider report\non record held 2,239 findings.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_many_findings",
+                  "message": "A report may carry at most 10000 findings"
+                }
+              }
+            }
           }
         }
       }
@@ -14217,6 +15572,20 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "More than 10,000 findings in one report. Oversized individual fields are truncated, not\nrefused (title 512 characters, description 16 KiB, meta 32 KiB serialised, replaced by\n`{\"truncated\": true}` above that), because one verbose tool message must not drop a\nwhole scan; an oversized array is not a real report. The largest real provider report\non record held 2,239 findings.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_many_findings",
+                  "message": "A report may carry at most 10000 findings"
                 }
               }
             }
@@ -14725,6 +16094,26 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No such build job. Verdicts attach to a real job, never to an arbitrary id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`job_completed`: the build has completed. Its verdicts are what its \"gates passed\" badge\nand two-person override read, so a late or forged report must not rewrite them.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -14807,7 +16196,7 @@
       "post": {
         "operationId": "reportBuildComplete",
         "summary": "Report a finished build (internal)",
-        "description": "The build pipeline's terminal report: which platforms were produced, the gate verdicts, the\npatch provenance, and the registry lineage the artifacts were published under.\n\nTwo things here are load-bearing:\n\n- **`attempt` is the retry discriminator.** A report whose attempt is *higher* than the\n  stored row's is a genuine retry and re-opens a terminal row; an equal-or-lower attempt is\n  a duplicate and is ignored by the forward-only guard. That guard exists because the\n  workflow's exit handler and a retried pod can both report for the same job.\n- **`source_upstream` is required on success and must match the job row's lineage.** A\n  mismatch is refused with `lineage_mismatch`, because the lineage is part of the published\n  object key — accepting a mismatch would publish bytes where nothing will look for them.\n\n`status: \"failed\"` is the exit handler's path: `patch_provenance` then carries the failure\nstage and reason instead of git provenance.\n",
+        "description": "The build pipeline's terminal report: which platforms were produced, the gate verdicts, the\npatch provenance, and the registry lineage the artifacts were published under.\n\nTwo things here are load-bearing:\n\n- **`attempt` is the retry discriminator.** A report whose attempt is *higher* than the\n  stored row's is a genuine retry and re-opens a **failed** row; an equal-or-lower attempt\n  is a duplicate and is ignored by the forward-only guard. That guard exists because the\n  workflow's exit handler and a retried pod can both report for the same job. A\n  **completed** build is final: no report re-opens it, success or failure, because a second\n  success has nothing to add and a failure for a published build is stale or forged.\n  `attempt` must be an integer from 0 to 10; anything else is `400`, since an unbounded\n  attempt is what used to leapfrog every future retry.\n- **The report is bound to the job row.** `namespace`, `type`, `version` and `org_id` must\n  equal the row the Worker allocated (`org_id` is the requesting org, or `platform` for a\n  platform build), and the catalog rows and entitlement are written from the row, not the\n  body. `workflow_uid` must equal the uid the queue supervisor recorded for the job. Until\n  `BUILD_REPORT_REQUIRE_WORKFLOW_UID` is on, a report that omits it is still accepted, so\n  the Worker can deploy before the hasher image that sends it; a report carrying a\n  *different* uid is always refused. Any mismatch is `409 job_identity_mismatch`. Catalog\n  rows and the entitlement are only written for a report that moves the job.\n- **`source_upstream` is required on success and must match the job row's lineage.** A\n  mismatch is refused with `lineage_mismatch`, because the lineage is part of the published\n  object key — accepting a mismatch would publish bytes where nothing will look for them.\n\n`status: \"failed\"` is the exit handler's path: `patch_provenance` then carries the failure\nstage and reason instead of git provenance.\n",
         "tags": [
           "Internal — Build Pipeline"
         ],
@@ -14854,7 +16243,7 @@
             }
           },
           "400": {
-            "description": "`job_id` missing, required success fields missing, `source_upstream` missing, or\n`lineage_mismatch` — the report's lineage disagrees with the job row's.\n",
+            "description": "`job_id` missing, `attempt` out of range, required success fields missing,\n`source_upstream` missing, or `lineage_mismatch` — the report's lineage disagrees with\nthe job row's.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -14876,6 +16265,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`job_identity_mismatch`: the report names a different provider, version or org than the\njob row, or comes from a different Workflow. `field` names the check.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "job_identity_mismatch",
+                  "field": "org_id",
+                  "message": "Report does not match the build job it names"
                 }
               }
             }
@@ -15865,6 +17269,20 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "More than 10,000 findings in one report. Oversized individual fields are truncated, not\nrefused (title 512 characters, description 16 KiB, meta 32 KiB serialised, replaced by\n`{\"truncated\": true}` above that), because one verbose tool message must not drop a\nwhole scan; an oversized array is not a real report. The largest real provider report\non record held 2,239 findings.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_many_findings",
+                  "message": "A report may carry at most 10000 findings"
+                }
+              }
+            }
           }
         }
       }
@@ -15918,7 +17336,7 @@
       "post": {
         "operationId": "registerCurrentUser",
         "summary": "Register or fetch the current user",
-        "description": "Called by the portal immediately after an OIDC login completes. Idempotent — safe to call\non every login, and the intended way to seed client state.\n\nA first login also provisions: a personal org with a generated name, a set of default OPA\npolicies for it, and a welcome email. Policy seeding is best-effort and never blocks\nregistration.\n\n`422` means the token carried no `email` claim, which the platform cannot work without:\nRBAC resolves membership by email. Request the `email` scope.\n",
+        "description": "Called by the portal immediately after an OIDC login completes. Idempotent — safe to call\non every login, and the intended way to seed client state.\n\nA first login also provisions: a personal org with a generated name, a set of default OPA\npolicies for it, and a welcome email. Policy seeding is best-effort and never blocks\nregistration.\n\n`422` means the token carried no `email` claim. Request the `email` scope.\n\n**Identity is the token's subject, never its email.** Every role check binds on the stored\nsubject, and this call never rewrites it: a known subject logs straight in, a new subject\nwhose email is already held by another subject is refused with `409 identity_conflict`,\nand a stored row with no subject yet is claimed only by a token whose `email_verified` is\n`true`. It used to look users up by email and re-key the subject, so any identity carrying\na victim's address inherited the victim's memberships. A human token whose IdP sends\n`email_verified: false` is refused with `403 email_unverified` on every authenticated\nroute, not only this one.\n",
         "tags": [
           "Orgs & Members"
         ],
@@ -15947,6 +17365,30 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "`email_unverified`: the IdP says this email address is not verified.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "email_unverified",
+                  "message": "Your identity provider has not verified this email address"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`identity_conflict`: the email belongs to another sign-in identity, or linking an\nunclaimed account needs a verified email. Nothing is changed.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "422": {
             "description": "The token carried no `email` claim.",
@@ -16180,7 +17622,7 @@
       "post": {
         "operationId": "addOrgMember",
         "summary": "Add a member",
-        "description": "Invites an **existing** user by email — they must have logged in at least once, so there is\na record to attach the membership to. Re-adding someone who previously left reactivates\ntheir row and consumes a seat; re-roling an active member does not.\n",
+        "description": "Invites an **existing** user by email — they must have logged in at least once, so there is\na record to attach the membership to. Re-adding someone who previously left reactivates\ntheir row and consumes a seat; re-roling an active member does not.\n\nInviting an active member re-roles them, so an invite is held to the same ceiling as\n`updateOrgMemberRole`: only an owner grants `owner`, and nobody else grants a role at or\nabove their own or re-roles someone at or above it (`403 role_ceiling`,\n`target_outranks_caller`, `self_target`).\n",
         "tags": [
           "Orgs & Members"
         ],
@@ -16230,7 +17672,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "Insufficient role, or the demo org.",
+            "description": "Insufficient role, the demo org, or a role-change refusal (`role_ceiling`,\n`target_outranks_caller`, `self_target`).\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -16259,7 +17701,7 @@
       "patch": {
         "operationId": "updateOrgMemberRole",
         "summary": "Change a member's role",
-        "description": "Cannot leave the org without an owner — demoting the last one is refused.\n",
+        "description": "Cannot leave the org without an owner — demoting the last one is refused.\n\n**Role-change ceiling.** Only an `owner` assigns `owner`, and only an owner changes\nanother owner. Anyone else (a `privileged_admin` or `admin`) assigns only roles strictly\nbelow their own, to members strictly below their own, and may not change their own role\n(use leave, or ask an owner). Before this an admin could patch their own id to `owner` and\nreach org delete, domain claiming and billing. The refusal names the rule in `error`:\n`role_ceiling`, `target_outranks_caller` or `self_target`.\n",
         "tags": [
           "Orgs & Members"
         ],
@@ -16330,7 +17772,7 @@
       "delete": {
         "operationId": "removeOrgMember",
         "summary": "Remove a member",
-        "description": "Removing the last owner is refused.",
+        "description": "Removing the last owner is refused. The same ceiling as a role change applies: only an\nowner removes an owner, and nobody else removes a member at or above their own role or\nthemselves (`403 target_outranks_caller`, `self_target`).\n",
         "tags": [
           "Orgs & Members"
         ],
@@ -16508,11 +17950,21 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "provider_update_notifications"
+                    "provider_update_notifications",
+                    "human_state_protocol_blocked",
+                    "endpoint_probe_enabled"
                   ],
                   "properties": {
                     "provider_update_notifications": {
                       "$ref": "#/components/schemas/NotificationCadence"
+                    },
+                    "human_state_protocol_blocked": {
+                      "type": "boolean",
+                      "description": "See `updateOrgStateAccess`."
+                    },
+                    "endpoint_probe_enabled": {
+                      "type": "boolean",
+                      "description": "See `updateOrgEndpointProbing`."
                     }
                   }
                 }
@@ -16527,6 +17979,146 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/endpoint-probing": {
+      "patch": {
+        "operationId": "updateOrgEndpointProbing",
+        "summary": "Allow or stop active probing of endpoints found in state",
+        "description": "The state scanner lists every hostname and address a state file names. With probing on\n(the default) it also connects to a short list of ports on the public ones and reports\nwhat is open. It resolves each host once, skips the host if ANY of its addresses is\nprivate, loopback, link-local, a cloud metadata endpoint or otherwise special-use, IPv4 or\nIPv6, and connects only to the address it checked, so a record that changes after the\ncheck cannot redirect the probe. Off, endpoints are still listed and nothing is connected\nto.\n\n`admin` and a human token. Audited as `org.endpoint_probing`. The setting rides on each\nstate scan message as `probe_endpoints`.\n",
+        "tags": [
+          "Orgs & Members"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "endpoint_probe_enabled"
+                ],
+                "properties": {
+                  "endpoint_probe_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "endpoint_probe_enabled"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "endpoint_probe_enabled": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/state-access": {
+      "patch": {
+        "operationId": "updateOrgStateAccess",
+        "summary": "Keep human accounts off the state backend",
+        "description": "`human_state_protocol_blocked: true` stops every **human** account using the state backend\nprotocol for this org: `GET`, `POST`, `LOCK` and `UNLOCK` on `/state/{org}/...` answer `403\nhuman_state_access_blocked`, so nobody can `tofu state pull` raw state (every credential in\nit) or apply locally with their own sign-in. CI pipelines and machine tokens are\nunaffected, and so is the management API: the resource inspector, versions and findings\nkeep working. `LOCK` and `UNLOCK` are included because a human lock that could never be\nfollowed by a push would only strand the workspace.\n\nOff by default. Owner and a human token, because it decides who may hold raw secrets.\nAudited as `org.state_access`.\n",
+        "tags": [
+          "Orgs & Members"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "human_state_protocol_blocked"
+                ],
+                "properties": {
+                  "human_state_protocol_blocked": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "human_state_protocol_blocked"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "human_state_protocol_blocked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -16661,7 +18253,18 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/BadRequest"
+            "description": "A malformed body, or a `state_grants` entry naming a workspace outside this org\n(`invalid_state_grant`). That check runs before the identity is created, because a\ngrant is only honoured for the org that owns the token: a token can never be\ngranted another tenant's state.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "invalid_state_grant",
+                  "message": "A state grant names a workspace outside this org"
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -16732,7 +18335,7 @@
       "post": {
         "operationId": "rotateOrgToken",
         "summary": "Rotate a machine token's secret",
-        "description": "Issues a new secret and invalidates the old one. `member` and above, **human only** —\na compromised token must not be able to rotate itself into a fresh one.\n\nThe new secret is returned once.\n",
+        "description": "Issues a new secret and revokes every earlier one. `member` and above, **human only** —\na compromised token must not be able to rotate itself into a fresh one.\n\nThe new secret is returned once. Anything still holding the old secret can no longer\nmint, but an access token already minted from it stays valid until it expires, up to\n12 hours: the Worker validates those by signature and does not look the secret up.\nDeleting the token cuts that off at once, because bot authorization reads its row.\n\nA failed revoke answers `502` even though the new secret was issued, and that secret is\nnot returned. A rotation that reports success must mean the old secret is dead. Retrying\nis safe: it revokes everything issued so far.\n",
         "tags": [
           "Tokens"
         ],
@@ -16771,6 +18374,16 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "description": "The identity provider refused part of the rotation (`idp_unavailable`). The old\nsecret may still work, so retry until this answers `200`.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -16825,7 +18438,7 @@
       "get": {
         "operationId": "getBilling",
         "summary": "Get plan, limits, usage and grace period",
-        "description": "Everything the billing page needs in one call: the effective tier, the feature matrix for\nit, current usage against the counted limits, and whether a downgrade grace period is\nrunning.\n\nA personal org always reports `starter`. `grace_period` is `null` when none is set; when\npresent, `active` is whether it is still running.\n\nRequires billing access — `owner`, `admin`, or a member flagged `is_billing_admin` — on top\nof the `member` role.\n",
+        "description": "Everything the billing page needs in one call: the effective tier, the feature matrix for\nit, current usage against the counted limits, the seat line for the current month, and\nwhether a downgrade grace period is running.\n\n`usage.users` is membership; `seats.active` is who has actually done something this\nmonth, which is the number the overage charges on. The two differ by design: an idle\nmember is free.\n\nA personal org always reports `starter`. `grace_period` is `null` when none is set; when\npresent, `active` is whether it is still running.\n\nRequires billing access — `owner`, `admin`, or a member flagged `is_billing_admin` — on top\nof the `member` role.\n",
         "tags": [
           "Billing"
         ],
@@ -17270,7 +18883,7 @@
       "post": {
         "operationId": "createVcsTrust",
         "summary": "Trust a CI identity pattern",
-        "description": "Registers a `sub` pattern from GitHub Actions or GitLab CI. A pipeline whose OIDC token\nmatches then authenticates as this org with no long-lived credential anywhere.\n\n`subject` is matched against the token's `sub`, so it should be as specific as the pipeline\nallows — `repo:acme/infra:ref:refs/heads/main` rather than `repo:acme/*`. Overlap is\npoliced: an entry that overlaps another org's ambiguously is refused, and at authentication\ntime a `sub` matching several entries resolves to the most specific one or fails closed.\n\nCI identities are bots: capped at `member` and refused on human-only actions, whatever the\ntrust entry says.\n",
+        "description": "Registers a `sub` pattern from GitHub Actions or GitLab CI. A pipeline whose OIDC token\nmatches then authenticates as this org with no long-lived credential anywhere.\n\n`subject` names the repo (`repo:acme/infra`, `project_path:acme/infra`); it is matched\nagainst the token's `sub` with everything after the repo path admitted, so one entry covers\nthe repo's plans, applies and PRs. It cannot carry a `:ref:` suffix — that is what\n`allowed_refs` is for.\n\n**A repository is trusted by one org only.** Any overlap with another org's entry is\nrefused, including one subject sitting inside the other (`repo:acme/prod-infra` inside\n`repo:acme/*`). Nothing proves who controls a repository, so a narrower entry used to\nlet one org take over another org's pipeline: every token from that repo resolved to\nthe narrower entry's org. Pairs created before the rule keep resolving at authentication\ntime to the most specific entry. Within one org, several entries may match the same\n`sub`: the most specific one's `allowed_refs` applies, and with no single most specific\nentry every matched entry's rule must allow the push, so a stricter entry can only\nnarrow what a looser one allowed.\n\n`allowed_refs` is the ref rule: the branches (and `tag:` globs) a token from this entry may\n**land an artefact** from — state push, lock-file upload and module publish answer `403\nci_ref_not_allowed` from any other ref. It is deliberately not applied to state read, LOCK /\nUNLOCK or plan push, so a PR pipeline still plans with locking and the plan gate still sees\nPRs. Omitted, it defaults to `[\"main\"]`; the tokens carry no default-branch claim, so name\nthe branch if the repo uses another. Explicit `null` means any ref, which is what entries\ncreated before the rule existed have. A token with no usable `ref` claim is refused under\nany list.\n\nCI identities are bots: capped at `member` and refused on human-only actions, whatever the\ntrust entry says.\n",
         "tags": [
           "VCS Trust"
         ],
@@ -17297,9 +18910,21 @@
                     "type": "string",
                     "description": "Pattern matched against the OIDC token's `sub`.",
                     "examples": [
-                      "repo:acme/infra:ref:refs/heads/main"
+                      "repo:acme/infra"
                     ]
+                  },
+                  "allowed_refs": {
+                    "$ref": "#/components/schemas/AllowedRefs"
                   }
+                },
+                "example": {
+                  "provider": "github",
+                  "subject": "repo:acme/infra",
+                  "allowed_refs": [
+                    "main",
+                    "release/*",
+                    "tag:v*"
+                  ]
                 }
               }
             }
@@ -17329,7 +18954,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "This entry already exists, or it overlaps an existing one in a way that would make\nauthentication ambiguous.\n",
+            "description": "This entry already exists in this org, or it overlaps an entry another org trusts. The\nmessage never names the other org or its pattern, so it is not an oracle for them.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -17346,6 +18971,74 @@
       }
     },
     "/api/orgs/{orgId}/vcs-trust/{trustId}": {
+      "patch": {
+        "operationId": "updateVcsTrust",
+        "summary": "Change a trust entry's allowed refs",
+        "description": "Only `allowed_refs` is mutable. The subject is the row's identity and is overlap-checked\nacross orgs at creation, so changing it is a delete and a create. This exists so an entry\ncreated before the ref rule (`allowed_refs: null`, any ref) can be tightened in place with\nno window in which the repo is untrusted. Takes effect on the next request.\n",
+        "tags": [
+          "VCS Trust"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "name": "trustId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "allowed_refs"
+                ],
+                "properties": {
+                  "allowed_refs": {
+                    "$ref": "#/components/schemas/AllowedRefs"
+                  }
+                }
+              },
+              "example": {
+                "allowed_refs": [
+                  "main"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VcsTrustEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
       "delete": {
         "operationId": "deleteVcsTrust",
         "summary": "Delete a VCS trust entry",
@@ -17373,6 +19066,287 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/access-rules": {
+      "get": {
+        "operationId": "getAccessRules",
+        "summary": "Get the org's network access rules",
+        "description": "The rule set, or the disabled defaults (`enabled: false`, empty lists, `mode: deny`,\n`applies_to: machine`, `updated_at: null`) when none has ever been saved. Admin-only.\n",
+        "tags": [
+          "Access Rules"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rule set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantAccessRules"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "operationId": "putAccessRules",
+        "summary": "Replace the org's network access rules",
+        "description": "Whole-row replace; there is one rule set per org. It takes effect on the next request —\nthere is no cache in front of it, deliberately, so tightening a rule is immediate.\n\n`mode: allow` means a request must match at least one listed country, ASN or CIDR;\n`mode: deny` means it must match none. Origin facts come from the Cloudflare edge\n(`request.cf.country` / `asn`, `CF-Connecting-IP`); an unknown fact fails closed where the\nrule needs it. An `enabled` set must list at least one entry.\n\n`applies_to` defaults to `machine` (bot tokens and CI OIDC). `all` also covers humans and\nis refused with `422 self_lockout` when the set is enabled and would deny the request\nsaving it, because the next thing that admin would do is get a 403 they cannot undo.\n\nCountry codes are upper-cased, ASNs accept `64512` or `\"AS64512\"`, and duplicates are\ndropped. Audited as `access_rules.update` with the before and after sets.\n",
+        "tags": [
+          "Access Rules"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantAccessRulesInput"
+              },
+              "example": {
+                "enabled": true,
+                "mode": "allow",
+                "countries": [
+                  "GB",
+                  "IE"
+                ],
+                "asns": [
+                  8075,
+                  16509
+                ],
+                "cidrs": [
+                  "203.0.113.0/24"
+                ],
+                "applies_to": "machine"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved. The normalised set as it will be evaluated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantAccessRules"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "description": "The set applies to humans and would refuse the admin saving it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "self_lockout",
+                  "message": "This rule set applies to humans and would refuse the request you are making now. Adjust the lists or keep it machine-only."
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAccessRules",
+        "summary": "Remove the org's network access rules",
+        "description": "Back to no rules. Idempotent; audited only when a row was actually removed.",
+        "tags": [
+          "Access Rules"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed, or there was nothing to remove.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/access-rules/preview": {
+      "post": {
+        "operationId": "previewAccessRules",
+        "summary": "Dry-run a draft rule set against recorded origins",
+        "description": "Read-only despite the verb: the draft is the body. Replays the lists through the same\nevaluator the request path uses against the origins the Worker already records — the\ncurrent lock holders in `state_locks` and each machine token's last-seen origin — and\nreturns how many would have been refused. `enabled` and `applies_to` in the draft are\nignored, so a disabled draft previews.\n\nSince migration 135 both samples also carry the ASN the edge saw at the time, so ASN\nentries are evaluated like the others and `denied_by_asn` says which networks the refusals\ncame from. A sample recorded before that migration, or off-edge, has no ASN: it is\nevaluated with `asn: null` (in `allow` mode an origin allowed only by ASN then shows as\ndenied; in `deny` mode a non-empty ASN list refuses it as unknown), counted in\n`asn_missing`, and `note` says so when the draft lists any ASN. `asn_evaluated` is kept,\nalways `true`, so a client written against the earlier shape still reads correctly.\n",
+        "tags": [
+          "Access Rules"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantAccessRulesInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRulesPreview"
+                },
+                "example": {
+                  "sampled": 14,
+                  "would_deny": 3,
+                  "sources": {
+                    "state_locks": 2,
+                    "machine_clients": 12
+                  },
+                  "denied_by_country": [
+                    {
+                      "country": "US",
+                      "count": 3
+                    }
+                  ],
+                  "denied_by_asn": [
+                    {
+                      "asn": 16509,
+                      "count": 3
+                    }
+                  ],
+                  "window_days": 7,
+                  "asn_evaluated": true,
+                  "asn_missing": 0,
+                  "note": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/access-rules/seen-asns": {
+      "get": {
+        "operationId": "listSeenAsns",
+        "summary": "The networks this org's tokens were last seen from",
+        "description": "Feeds the \"seen from your tokens\" group at the top of the Access Rules network picker:\none row per ASN that any of the org's machine tokens was last used from, with how many\ntokens that is and the edge's own organisation label (`request.cf.asOrganization`, so the\nwording is Cloudflare's, not RIPE's as in `GET /api/reference/asns`). Not windowed, on\npurpose: a token that last ran a month ago is still a network worth offering, and this is\na suggestion surface rather than a report. Capped at 50, most tokens first. Empty until a\ntoken has been used since migration 135 recorded ASNs. Admin-only, like the rule set.\n",
+        "tags": [
+          "Access Rules"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The seen networks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "asns"
+                  ],
+                  "properties": {
+                    "asns": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SeenAsn"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "asns": [
+                    {
+                      "asn": 36459,
+                      "as_org": "GitHub",
+                      "clients": 4
+                    },
+                    {
+                      "asn": 16509,
+                      "as_org": "Amazon.com, Inc.",
+                      "clients": 1
+                    }
+                  ]
                 }
               }
             }
@@ -18878,6 +20852,672 @@
         }
       }
     },
+    "/api/platform/artefacts/state": {
+      "get": {
+        "operationId": "listPlatformStateWorkspaces",
+        "summary": "List state workspaces across every org",
+        "description": "Every state workspace on the platform, ordered by its most recent push and keyset-paginated\nover `(latest_push_at, id)`. Pass the returned `next_cursor` back as `cursor`; `null` means\nthis is the last page.\n\nOrdered by recency rather than alphabetically because both ends of that ordering answer a\nreal question — what moved in the last hour, and what has not moved in a year — where\nalphabetical answers neither. A workspace that has never been pushed sorts to the end on a\n`latest_push_at` of `null`.\n\nSOFT-DELETED ORGS ARE INCLUDED BY DEFAULT, flagged by `org_deleted_at`. They are the usual\nreason an operator is on this page, so hiding them would make the one case it exists for\nthe one case it cannot show. Pass `live_orgs=1` to exclude them.\n\n`measured_bytes` is `null` when the workspace holds versions but NONE carries a\n`size_bytes` — every row pushed before migration 073 is unmeasured, so a plain sum would\nreport a gap as a real 0 B. `unmeasured` counts those rows, and an empty workspace reports\n`0`, which is a fact rather than a gap.\n\n`summary` is whole-table under the same filters, so the console can honestly say \"50 of\n1,284\" rather than counting what it happened to render.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive substring of the workspace name, the org slug or the org name — or an\nEXACT workspace id. The id is matched exactly, not by substring: an operator pasting a\nuuid wants that row, and a substring match on a uuid is never what they meant.\n",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "description": "Restrict to one tenant id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "live_orgs",
+            "in": "query",
+            "description": "`1` or `true` excludes workspaces belonging to soft-deleted orgs.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque; the `next_cursor` of the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of workspaces.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateWorkspaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`q` over 200 characters, a `limit` outside 1-200, or a `cursor` this endpoint did not\nissue. A rejected cursor is a 400 rather than an ignored parameter, because silently\nstarting from page 1 reads as \"there is nothing more\".\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/state/{workspaceId}": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getPlatformStateWorkspace",
+        "summary": "One state workspace, its serials and its lock",
+        "description": "The workspace, its live lock if it holds one, and up to 300 serials newest-first.\n\n`serials[].is_current` marks the serial the next `terraform apply` works from — the highest\nserial, which is also the first row. Deleting that one needs `force`, and this flag is how\nthe console knows to say so before the operator clicks rather than after.\n\n`truncated` with `total_serials` tells the console that a \"delete every serial\" action\ncovers MORE than the table shows. A workspace with over 300 serials is a paging problem,\nnot a table, and pretending otherwise would understate what a delete-all removes.\n\n`blocked_version_id` may name a serial that no longer exists: it carries no foreign key, and\na hard delete of the version a block was raised on nulls the pointer while KEEPING the\nblock. See `blocked_reason`, which is rewritten to say so.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace and its serials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateWorkspaceDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePlatformStateWorkspace",
+        "summary": "Hard delete a state workspace",
+        "description": "Removes the workspace and everything under it: every serial, every plan render, the lock\nfile and its parsed providers, the token grants, the policy overrides, the apply-run history\nand the row itself.\n\nIT ALSO SWEEPS THE TWO PER-WORKSPACE OBJECT PREFIXES — `state/{orgId}/{workspaceId}/` and\n`plans/{orgId}/{workspaceId}/` — as well as the keys the rows name. That is not belt and\nbraces: `StateService` deletes a row and then its object, untransacted, so a failed second\nstep strands bytes with no index, and once the workspace row is gone nothing will ever be\nable to find them again. A serial delete does not sweep, because the workspace survives it\nand those orphans stay reachable.\n\n`state_apply_runs` rows ARE deleted here, unlike in a serial delete: they are the history of\nthe workspace that is going.\n\nA locked workspace is refused with 409 unless `force=1`, which also breaks the lock —\nwhatever held it fails its next state call.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "description": "`1` or `true` deletes a LOCKED workspace, breaking the lock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted, or — with `complete: false` — partially: the object budget ran out and no rows\nwere touched. Repeat the call.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtefactDeleteResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/ForceRequired"
+          },
+          "423": {
+            "$ref": "#/components/responses/DestructiveNotArmed"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/state/{workspaceId}/serials/{versionId}": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "versionId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "deletePlatformStateVersion",
+        "summary": "Hard delete one state serial",
+        "description": "Removes one serial: its R2 object, its scan findings, its policy results, its promote and\nremove idempotency ledgers, its scan attempts and the `state_versions` row.\n\nTWO THINGS ARE FIXED UP AFTERWARDS, and both matter more than the delete itself:\n\nThe workspace's denormalised current-state pointer (`current_serial` / `current_lineage`,\nmigration 082) moves back to whatever serial is newest NOW. That pointer is what the plan\nlineage-match guard reads, so leaving it naming a deleted serial would refuse every\nsubsequent plan with a lineage mismatch.\n\nIf the workspace was blocked ON this serial, the pointer is nulled and `blocked` is KEPT,\nwith `blocked_reason` rewritten to say an operator removed the evidence. Clearing the block\nwould mean deleting a state file silently re-opens that workspace to `terraform apply`,\nwhich is the opposite of fail-safe. Attest on the workspace to lift it.\n\n`state_apply_runs.version_id` is nulled rather than deleted — the run is immutable history\nand the workspace it belongs to is still here.\n\nRefused with 409 unless `force=1` when the serial is the current one, or when the workspace\nis locked. `force` covers both, and breaks the lock.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "description": "`1` or `true` deletes the CURRENT serial and/or breaks a live lock.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted, or partially with `complete: false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtefactDeleteResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such workspace, or that serial does not belong to it. Answered as 404 rather than as\na success with zero counts, because \"nothing happened\" and \"it was already gone\" are\ndifferent facts and only one of them means the operator can stop looking.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/ForceRequired"
+          },
+          "423": {
+            "$ref": "#/components/responses/DestructiveNotArmed"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/state/{workspaceId}/serials/delete": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "deletePlatformStateVersions",
+        "summary": "Hard delete several state serials in one pass",
+        "description": "The batch form of the delete above, with identical semantics and the same fix-ups. One R2\nbulk delete covers up to 1000 keys, so clearing a workspace's history costs the same as\nclearing one serial.\n\nPOST RATHER THAN DELETE because the id set is a request body, and a DELETE carrying a body\nis a shape some proxies and some fetch stacks drop silently — which on a delete route means\na request that arrives looking like it asked for everything.\n\nIds that do not belong to this workspace are ignored rather than failing the batch; if NONE\nof them does, the answer is 404.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "version_ids"
+                ],
+                "properties": {
+                  "version_ids": {
+                    "type": "array",
+                    "description": "`state_versions.id` values. At most 500 per call.",
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "force": {
+                    "type": "boolean",
+                    "description": "Permits deleting the current serial and breaks a live lock. Required whenever\nthe set includes the highest serial, which a \"delete everything\" action always\ndoes.\n",
+                    "default": false
+                  }
+                }
+              },
+              "example": {
+                "version_ids": [
+                  "3f1c…",
+                  "9ab2…"
+                ],
+                "force": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deleted, or partially with `complete: false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtefactDeleteResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, an empty `version_ids`, a non-string id, or more than 500 ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such workspace, or none of those serials belongs to it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/ForceRequired"
+          },
+          "423": {
+            "$ref": "#/components/responses/DestructiveNotArmed"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/modules": {
+      "get": {
+        "operationId": "listPlatformModules",
+        "summary": "List modules across every org",
+        "description": "Every module on the platform, most recently published first, keyset-paginated over\n`(latest_published_at, id)`. A module with no versions yet sorts by its own `created_at`\nrather than vanishing to the end of the list.\n\nSoft-deleted orgs are included by default and flagged by `org_deleted_at`, as on the state\nlist; `live_orgs=1` excludes them. `measured_bytes` follows the same measured/unmeasured\ncontract: `null` means versions exist and none is measured, never 0 B.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive substring of the module name, its provider, the org slug or the org\nname — or an EXACT module id.\n",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "description": "Restrict to one tenant id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "live_orgs",
+            "in": "query",
+            "description": "`1` or `true` excludes modules belonging to soft-deleted orgs.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of modules.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformModuleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`q` too long, `limit` out of range, or a cursor this endpoint did not issue.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/modules/{moduleId}": {
+      "parameters": [
+        {
+          "name": "moduleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getPlatformModule",
+        "summary": "One module and its versions",
+        "description": "The module and up to 300 versions, newest-published first.\n\n`versions[].is_latest` marks the version a bare constraint resolves to. Deleting it needs\n`force`, and this flag is how the console says so before the click.\n\n`inbound_dependencies` counts other modules whose `source` block names this one. Those rows\nSURVIVE a delete — `module_dependencies` names its target by (namespace, name, provider) and\nthe row records what that other module's source says, which is still true — so the number is\na warning about the dependency graph, not something the delete will tidy.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "responses": {
+          "200": {
+            "description": "The module and its versions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformModuleDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such module.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePlatformModule",
+        "summary": "Hard delete a module and every version",
+        "description": "Removes the module row, every version row, every version's R2 archive, and the scan\nfindings, policy results, policy overrides, download events, block events, provider refs and\nscan attempts hanging off them.\n\nNO `force` PARAMETER, unlike the per-version delete: the refusal `force` exists for is\n\"this is the latest version\", and deleting the whole module removes every version including\nthat one, which is unambiguously what was asked.\n\nTHERE IS NO OBJECT PREFIX TO SWEEP. `ModuleService` stores archives flat under\n`modules/{tenantHash(orgSlug)}/{uuid}.tar.gz`, so the prefix belongs to the whole ORG and\nsweeping it would take every other module with it. Row-named keys only, therefore — which\nis also why the rows are deleted last.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted, or partially with `complete: false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtefactDeleteResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such module.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "$ref": "#/components/responses/DestructiveNotArmed"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/modules/{moduleId}/versions/{versionId}": {
+      "parameters": [
+        {
+          "name": "moduleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "versionId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "deletePlatformModuleVersion",
+        "summary": "Hard delete one module version",
+        "description": "Removes one version's archive and rows.\n\nTHE MODULE ROW IS KEPT even when this was the last version, so the name stays registered and\na republish lands on the same module. `notes` says so. Delete the module itself to remove\nthe registration.\n\nRefused with 409 unless `force=1` when the version is the latest: removing it changes what\nevery consumer's version constraint resolves to, which is a different act from removing an\nold version nobody resolves to any more.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "description": "`1` or `true` deletes the LATEST version.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted, or partially with `complete: false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtefactDeleteResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such module, or that version does not belong to it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/ForceRequired"
+          },
+          "423": {
+            "$ref": "#/components/responses/DestructiveNotArmed"
+          }
+        }
+      }
+    },
+    "/api/platform/artefacts/modules/{moduleId}/versions/delete": {
+      "parameters": [
+        {
+          "name": "moduleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "deletePlatformModuleVersions",
+        "summary": "Hard delete several module versions in one pass",
+        "description": "The batch form of the delete above. POST for the same reason as the state batch: a DELETE\ncarrying a body is a shape some stacks drop silently.\n\n`force` is required whenever the set includes the latest version. Ids that do not belong to\nthis module are ignored; if none does, the answer is 404.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "version_ids"
+                ],
+                "properties": {
+                  "version_ids": {
+                    "type": "array",
+                    "description": "`module_versions.id` values. At most 500 per call.",
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "force": {
+                    "type": "boolean",
+                    "description": "Permits deleting the latest version.",
+                    "default": false
+                  }
+                }
+              },
+              "example": {
+                "version_ids": [
+                  "7c21…",
+                  "b004…"
+                ],
+                "force": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deleted, or partially with `complete: false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtefactDeleteResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, an empty `version_ids`, a non-string id, or more than 500 ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "No such module, or none of those versions belongs to it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/ForceRequired"
+          },
+          "423": {
+            "$ref": "#/components/responses/DestructiveNotArmed"
+          }
+        }
+      }
+    },
     "/api/platform/audit": {
       "get": {
         "operationId": "listPlatformTenantAuditEvents",
@@ -19710,7 +22350,7 @@
       "post": {
         "operationId": "rotatePlatformGlobalToken",
         "summary": "Replace a global token's secret",
-        "description": "Mints a new secret at the IdP and invalidates the old one, keeping the same token id and\n`oidc_client_id` — so whatever uses the token changes one value, not its identity. The new\nsecret is returned once, like a create.\n\nRotation is the only recovery for a leaked or lost global secret, and the old secret stops\nworking the moment this returns, so a caller holding it will start failing immediately.\n\n`404` covers two cases the message tells apart: no global token with this id (as on the\ndelete), or a row with no `oidc_app_id` — one created before that column existed, whose IdP\nside cannot be reached. Such a row can only be removed, and the IdP credential cleaned up\nby hand; `/machine-clients?issue=missing_app_id` lists them.\n\nAudited as `platform.token.rotate` on `token`.\n",
+        "description": "Mints a new secret at the IdP and invalidates the old one, keeping the same token id and\n`oidc_client_id` — so whatever uses the token changes one value, not its identity. The new\nsecret is returned once, like a create.\n\nRotation is the only recovery for a leaked or lost global secret. The old secret stops\nminting the moment this returns, so a caller holding it fails at its next token exchange.\nAn access token already minted from it stays valid until it expires, up to 12 hours.\nA failed revoke answers `502` and the new secret is not returned; retrying is safe.\n\n`404` covers two cases the message tells apart: no global token with this id (as on the\ndelete), or a row with no `oidc_app_id` — one created before that column existed, whose IdP\nside cannot be reached. Such a row can only be removed, and the IdP credential cleaned up\nby hand; `/machine-clients?issue=missing_app_id` lists them.\n\nAudited as `platform.token.rotate` on `token`.\n",
         "tags": [
           "Internal — Platform Operator"
         ],
@@ -20067,7 +22707,7 @@
       "get": {
         "operationId": "listPlatformInboundForms",
         "summary": "List form submissions, newest first",
-        "description": "Every `form_submissions` row. One table holds the in-app support / beta-feedback form\n(name and email from the session) AND the public terramantle.dev contact, founding-member\nand enterprise-quote forms (name and email typed by the visitor, so untrusted). The row\ndoes not record which form it came from.\n\nThe enterprise quote form stores its structured answers as a JSON string in `use_case`;\n`metadata` is that string parsed, and `null` for free text.\n",
+        "description": "Every `form_submissions` row. One table holds the in-app support / beta-feedback form\n(name and email from the session) AND the public terramantle.dev contact\nand enterprise-quote forms (name and email typed by the visitor, so untrusted). The row\ndoes not record which form it came from.\n\nThe enterprise quote form stores its structured answers as a JSON string in `use_case`;\n`metadata` is that string parsed, and `null` for free text.\n",
         "tags": [
           "Internal — Platform Operator"
         ],
@@ -20444,8 +23084,7 @@
                   "required": [
                     "operations",
                     "active",
-                    "armed",
-                    "step_up_max_age_seconds"
+                    "armed"
                   ],
                   "properties": {
                     "operations": {
@@ -20469,9 +23108,6 @@
                     "confirmation": {
                       "type": "object",
                       "description": "The exact text each kind requires, so the console never guesses it."
-                    },
-                    "step_up_max_age_seconds": {
-                      "type": "integer"
                     }
                   }
                 }
@@ -20740,7 +23376,7 @@
       "post": {
         "operationId": "planPlatformOrgPurge",
         "summary": "Plan the permanent removal of a deleted org",
-        "description": "Inventories everything an org purge would delete. Deletes nothing, and is allowed while the\norg is still **inside** its promise window so an operator can see what is pending — the\napply is what refuses.\n\n**Scope: 46 tables, derived from the schema rather than hand-written.** 20 reach a tenant\ndirectly by `tenant_id`/`org_id`; the rest through a parent chain up to four levels deep\n(`download_events` → `module_versions` → `modules` → tenant). They are deleted children\nfirst and WITHOUT relying on `ON DELETE CASCADE`, because only 11 of the 20 declare it and\nwhether SQLite enforces foreign keys at all depends on the session.\n\n**Objects before rows, and the reason is sharper here than for a provider wipe:** there is\nno per-org prefix in any of the four object layouts, so the rows naming them are the *only*\nindex of those objects. Delete the rows first and the bytes are unreachable for ever. The\nfour key sets — module archives, state versions and plan renders (`MODULES_BUCKET`), and\npublished policy bundles (`POLICY_BUNDLES`, a different binding) — are all read out of the\nrows at plan time.\n\n**The tenant row goes last**, because while it exists the org is still findable, which is\nwhat lets a resumed slice locate its own leftovers.\n\n**`platform_audit_events` is never touched.** The operator's own record of having done this\nhas to outlive its target.\n\nThe plan hash covers the org identity, its eligibility, which tables are non-empty and the\nexact object keys — but NOT the row counts. A soft-deleted org is mostly inert, yet a\nretention prune can still move a count, and that must not withdraw approval. Eligibility IS\nhashed: if the org were somehow restored between plan and apply, the approval dies with it.\n",
+        "description": "Inventories everything an org purge would delete. Deletes nothing, and is allowed while the\norg is still **inside** its promise window so an operator can see what is pending — the\napply is what refuses.\n\n**Scope: 46 tables, derived from the schema rather than hand-written.** 20 reach a tenant\ndirectly by `tenant_id`/`org_id`; the rest through a parent chain up to four levels deep\n(`download_events` → `module_versions` → `modules` → tenant). They are deleted children\nfirst and WITHOUT relying on `ON DELETE CASCADE`, because only 11 of the 20 declare it and\nwhether SQLite enforces foreign keys at all depends on the session.\n\n**Objects before rows:** the rows naming an object are the only index of the objects a\n*current* row points at, so deleting the rows first would make those bytes unreachable for\never. The four key sets — module archives, state versions and plan renders\n(`MODULES_BUCKET`), and published policy bundles (`POLICY_BUNDLES`, a different binding) —\nare all read out of the rows at plan time.\n\nThis endpoint does **not** sweep the per-org R2 prefixes, so an object whose row was already\ngone (state version deletes write the row and the object untransacted) survives an\n`org_purge`. `org-hard-delete` does sweep them; see its `orphans` phase.\n\n**The tenant row goes last**, because while it exists the org is still findable, which is\nwhat lets a resumed slice locate its own leftovers.\n\n**`platform_audit_events` is never touched.** The operator's own record of having done this\nhas to outlive its target.\n\nThe plan hash covers the org identity, its eligibility, which tables are non-empty and the\nexact object keys — but NOT the row counts. A soft-deleted org is mostly inert, yet a\nretention prune can still move a count, and that must not withdraw approval. Eligibility IS\nhashed: if the org were somehow restored between plan and apply, the approval dies with it.\n",
         "tags": [
           "Internal — Platform Operator"
         ],
@@ -20870,11 +23506,371 @@
         }
       }
     },
+    "/api/platform/operations/org-hard-delete/candidates": {
+      "get": {
+        "operationId": "listPlatformOrgHardDeleteCandidates",
+        "summary": "Every org, with whether it may be hard deleted",
+        "description": "The operator-initiated counterpart to `org-purge/candidates`, and deliberately **not**\nfiltered to soft-deleted orgs: a live org is the normal target of a hard delete, so the\nfiltering is the operator's to do on screen.\n\nIneligible orgs are returned **with** their reason rather than omitted, because \"why can I\nnot delete this one\" is the question a list like this has to answer.\n\nCapped at 500 rows for display, with `total` and `truncated` saying so. That cap applies to\nthis listing alone — see `truncated`. `reason` is one of\n`ok`, `not_found`, `personal` or `demo`. Note what is **absent** from that set:\n`not_deleted` and `within_promise_window` are refusals of `org_purge` only — see\n`org-hard-delete/plan` for why neither applies here.\n\nA read: not audited.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "responses": {
+          "200": {
+            "description": "Every org, soft-deleted ones first, then newest-created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "candidates",
+                    "total",
+                    "eligible",
+                    "truncated",
+                    "listed"
+                  ],
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Every org that exists, not just the ones listed."
+                    },
+                    "listed": {
+                      "type": "integer",
+                      "description": "How many are in `candidates` — at most 500."
+                    },
+                    "truncated": {
+                      "type": "boolean",
+                      "description": "`true` when there are more orgs than this listing returns. It is a **display**\nlimit and never a cap on what can be deleted: `all_eligible` on the plan\nendpoint resolves the full set server-side through an unlimited query, so\n\"delete everything eligible\" cannot quietly mean \"the first 500\".\n"
+                    },
+                    "eligible": {
+                      "type": "integer",
+                      "description": "How many of the LISTED ones may actually be hard deleted."
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "slug",
+                          "deleted_at",
+                          "created_at",
+                          "is_personal",
+                          "is_demo",
+                          "eligible",
+                          "reason",
+                          "detail"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "description": "What the operator types to confirm a single-org delete. For a batch the\nphrase names the count instead; see `org-hard-delete/plan`.\n"
+                          },
+                          "deleted_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true,
+                            "description": "Null for a live org, which is still eligible. A hard delete does not\nrequire a prior soft delete — that is the point of it.\n"
+                          },
+                          "created_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "is_personal": {
+                            "type": "boolean"
+                          },
+                          "is_demo": {
+                            "type": "boolean"
+                          },
+                          "eligible": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "enum": [
+                              "ok",
+                              "not_found",
+                              "personal",
+                              "demo"
+                            ]
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/operations/org-hard-delete/plan": {
+      "post": {
+        "operationId": "planPlatformOrgHardDelete",
+        "summary": "Plan the immediate, silent, permanent removal of any number of orgs",
+        "description": "Summarises everything a hard delete would destroy, for **any number** of orgs. Deletes\nnothing.\n\n**There is no cap.** There was one, of 25, and it was covering for a plan that cost about\n14 D1 queries per org — six to count 46 tables, four for the object keys, and one each for\nmembers, identities, orphaned users and disowned build jobs. Planning the whole estate\nwould have spent well over a thousand subrequests in a single request and died before\nanswering, so the cap was hiding that rather than solving it. The plan is now **aggregate**:\none query resolves the targets and about ten more produce every count, using\n`IN (SELECT value FROM json_each(?))` across the whole batch at once. The cost no longer\ngrows with the number of orgs, so the limit is gone rather than merely raised.\n\n**How this differs from `org-purge`, and why.** An org purge exists to keep a promise: a\ncustomer who deletes their org through the portal is emailed a date, and the purge is what\nhonours it. So a purge requires the org to be soft-deleted already and the 30-day window to\nhave closed — `within_promise_window` is the one refusal with no override anywhere in the\nsystem.\n\nA hard delete is operator-initiated and **silent**: no owner is emailed, so no promise is\nmade, so there is no date to honour and no window to wait out. It is therefore immediate and\naccepts a **live** org. This is not an override of the promise rule — that rule still has\nnone — it is a path the rule never covered. The two eligibility functions are kept separate\nin the code for exactly this reason, so the promise path cannot acquire an override by\naccident.\n\n`personal` and `demo` are still refused, because those refusals are structural rather than\npromise-based: a personal org is a user's own namespace, and deleting the demo org would\nbreak every new sign-up's first experience.\n\n**One plan for the whole batch.** A batch and a single org are the same operation — a batch\nof one. The alternative, a plan per org, means N typed confirmations and N step-up\nre-authentications to clear a backlog, and an operator doing that 46 times has stopped\nreading. One approval covering a list printed in full is the stronger check, which is also\nwhy the console renders the confirmation field inline beneath the list rather than in a\nmodal: the slugs must stay visible while the phrase is typed.\n\n**`all_eligible: true`** plans every org that may currently go, without the caller sending\nids back. That is not a convenience: an org created between the caller reading the candidate\nlist and posting it would otherwise be silently missed from a batch meant to cover\neverything, so the set is resolved server-side.\n\n**The object keys and the IdP identities are read by the slice, not by this endpoint**, and\nthat is a correctness fix rather than a concession to cost. A hard delete's normal target is\na **live** org, whose object keys change whenever somebody pushes state — so hashing them\ninto the approval would have made the plan `409` on apply for exactly the orgs the feature\nexists to delete. Each org's keys are read in its own `objects` phase, which still runs\nbefore that org's `rows` phase, so the invariant that matters — never delete the rows naming\nan object before the object — is untouched. Reading late also catches a bot token minted\nafter the plan, which a snapshot would have left orphaned in Authentik for ever.\n\n**It runs in a single pass, with no phases and no cursor**, unlike a provider wipe or an\norg purge. Those two walk one provider's objects, which run to tens of thousands of keys, so\nthey genuinely cannot finish inside one Worker invocation and must record where they got to.\nThis one deletes **set-wise**: every predicate is scoped to the whole id list, so 46\nstatements clear 46 orgs rather than 46 statements each. Measured against real data — the\nlargest per-org table in this platform holds 100 rows — a 46-org batch costs roughly 250\nsubrequests against a ceiling of 1000.\n\nSo **recovery is re-running, not resuming.** Every step is idempotent: each `DELETE` matches\nonly what is still there, deleting an absent R2 key is a no-op, a prefix sweep re-lists what\nremains, and Authentik answers `404` for a user already gone. If the budget ever does run\nout, the operation reports `incomplete` and `resume` runs it again from the top, skipping\nwhat no longer matches. That is simpler than a cursor and cannot get the ordering wrong.\n\nWhat is **not** on offer is atomicity: R2 and D1 are separate services with no shared\ntransaction, so nothing here could make the delete all-or-nothing. The real choice is\nbetween recording progress and being safe to repeat, and repeating wins at this size.\n\n**What it destroys beyond an `org_purge`**, in the order the single pass runs:\n\n- `identity` — the org's Authentik service-account users, one per bot token. This must\n  precede the row deletes: `machine_clients.oidc_app_id` is the *only* handle on those\n  users, so deleting the rows first orphaned them in the IdP for ever. Every org purge\n  before this did exactly that.\n- `orphans` — a sweep of the org's own R2 prefixes (`state/<id>/`, `plans/<id>/`,\n  `bundles/<id>/` and `modules/<sha256(slug)[0:12]>/`), which reclaims objects whose row is\n  already gone. Row-driven deletion cannot see those, and they do occur.\n- `users` — the `users` and `feature_interest` rows of anyone left with **no membership of\n  any org**, which includes both members orphaned by this delete and anyone already\n  orphaned before it (see `already_orphaned_users`). Left behind, such a row still holds an\n  email address and a last-seen IP and city: personal data surviving a delete that claimed\n  to be complete. A user who still belongs to another org is never touched.\n\n**What it deliberately does not destroy.** `provider_build_jobs.requested_by_org` is\n`ON DELETE SET NULL`: the provider that was built is a shared platform artefact other orgs\nmay be serving, so it outlives whoever asked for it. The plan reports the count as\n`disowned_build_jobs` so this is a decision the operator saw rather than found later.\nProvider bytes are shared at `(namespace, type)` grain — an org *subscribes* to them — so\ndeleting them would break other orgs. `platform_audit_events` is never touched.\n\n**What no worker can reach**, returned in the finished operation's `manual_followup` so it\nis not discovered later: Argo Workflow CRs and the workflow archive (labelled `org=<id>`,\nand the worker's Argo client has no delete verb), the `terramantle-argo` R2 bucket, and\nLoki/Mimir/Tempo, which carry `tenant.id`, are append-only and age out on retention.\n\n**The plan hash covers which orgs, and whether each may go — and deliberately nothing\nelse.** The consent being given is \"destroy exactly these organisations\", and at\nwhole-tenant granularity that *is* the decision; an operator is not approving a byte\nmanifest. Order does not matter, so re-sorting the list in a console does not invalidate an\napproval. Eligibility **is** hashed, so an org that is restored or becomes personal kills\nthe approval. Row counts, object counts, identity counts and the orphaned-user count are\nall volatile: they are re-read at apply time, diffed and reported, never consent.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Either an explicit `org_ids` list or `all_eligible: true`. Sending neither is a\n`400` rather than a no-op plan.\n",
+                "properties": {
+                  "org_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Org **ids**, not slugs, and **no upper bound**. Duplicates are collapsed: the\nsame org twice would be deleted once and then reported \"already absent\",\nleaving the operator unsure which pass mattered. Ids that match no org come\nback in `missing` rather than failing the plan, so one stale id out of hundreds\ndoes not force a re-send.\n"
+                  },
+                  "all_eligible": {
+                    "type": "boolean",
+                    "description": "Plan every org that may currently be hard deleted, resolved server-side.\nIneligible orgs are not swept in. Ignored unless literally `true`, and it takes\nprecedence over `org_ids`.\n"
+                  }
+                }
+              },
+              "examples": {
+                "explicit": {
+                  "summary": "An explicit batch",
+                  "value": {
+                    "org_ids": [
+                      "3f2a1c9e-55d1-4a0b-9b77-2e6c1f8d4a21"
+                    ]
+                  }
+                },
+                "everything": {
+                  "summary": "Clear the whole backlog",
+                  "value": {
+                    "all_eligible": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The plan. Nothing has been deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "operation_id",
+                    "plan_hash",
+                    "expires_at",
+                    "confirmation_required",
+                    "org_count",
+                    "targets",
+                    "notice"
+                  ],
+                  "properties": {
+                    "operation_id": {
+                      "type": "string"
+                    },
+                    "plan_hash": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "armed": {
+                      "type": "boolean"
+                    },
+                    "arm_problem": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "confirmation_required": {
+                      "type": "string",
+                      "description": "For one org, that org's **slug** — identical to an `org_purge`, so the single\ncase feels like the thing it replaces. For a batch,\n`delete <N> organisations permanently`: typing 25 slugs is not a safety check\nbut a transcription exercise an operator would paste past, so the phrase names\nthe count and the safety comes from the plan listing every slug on screen.\n"
+                    },
+                    "org_count": {
+                      "type": "integer"
+                    },
+                    "targets": {
+                      "type": "array",
+                      "description": "One lightweight record per org — id, name, slug, `deleted_at` and its\neligibility verdict. Deliberately **not** a per-org inventory: that is what\nmade a capped batch necessary. Soft-deleted orgs sort first, then\nnewest-created.\n",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "slug",
+                          "deleted_at",
+                          "eligibility"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "deleted_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          },
+                          "eligibility": {
+                            "type": "object",
+                            "required": [
+                              "eligible",
+                              "reason",
+                              "detail"
+                            ],
+                            "properties": {
+                              "eligible": {
+                                "type": "boolean"
+                              },
+                              "reason": {
+                                "type": "string",
+                                "enum": [
+                                  "ok",
+                                  "not_found",
+                                  "personal",
+                                  "demo"
+                                ]
+                              },
+                              "detail": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "rows": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      },
+                      "description": "Row counts per table, summed across **every** target. Aggregate because a\nper-org breakdown is what the cap existed to afford; the blast radius is the\nnumber an operator is deciding on anyway.\n"
+                    },
+                    "members": {
+                      "type": "integer",
+                      "description": "Members losing access across the batch."
+                    },
+                    "identities": {
+                      "type": "integer",
+                      "description": "Authentik service accounts that will be deleted."
+                    },
+                    "orphan_users": {
+                      "type": "integer",
+                      "description": "Members of these orgs who belong to no other org, so whose `users` row goes\ntoo. A count, not a list — the delete re-derives the set itself, which is what\nlets it be re-run rather than resumed.\n"
+                    },
+                    "already_orphaned_users": {
+                      "type": "integer",
+                      "description": "Users who had **no membership of any org** before this operation, and are\nswept too. The delete's predicate is \"no membership anywhere\", because that is\ncomputable at any point and therefore repeatable; the alternative needs the\nmembership rows read before they are deleted and the ids carried across, and\nif that failed mid-way the stragglers would be unfindable. Reported separately\nso this wider reach is approved rather than discovered. Such a user cannot\nsign in to anything and is pure personal-data residue — an email, a last-seen\nIP and a city.\n"
+                    },
+                    "disowned_build_jobs": {
+                      "type": "integer",
+                      "description": "Build jobs whose `requested_by_org` will be **nulled, not deleted**. Reported\nso this is a decision the operator saw rather than found later.\n"
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Ids that matched no org. Reported, not fatal, unless none matched."
+                    },
+                    "ineligible": {
+                      "type": "array",
+                      "description": "Orgs in the plan that cannot be deleted, with the reason. Planning them is\nallowed so the operator can see the refusal; the apply is what refuses.\n",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "slug",
+                          "reason",
+                          "detail"
+                        ],
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "enum": [
+                              "ok",
+                              "not_found",
+                              "personal",
+                              "demo"
+                            ]
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "notice": {
+                      "type": "string",
+                      "description": "Said at the top level because it is the whole difference from an `org_purge`,\nand the thing an operator must not learn afterwards.\n"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, or neither `org_ids` nor `all_eligible: true`. There is no size limit to\nexceed.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "description": "None of those ids matched an org, or `all_eligible` was asked for and nothing is\ncurrently eligible.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/platform/operations/{id}/apply": {
       "post": {
         "operationId": "applyPlatformOperation",
         "summary": "Approve and start a planned destructive operation",
-        "description": "Answers **202**: the work runs as queued slices, not in this request. Poll\n`GET /api/platform/operations/{id}` for `phase` and `status`.\n\nEvery refusal has its own status, because an operator mid-incident needs to know which thing\nto go and fix:\n\n| Condition | Status | Code |\n|---|---|---|\n| not armed, or paused | 423 | `not_armed` |\n| `auth_time` older than 10 min, or absent | 401 | `reauth_required` |\n| not in `planned` status | 409 | `conflict` |\n| planned against another environment | 409 | `conflict` |\n| plan older than 10 minutes | 410 | `plan_expired` |\n| wrong or missing confirmation text | 400 | `bad_request` |\n| stable fields changed | 409 | `plan_stale`, with `volatile_diff` |\n| in-flight work, or purge preconditions unmet | 409 | `conflict`, with `gates` |\n| org still inside its 30-day promise window | 409 | `conflict`, with `gates` |\n| org no longer exists | 409 | `conflict` |\n| another operation holds the slot | 409 | `conflict`, with `active` |\n\n410 rather than 409 for an expired plan is deliberate: the plan existed and no longer\napplies, so the fix is to re-plan rather than to retry. 423 rather than 403 for an unarmed\nworker is also deliberate: the capability is shut, which is a different problem from this\nrequest being wrong, and is fixed somewhere else entirely.\n\nA successful apply still reports `volatile_diff` — what moved between plan and apply without\nwithdrawing consent. That is information the operator should have, not a reason to stop.\n",
+        "description": "Answers **202**: the work runs as queued slices, not in this request. Poll\n`GET /api/platform/operations/{id}` for `phase` and `status`.\n\nEvery refusal has its own status, because an operator mid-incident needs to know which thing\nto go and fix:\n\n| Condition | Status | Code |\n|---|---|---|\n| not armed, or paused | 423 | `not_armed` |\n| not in `planned` status | 409 | `conflict` |\n| planned against another environment | 409 | `conflict` |\n| plan older than 10 minutes | 410 | `plan_expired` |\n| wrong or missing confirmation text | 400 | `bad_request` |\n| stable fields changed | 409 | `plan_stale`, with `volatile_diff` |\n| in-flight work, or purge preconditions unmet | 409 | `conflict`, with `gates` |\n| org still inside its 30-day promise window | 409 | `conflict`, with `gates` |\n| org no longer exists | 409 | `conflict` |\n| another operation holds the slot | 409 | `conflict`, with `active` |\n\n410 rather than 409 for an expired plan is deliberate: the plan existed and no longer\napplies, so the fix is to re-plan rather than to retry. 423 rather than 403 for an unarmed\nworker is also deliberate: the capability is shut, which is a different problem from this\nrequest being wrong, and is fixed somewhere else entirely.\n\nA successful apply still reports `volatile_diff` — what moved between plan and apply without\nwithdrawing consent. That is information the operator should have, not a reason to stop.\n",
         "tags": [
           "Internal — Platform Operator"
         ],
@@ -20945,14 +23941,7 @@
             }
           },
           "401": {
-            "description": "`reauth_required` — the token's `auth_time` is older than ten minutes or absent. The\nresponse carries `auth_time_present` so the console can tell \"sign in again\" apart from\n\"this IdP never emits the claim, so the step-up can never be satisfied\".\n",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/PlatformOperatorRequired"
@@ -21133,14 +24122,7 @@
             }
           },
           "401": {
-            "description": "`reauth_required` — the step-up applies to a resume as well.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/PlatformOperatorRequired"
@@ -23602,7 +26584,7 @@
       "post": {
         "operationId": "createPolicy",
         "summary": "Create a policy",
-        "description": "The Rego **must** declare `package terramantle.policy` — the evaluator looks for its rules\nthere, so a different package would silently never fire. That is rejected at `400` rather\nthan accepted and ignored.\n\n`artefact_type` is validated against the known kinds rather than coerced, so a typo cannot\nfile a policy under the wrong tab. Leaving it out defaults to `module`.\n\n`instance_key` decides the policy's reach:\n\n- absent ⇒ an **org baseline**, applying to every artefact of that kind and inheritable;\n- set ⇒ **identity-custom**, attached to exactly one artefact identity (a module id, a\n  state workspace, a provider, a plan workspace key). `artefact_type` is then required,\n  because an instance key means nothing without knowing what kind of instance it names.\n\nA policy created here lands **disabled** (`is_enabled: 0`) whatever `is_enforcing` says:\na hand-authored rule is reviewed before it gates anything, and `POST .../toggle` is what\nmakes it live. The baseline path is the deliberate exception.\n\nCreating a policy enqueues a bundle rebuild for the org.\n",
+        "description": "Needs `privileged_admin` and a human token: a CI token or machine client is refused even\nthough it holds `member`, because a pipeline must not be able to write the rules that gate\nit.\n\nThe Rego **must** declare `package terramantle.policy` — the evaluator looks for its rules\nthere, so a different package would silently never fire. That is rejected at `400` rather\nthan accepted and ignored.\n\n`artefact_type` is validated against the known kinds rather than coerced, so a typo cannot\nfile a policy under the wrong tab. Leaving it out defaults to `module`.\n\n`instance_key` decides the policy's reach:\n\n- absent ⇒ an **org baseline**, applying to every artefact of that kind and inheritable;\n- set ⇒ **identity-custom**, attached to exactly one artefact identity (a module id, a\n  state workspace, a provider, a plan workspace key). `artefact_type` is then required,\n  because an instance key means nothing without knowing what kind of instance it names.\n\nA policy created here lands **disabled** (`is_enabled: 0`) whatever `is_enforcing` says:\na hand-authored rule is reviewed before it gates anything, and `POST .../toggle` is what\nmakes it live. The baseline path is the deliberate exception.\n\nCreating a policy enqueues a bundle rebuild for the org.\n",
         "tags": [
           "Policies"
         ],
@@ -23708,7 +26690,7 @@
       "post": {
         "operationId": "applyPolicyBaseline",
         "summary": "Apply a curated baseline policy set",
-        "description": "Create several org-baseline policies in one call, **already enabled** — the one path that\ndoes. Everything else lands a policy disabled for review; a baseline set is picked\nprecisely so it starts working, and an org that has to enable five policies by hand\nenables none.\n\nA policy whose name already exists for that artefact is **skipped, never overwritten**,\nand reported in `skipped`. The match is on the trimmed, case-folded name against existing\norg-baseline policies (`instance_key IS NULL`), which is what makes it catch an org\ncarrying the same rule under different capitalisation. The point is an org that took a\nbaseline policy and edited it keeps its own version — so a repeat apply is a no-op rather\nthan a reset, and the dialog can mark those cards \"already exists\" before you press\nanything. The same folded guard is repeated inside each INSERT, so a double-submit\ncreates one row, not two.\n\nAdmin + human-only, unlike `createPolicy` (`member`): this switches enforcement on across\nseveral artefacts at once, which is the company the other bulk-enforcement routes keep,\nand no CI client has a reason to apply a corporate baseline.\n\n`is_enforcing` defaults to `true` and is checked once for the whole call, so on a plan\nwithout OPA enforcement the request is `403` and **nothing** is created. Send\n`is_enforcing: false` to apply the same set as advisory.\n\n`rescan` says what happened to the existing artefacts the new policies now cover, and can\nonly ever describe modules and state: a provider set is re-evaluated at its next\npublish/scan, because a provider re-eval is a full clone+scan per version. `queued` means\nthe fan-out started, `coalesced` that one was triggered within the last hour and this is\nfolded into it, `none` that nothing needed re-deriving. When `created` is empty — every\ncard was a duplicate — no bundle rebuild or rescan is triggered at all.\n",
+        "description": "Create several org-baseline policies in one call, **already enabled** — the one path that\ndoes. Everything else lands a policy disabled for review; a baseline set is picked\nprecisely so it starts working, and an org that has to enable five policies by hand\nenables none.\n\nA policy whose name already exists for that artefact is **skipped, never overwritten**,\nand reported in `skipped`. The match is on the trimmed, case-folded name against existing\norg-baseline policies (`instance_key IS NULL`), which is what makes it catch an org\ncarrying the same rule under different capitalisation. The point is an org that took a\nbaseline policy and edited it keeps its own version — so a repeat apply is a no-op rather\nthan a reset, and the dialog can mark those cards \"already exists\" before you press\nanything. The same folded guard is repeated inside each INSERT, so a double-submit\ncreates one row, not two.\n\n`privileged_admin` + human, like every policy-governance route: this switches enforcement\non across several artefacts at once, and no CI client has a reason to apply a corporate\nbaseline.\n\n`is_enforcing` defaults to `true` and is checked once for the whole call, so on a plan\nwithout OPA enforcement the request is `403` and **nothing** is created. Send\n`is_enforcing: false` to apply the same set as advisory.\n\n`rescan` says what happened to the existing artefacts the new policies now cover, and can\nonly ever describe modules and state: a provider set is re-evaluated at its next\npublish/scan, because a provider re-eval is a full clone+scan per version. `queued` means\nthe fan-out started, `coalesced` that one was triggered within the last hour and this is\nfolded into it, `none` that nothing needed re-deriving. When `created` is empty — every\ncard was a duplicate — no bundle rebuild or rescan is triggered at all.\n",
         "tags": [
           "Policies"
         ],
@@ -25756,7 +28738,7 @@
       "post": {
         "operationId": "submitPublicForm",
         "summary": "Submit a marketing form",
-        "description": "The contact, founding-member and enterprise-quote forms on the marketing site. No session\nexists, so **every field is visitor-supplied and untrusted**.\n\nThe gate is size caps and a tier allowlist, and the handler does exactly two things: writes\none row and emails the admin inbox. Oversized input is **rejected, not truncated**, so the\nstored submission is always exactly what was sent.\n\nA `metadata` object — the enterprise quote form's structured answers — is stored as JSON in\nplace of free-text `use_case`.\n",
+        "description": "The contact and enterprise-quote forms on the marketing site. No session\nexists, so **every field is visitor-supplied and untrusted**.\n\nThe gate is size caps and a tier allowlist, and the handler does exactly two things: writes\none row and emails the admin inbox. Oversized input is **rejected, not truncated**, so the\nstored submission is always exactly what was sent.\n\nA `metadata` object — the enterprise quote form's structured answers — is stored as JSON in\nplace of free-text `use_case`.\n",
         "tags": [
           "Public"
         ],
@@ -26156,6 +29138,99 @@
         }
       }
     },
+    "/api/reference/asns": {
+      "get": {
+        "operationId": "searchAsnNames",
+        "summary": "Look up autonomous systems by name or number",
+        "description": "The directory behind the Access Rules tab's network picker: type `github` and get\n`AS36459 GITHUB`, or pass the numbers of a saved rule set and get their names back for\nthe chips. Any signed-in identity may call it - it is reference data, not tenant data -\nbut it is deliberately not public, so the list of unauthenticated routes does not grow\nfor a convenience endpoint.\n\n**Source.** RIPE's registry-wide AS names file (`ftp.ripe.net/ripe/asnames/asn.txt`),\nmirrored into D1 weekly by the reference-data cron (`17 4 * * *`) and on demand through\n`POST /internal/reference-refresh?sources=asn`. The Worker never proxies a third-party\nsearch per keystroke, so a lookup does not depend on anyone else's uptime.\n\n**Two modes, one of which is required.** `q` is a type-ahead: at least two characters,\nmatched case-insensitively as a substring of the name with prefix matches ordered first\n(so `ama` ranks `AMAZON-02` above `PANAMA-NET`), or, when it is a number with or without\nthe `AS` prefix, an exact match followed by numeric-prefix matches (`80` finds AS80, then\nAS800...). `asn` is a resolve: a comma list of numbers, each `8075` or `AS8075`, up to the\n256 a rule set can hold; unknown numbers are simply absent from the answer, not an error.\n`asn` wins when both are present.\n\n**`stale`.** `true` means the mirror is empty - the Worker was deployed but the cron has\nnot yet run - so an empty result says nothing about whether the network exists. The portal\nshows \"names not available yet, enter the number\" rather than \"no match\". It is only ever\n`true` alongside an empty `asns`.\n\n**Names differ from the edge's.** Cloudflare's `cf.asOrganization` (what the access-rule\nevaluator logs) comes from its own GeoIP vendor and reads \"Amazon.com, Inc.\" where RIPE\nsays \"AMAZON-02 - Amazon.com, Inc.\". The number is what a rule matches on; the name is a\nlabel for humans.\n",
+        "tags": [
+          "Reference"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Type-ahead term. Minimum two characters after trimming. Ignored when `asn` is given.",
+            "schema": {
+              "type": "string",
+              "minLength": 2
+            },
+            "example": "amazon"
+          },
+          {
+            "name": "asn",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated ASNs to resolve, each with or without the `AS` prefix. 1 to 256 entries.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "8075,AS16509"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum results for a `q` search. Default 10, maximum 25. Not applied to `asn`.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matches, in rank order for `q` and ascending ASN for `asn`.",
+            "headers": {
+              "Cache-Control": {
+                "description": "`private, max-age=3600`: the answer is the same for everyone, but it is behind auth.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsnLookup"
+                },
+                "example": {
+                  "asns": [
+                    {
+                      "asn": 16509,
+                      "name": "AMAZON-02 - Amazon.com, Inc.",
+                      "country": "US"
+                    },
+                    {
+                      "asn": 14618,
+                      "name": "AMAZON-AES - Amazon.com, Inc.",
+                      "country": "US"
+                    }
+                  ],
+                  "stale": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Neither `q` (of at least two characters) nor `asn` was given, an `asn` entry is not a number, or `limit` is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/v1/modules/search": {
       "get": {
         "operationId": "searchModules",
@@ -26428,7 +29503,18 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "$ref": "#/components/responses/Forbidden"
+            "description": "`forbidden` — below `member` in this org, or a machine token without module write.\n\n`ci_ref_not_allowed` — a CI OIDC token publishing from a ref outside its trust entry's\n`allowed_refs` (default `[\"main\"]`). Checked before the archive is read, so a refused\npublish costs nothing to store. The same token can still download modules from any\nref.\n\n`access_rule_denied` — refused by the org's network access rules.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "ci_ref_not_allowed",
+                  "message": "This pipeline trust entry does not permit pushes from branch \"feature-x\". Add the ref to the entry's allowed refs in Organisation settings → Pipeline Trust, or push from an allowed branch."
+                }
+              }
+            }
           },
           "409": {
             "description": "This version already exists. Versions are immutable.",
@@ -28390,7 +31476,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "The token holds no read permission on this workspace. **Only** that — a policy refusal\nanswers `423`, see below.\n",
+            "description": "The token holds no read permission on this workspace (`forbidden`), or the org's\nnetwork access rules refuse this origin (`access_rule_denied`), or the org has switched\noff human access to the state backend (`human_state_access_blocked`, see `PATCH\n/api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\n**Only** those — a policy refusal answers `423`, see below.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -28436,7 +31522,7 @@
       "post": {
         "operationId": "pushState",
         "summary": "Push new state (http backend)",
-        "description": "Stores a new state version. The workspace is created on first push, so no provisioning step\nis needed.\n\nThe Worker reads `serial`, `lineage` and the resource count out of the document, and\nclassifies managed resources into real-vs-internal counts. That classification is\nbest-effort and exception-safe: a hostile or oversized state stores `null` counts rather\nthan failing the push the client is blocking on.\n\nCapped at 100 MB, checked against `Content-Length` first and the body length again.\nPushing enqueues a state scan.\n",
+        "description": "Stores a new state version. The workspace is created on first push, so no provisioning step\nis needed.\n\nThe Worker reads `serial`, `lineage` and the resource count out of the document, and\nclassifies managed resources into real-vs-internal counts. That classification is\nbest-effort and exception-safe: a hostile or oversized state stores `null` counts rather\nthan failing the push the client is blocking on.\n\nCapped at 100 MB, checked against `Content-Length` first and the body length again.\nPushing enqueues a state scan.\n\n**A write needs the held lock.** When the workspace is locked, the push must carry the\nholder's lock id as `?ID=`, which Terraform and OpenTofu send on every write made under a\nlock; anything else is `423` with the holder's lock info. With no lock held the push is\naccepted, so `-lock=false` keeps working. A second write-capable token used to write\nstraight through a held lock.\n\n**Lineage is fixed once set.** Once a workspace has a lineage, every push must carry it\n(`409 lineage_required`), a different one is refused (`409 lineage_mismatch`), and the\nserial must exceed the current one whatever the lineage (`409 serial_conflict`). The\nserial guard used to apply only when the lineages matched, so omitting or changing\n`lineage` overwrote history. A legitimate re-initialisation goes through `POST\n/api/v1/{orgId}/state/{workspace}/lineage-reset`, which a human admin opens for one push.\nEvery version is stored under its own id, so no push can replace another version's bytes.\nA workspace stored before lineages were recorded adopts the first lineage pushed.\n",
         "tags": [
           "State Backend"
         ],
@@ -28457,6 +31543,15 @@
           },
           {
             "$ref": "#/components/parameters/StateKey"
+          },
+          {
+            "name": "ID",
+            "in": "query",
+            "required": false,
+            "description": "The lock id this write is made under. Required while the workspace is locked.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -28522,11 +31617,31 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "The token holds no write permission on this workspace.",
+            "description": "`forbidden` — the token holds no write permission on this workspace.\n\n`ci_ref_not_allowed` — a CI OIDC token whose ref is outside its trust entry's\n`allowed_refs`. Only the operations that land an artefact (this one, the lock-file\nupload and module publish) answer this; the same token still reads, `LOCK`s and pushes\nplans from any ref, so a PR pipeline keeps working and the plan gate keeps seeing PRs.\n\n`access_rule_denied` — the request's country, ASN or IP is refused by the org's access\nrules. The body never names the rule or the origin.\n\n`human_state_access_blocked` — the org has switched off human access to the state\nbackend (`PATCH /api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\n",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "no_write": {
+                    "value": {
+                      "error": "forbidden",
+                      "message": "Token does not have write access to state for this workspace"
+                    }
+                  },
+                  "ci_ref": {
+                    "value": {
+                      "error": "ci_ref_not_allowed",
+                      "message": "This pipeline trust entry does not permit pushes from branch \"feature-x\". Add the ref to the entry's allowed refs in Organisation settings → Pipeline Trust, or push from an allowed branch."
+                    }
+                  },
+                  "access_rule": {
+                    "value": {
+                      "error": "access_rule_denied",
+                      "message": "Request origin is not permitted by this organisation's access rules"
+                    }
+                  }
                 }
               }
             }
@@ -28544,8 +31659,32 @@
               }
             }
           },
+          "409": {
+            "description": "`lineage_required`, `lineage_mismatch` or `serial_conflict`: the push would rewrite the\nworkspace's history. See the operation description.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "lineage_mismatch",
+                  "message": "Pushed lineage 9c1e... does not match the workspace's lineage 4b2a...; an admin must open a lineage reset first"
+                }
+              }
+            }
+          },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "423": {
+            "description": "`locked`: the workspace is locked and the push did not carry the holder's lock id. The\nbody carries the holder's Terraform lock info (`ID`, `Operation`, `Who`, `Created`) so\nthe client can show who holds it.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -28642,7 +31781,18 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "$ref": "#/components/responses/Forbidden"
+            "description": "`forbidden` — no write permission on this workspace. `ci_ref_not_allowed` — a CI OIDC\ntoken outside its trust entry's `allowed_refs`; the lock file is an artefact that\nlands, so it is gated exactly like a state push. `access_rule_denied` — refused by the\norg's network access rules.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "ci_ref_not_allowed",
+                  "message": "This pipeline trust entry does not permit pushes from branch \"feature-x\". Add the ref to the entry's allowed refs in Organisation settings → Pipeline Trust, or push from an allowed branch."
+                }
+              }
+            }
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -28724,7 +31874,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "The token holds no write permission on this workspace.",
+            "description": "The token holds no write permission on this workspace (`forbidden`), or the org's\nnetwork access rules refuse this origin (`access_rule_denied`), or the org has switched\noff human access to the state backend (`human_state_access_blocked`, see `PATCH\n/api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\nA CI token's ref rule is **not** applied here: a PR pipeline must still be able to lock\nto plan.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -29129,6 +32279,59 @@
                           }
                         ]
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/{orgId}/state/{workspace}/lineage-reset": {
+      "post": {
+        "operationId": "openStateLineageReset",
+        "summary": "Let the next push change the workspace's lineage",
+        "description": "The state backend refuses a push whose lineage differs from the workspace's, because that\nis how a writer would rewrite history. Re-initialising a workspace, or pushing a rebuilt\nstate with `tofu state push -force`, is still legitimate: this opens a 15-minute window in\nwhich the **first** push carrying a new lineage is accepted, and closes it. That push's\nserial must still exceed the current one, because reads pick the newest state by serial.\n\n`admin` and a human token: a pipeline that could reset lineage could also rewrite history.\nAudited as `state.lineage_reset`.\n",
+        "tags": [
+          "State Management"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "$ref": "#/components/parameters/Workspace"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The window is open.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "open_until"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "open_until": {
+                      "type": "integer",
+                      "description": "Epoch milliseconds at which the window closes if unused."
                     }
                   }
                 }

@@ -240,6 +240,17 @@ pub const CREATE_VCS_TRUST: Op = Op {
     query: &[],
     success: 201,
 };
+/// `DELETE /api/orgs/{orgId}/access-rules`
+///
+/// Tag: Access Rules. Success: `200`.
+pub const DELETE_ACCESS_RULES: Op = Op {
+    id: "deleteAccessRules",
+    method: Method::Delete,
+    template: "/api/orgs/{orgId}/access-rules",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `DELETE /api/namespaces/{namespace}/modules/{name}`
 ///
 /// Tag: Registry — Modules. Success: `200`.
@@ -431,6 +442,17 @@ pub const FORCE_UNLOCK_STATE: Op = Op {
         ("orgId", ParamKind::Segment),
         ("workspace", ParamKind::Segment),
     ],
+    query: &[],
+    success: 200,
+};
+/// `GET /api/orgs/{orgId}/access-rules`
+///
+/// Tag: Access Rules. Success: `200`.
+pub const GET_ACCESS_RULES: Op = Op {
+    id: "getAccessRules",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/access-rules",
+    params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1495,6 +1517,17 @@ pub const LIST_PROVIDER_VERSIONS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/orgs/{orgId}/access-rules/seen-asns`
+///
+/// Tag: Access Rules. Success: `200`.
+pub const LIST_SEEN_ASNS: Op = Op {
+    id: "listSeenAsns",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/access-rules/seen-asns",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/v1/{orgId}/state/{workspace}/findings`
 ///
 /// Tag: State Management. Success: `200`.
@@ -1559,6 +1592,20 @@ pub const LIST_WORKSPACE_PROVIDERS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `POST /api/v1/{orgId}/state/{workspace}/lineage-reset`
+///
+/// Tag: State Management. Success: `200`.
+pub const OPEN_STATE_LINEAGE_RESET: Op = Op {
+    id: "openStateLineageReset",
+    method: Method::Post,
+    template: "/api/v1/{orgId}/state/{workspace}/lineage-reset",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/orgs/{orgId}/providers/builds/{jobId}/override`
 ///
 /// Tag: Provider Builds. Success: `200`.
@@ -1583,6 +1630,17 @@ pub const OVERRIDE_MODULE_VERSION_CONSUMABLE: Op = Op {
         ("provider", ParamKind::Segment),
         ("version", ParamKind::Segment),
     ],
+    query: &[],
+    success: 200,
+};
+/// `POST /api/orgs/{orgId}/access-rules/preview`
+///
+/// Tag: Access Rules. Success: `200`.
+pub const PREVIEW_ACCESS_RULES: Op = Op {
+    id: "previewAccessRules",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/access-rules/preview",
+    params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1625,6 +1683,17 @@ pub const PUSH_STATE: Op = Op {
     method: Method::Post,
     template: "/state/{org}/{key}",
     params: &[("org", ParamKind::Segment), ("key", ParamKind::RawPath)],
+    query: &["ID"],
+    success: 200,
+};
+/// `PUT /api/orgs/{orgId}/access-rules`
+///
+/// Tag: Access Rules. Success: `200`.
+pub const PUT_ACCESS_RULES: Op = Op {
+    id: "putAccessRules",
+    method: Method::Put,
+    template: "/api/orgs/{orgId}/access-rules",
+    params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1781,6 +1850,17 @@ pub const ROTATE_ORG_TOKEN: Op = Op {
         ("tokenId", ParamKind::Segment),
     ],
     query: &[],
+    success: 200,
+};
+/// `GET /api/reference/asns`
+///
+/// Tag: Reference. Success: `200`.
+pub const SEARCH_ASN_NAMES: Op = Op {
+    id: "searchAsnNames",
+    method: Method::Get,
+    template: "/api/reference/asns",
+    params: &[],
+    query: &["q", "asn", "limit"],
     success: 200,
 };
 /// `GET /v1/modules/search`
@@ -2009,6 +2089,17 @@ pub const UPDATE_CONSUMPTION_BLOCK: Op = Op {
     query: &[],
     success: 200,
 };
+/// `PATCH /api/orgs/{orgId}/endpoint-probing`
+///
+/// Tag: Orgs & Members. Success: `200`.
+pub const UPDATE_ORG_ENDPOINT_PROBING: Op = Op {
+    id: "updateOrgEndpointProbing",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/endpoint-probing",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `PATCH /api/orgs/{orgId}/members/{userId}`
 ///
 /// Tag: Orgs & Members. Success: `200`.
@@ -2050,6 +2141,17 @@ pub const UPDATE_ORG_PROVIDER: Op = Op {
     query: &[],
     success: 200,
 };
+/// `PATCH /api/orgs/{orgId}/state-access`
+///
+/// Tag: Orgs & Members. Success: `200`.
+pub const UPDATE_ORG_STATE_ACCESS: Op = Op {
+    id: "updateOrgStateAccess",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/state-access",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `PATCH /api/orgs/{orgId}/policies/{id}`
 ///
 /// Tag: Policies. Success: `200`.
@@ -2082,6 +2184,20 @@ pub const UPDATE_STATE_WORKSPACE_SETTINGS: Op = Op {
     params: &[
         ("orgId", ParamKind::Segment),
         ("workspace", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
+/// `PATCH /api/orgs/{orgId}/vcs-trust/{trustId}`
+///
+/// Tag: VCS Trust. Success: `200`.
+pub const UPDATE_VCS_TRUST: Op = Op {
+    id: "updateVcsTrust",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/vcs-trust/{trustId}",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("trustId", ParamKind::Segment),
     ],
     query: &[],
     success: 200,
@@ -2151,6 +2267,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &CREATE_VCS_TRUST,
     #[allow(deprecated)]
+    &DELETE_ACCESS_RULES,
+    #[allow(deprecated)]
     &DELETE_NAMESPACE_MODULE,
     #[allow(deprecated)]
     &DELETE_ORG,
@@ -2178,6 +2296,8 @@ pub const ALL: &[&Op] = &[
     &FORCE_UNBLOCK_MODULE_VERSION,
     #[allow(deprecated)]
     &FORCE_UNLOCK_STATE,
+    #[allow(deprecated)]
+    &GET_ACCESS_RULES,
     #[allow(deprecated)]
     &GET_ARTEFACT_POLICY_INPUT_SCHEMA,
     #[allow(deprecated)]
@@ -2335,6 +2455,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_PROVIDER_VERSIONS,
     #[allow(deprecated)]
+    &LIST_SEEN_ASNS,
+    #[allow(deprecated)]
     &LIST_STATE_FINDINGS,
     #[allow(deprecated)]
     &LIST_STATE_VERSIONS,
@@ -2345,15 +2467,21 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_WORKSPACE_PROVIDERS,
     #[allow(deprecated)]
+    &OPEN_STATE_LINEAGE_RESET,
+    #[allow(deprecated)]
     &OVERRIDE_BUILD_GATE,
     #[allow(deprecated)]
     &OVERRIDE_MODULE_VERSION_CONSUMABLE,
+    #[allow(deprecated)]
+    &PREVIEW_ACCESS_RULES,
     #[allow(deprecated)]
     &PROMOTE_STATE_VERSION,
     #[allow(deprecated)]
     &PUBLISH_MODULE_VERSION,
     #[allow(deprecated)]
     &PUSH_STATE,
+    #[allow(deprecated)]
+    &PUT_ACCESS_RULES,
     #[allow(deprecated)]
     &REFRESH_PROVIDER_VCS_STATS,
     #[allow(deprecated)]
@@ -2376,6 +2504,8 @@ pub const ALL: &[&Op] = &[
     &REVOKE_ORG_TOKEN,
     #[allow(deprecated)]
     &ROTATE_ORG_TOKEN,
+    #[allow(deprecated)]
+    &SEARCH_ASN_NAMES,
     #[allow(deprecated)]
     &SEARCH_MODULES,
     #[allow(deprecated)]
@@ -2411,17 +2541,23 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &UPDATE_CONSUMPTION_BLOCK,
     #[allow(deprecated)]
+    &UPDATE_ORG_ENDPOINT_PROBING,
+    #[allow(deprecated)]
     &UPDATE_ORG_MEMBER_ROLE,
     #[allow(deprecated)]
     &UPDATE_ORG_NOTIFICATIONS,
     #[allow(deprecated)]
     &UPDATE_ORG_PROVIDER,
     #[allow(deprecated)]
+    &UPDATE_ORG_STATE_ACCESS,
+    #[allow(deprecated)]
     &UPDATE_POLICY,
     #[allow(deprecated)]
     &UPDATE_POLICY_SETTINGS,
     #[allow(deprecated)]
     &UPDATE_STATE_WORKSPACE_SETTINGS,
+    #[allow(deprecated)]
+    &UPDATE_VCS_TRUST,
     #[allow(deprecated)]
     &UPLOAD_LOCK_FILE,
     #[allow(deprecated)]
