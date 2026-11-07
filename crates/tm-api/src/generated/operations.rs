@@ -1592,6 +1592,20 @@ pub const LIST_WORKSPACE_PROVIDERS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `POST /api/v1/{orgId}/state/{workspace}/lineage-reset`
+///
+/// Tag: State Management. Success: `200`.
+pub const OPEN_STATE_LINEAGE_RESET: Op = Op {
+    id: "openStateLineageReset",
+    method: Method::Post,
+    template: "/api/v1/{orgId}/state/{workspace}/lineage-reset",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/orgs/{orgId}/providers/builds/{jobId}/override`
 ///
 /// Tag: Provider Builds. Success: `200`.
@@ -1669,7 +1683,7 @@ pub const PUSH_STATE: Op = Op {
     method: Method::Post,
     template: "/state/{org}/{key}",
     params: &[("org", ParamKind::Segment), ("key", ParamKind::RawPath)],
-    query: &[],
+    query: &["ID"],
     success: 200,
 };
 /// `PUT /api/orgs/{orgId}/access-rules`
@@ -2075,6 +2089,17 @@ pub const UPDATE_CONSUMPTION_BLOCK: Op = Op {
     query: &[],
     success: 200,
 };
+/// `PATCH /api/orgs/{orgId}/endpoint-probing`
+///
+/// Tag: Orgs & Members. Success: `200`.
+pub const UPDATE_ORG_ENDPOINT_PROBING: Op = Op {
+    id: "updateOrgEndpointProbing",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/endpoint-probing",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `PATCH /api/orgs/{orgId}/members/{userId}`
 ///
 /// Tag: Orgs & Members. Success: `200`.
@@ -2113,6 +2138,17 @@ pub const UPDATE_ORG_PROVIDER: Op = Op {
         ("namespace", ParamKind::Segment),
         ("type", ParamKind::Segment),
     ],
+    query: &[],
+    success: 200,
+};
+/// `PATCH /api/orgs/{orgId}/state-access`
+///
+/// Tag: Orgs & Members. Success: `200`.
+pub const UPDATE_ORG_STATE_ACCESS: Op = Op {
+    id: "updateOrgStateAccess",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/state-access",
+    params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2431,6 +2467,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_WORKSPACE_PROVIDERS,
     #[allow(deprecated)]
+    &OPEN_STATE_LINEAGE_RESET,
+    #[allow(deprecated)]
     &OVERRIDE_BUILD_GATE,
     #[allow(deprecated)]
     &OVERRIDE_MODULE_VERSION_CONSUMABLE,
@@ -2503,11 +2541,15 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &UPDATE_CONSUMPTION_BLOCK,
     #[allow(deprecated)]
+    &UPDATE_ORG_ENDPOINT_PROBING,
+    #[allow(deprecated)]
     &UPDATE_ORG_MEMBER_ROLE,
     #[allow(deprecated)]
     &UPDATE_ORG_NOTIFICATIONS,
     #[allow(deprecated)]
     &UPDATE_ORG_PROVIDER,
+    #[allow(deprecated)]
+    &UPDATE_ORG_STATE_ACCESS,
     #[allow(deprecated)]
     &UPDATE_POLICY,
     #[allow(deprecated)]

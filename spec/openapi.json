@@ -17950,11 +17950,21 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "provider_update_notifications"
+                    "provider_update_notifications",
+                    "human_state_protocol_blocked",
+                    "endpoint_probe_enabled"
                   ],
                   "properties": {
                     "provider_update_notifications": {
                       "$ref": "#/components/schemas/NotificationCadence"
+                    },
+                    "human_state_protocol_blocked": {
+                      "type": "boolean",
+                      "description": "See `updateOrgStateAccess`."
+                    },
+                    "endpoint_probe_enabled": {
+                      "type": "boolean",
+                      "description": "See `updateOrgEndpointProbing`."
                     }
                   }
                 }
@@ -17969,6 +17979,146 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/endpoint-probing": {
+      "patch": {
+        "operationId": "updateOrgEndpointProbing",
+        "summary": "Allow or stop active probing of endpoints found in state",
+        "description": "The state scanner lists every hostname and address a state file names. With probing on\n(the default) it also connects to a short list of ports on the public ones and reports\nwhat is open. It resolves each host once, skips the host if ANY of its addresses is\nprivate, loopback, link-local, a cloud metadata endpoint or otherwise special-use, IPv4 or\nIPv6, and connects only to the address it checked, so a record that changes after the\ncheck cannot redirect the probe. Off, endpoints are still listed and nothing is connected\nto.\n\n`admin` and a human token. Audited as `org.endpoint_probing`. The setting rides on each\nstate scan message as `probe_endpoints`.\n",
+        "tags": [
+          "Orgs & Members"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "endpoint_probe_enabled"
+                ],
+                "properties": {
+                  "endpoint_probe_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "endpoint_probe_enabled"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "endpoint_probe_enabled": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/state-access": {
+      "patch": {
+        "operationId": "updateOrgStateAccess",
+        "summary": "Keep human accounts off the state backend",
+        "description": "`human_state_protocol_blocked: true` stops every **human** account using the state backend\nprotocol for this org: `GET`, `POST`, `LOCK` and `UNLOCK` on `/state/{org}/...` answer `403\nhuman_state_access_blocked`, so nobody can `tofu state pull` raw state (every credential in\nit) or apply locally with their own sign-in. CI pipelines and machine tokens are\nunaffected, and so is the management API: the resource inspector, versions and findings\nkeep working. `LOCK` and `UNLOCK` are included because a human lock that could never be\nfollowed by a push would only strand the workspace.\n\nOff by default. Owner and a human token, because it decides who may hold raw secrets.\nAudited as `org.state_access`.\n",
+        "tags": [
+          "Orgs & Members"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "human_state_protocol_blocked"
+                ],
+                "properties": {
+                  "human_state_protocol_blocked": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "human_state_protocol_blocked"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "human_state_protocol_blocked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -18733,7 +18883,7 @@
       "post": {
         "operationId": "createVcsTrust",
         "summary": "Trust a CI identity pattern",
-        "description": "Registers a `sub` pattern from GitHub Actions or GitLab CI. A pipeline whose OIDC token\nmatches then authenticates as this org with no long-lived credential anywhere.\n\n`subject` names the repo (`repo:acme/infra`, `project_path:acme/infra`); it is matched\nagainst the token's `sub` with everything after the repo path admitted, so one entry covers\nthe repo's plans, applies and PRs. It cannot carry a `:ref:` suffix — that is what\n`allowed_refs` is for. Overlap is policed: an entry that overlaps another org's ambiguously\nis refused, and at authentication time a `sub` matching several entries resolves to the\nmost specific one or fails closed.\n\n`allowed_refs` is the ref rule: the branches (and `tag:` globs) a token from this entry may\n**land an artefact** from — state push, lock-file upload and module publish answer `403\nci_ref_not_allowed` from any other ref. It is deliberately not applied to state read, LOCK /\nUNLOCK or plan push, so a PR pipeline still plans with locking and the plan gate still sees\nPRs. Omitted, it defaults to `[\"main\"]`; the tokens carry no default-branch claim, so name\nthe branch if the repo uses another. Explicit `null` means any ref, which is what entries\ncreated before the rule existed have. A token with no usable `ref` claim is refused under\nany list.\n\nCI identities are bots: capped at `member` and refused on human-only actions, whatever the\ntrust entry says.\n",
+        "description": "Registers a `sub` pattern from GitHub Actions or GitLab CI. A pipeline whose OIDC token\nmatches then authenticates as this org with no long-lived credential anywhere.\n\n`subject` names the repo (`repo:acme/infra`, `project_path:acme/infra`); it is matched\nagainst the token's `sub` with everything after the repo path admitted, so one entry covers\nthe repo's plans, applies and PRs. It cannot carry a `:ref:` suffix — that is what\n`allowed_refs` is for.\n\n**A repository is trusted by one org only.** Any overlap with another org's entry is\nrefused, including one subject sitting inside the other (`repo:acme/prod-infra` inside\n`repo:acme/*`). Nothing proves who controls a repository, so a narrower entry used to\nlet one org take over another org's pipeline: every token from that repo resolved to\nthe narrower entry's org. Pairs created before the rule keep resolving at authentication\ntime to the most specific entry. Within one org, several entries may match the same\n`sub`: the most specific one's `allowed_refs` applies, and with no single most specific\nentry every matched entry's rule must allow the push, so a stricter entry can only\nnarrow what a looser one allowed.\n\n`allowed_refs` is the ref rule: the branches (and `tag:` globs) a token from this entry may\n**land an artefact** from — state push, lock-file upload and module publish answer `403\nci_ref_not_allowed` from any other ref. It is deliberately not applied to state read, LOCK /\nUNLOCK or plan push, so a PR pipeline still plans with locking and the plan gate still sees\nPRs. Omitted, it defaults to `[\"main\"]`; the tokens carry no default-branch claim, so name\nthe branch if the repo uses another. Explicit `null` means any ref, which is what entries\ncreated before the rule existed have. A token with no usable `ref` claim is refused under\nany list.\n\nCI identities are bots: capped at `member` and refused on human-only actions, whatever the\ntrust entry says.\n",
         "tags": [
           "VCS Trust"
         ],
@@ -18804,7 +18954,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "This entry already exists, or it overlaps an existing one in a way that would make\nauthentication ambiguous.\n",
+            "description": "This entry already exists in this org, or it overlaps an entry another org trusts. The\nmessage never names the other org or its pattern, so it is not an oracle for them.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -31326,7 +31476,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "The token holds no read permission on this workspace (`forbidden`), or the org's\nnetwork access rules refuse this origin (`access_rule_denied`). **Only** those — a\npolicy refusal answers `423`, see below.\n",
+            "description": "The token holds no read permission on this workspace (`forbidden`), or the org's\nnetwork access rules refuse this origin (`access_rule_denied`), or the org has switched\noff human access to the state backend (`human_state_access_blocked`, see `PATCH\n/api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\n**Only** those — a policy refusal answers `423`, see below.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -31372,7 +31522,7 @@
       "post": {
         "operationId": "pushState",
         "summary": "Push new state (http backend)",
-        "description": "Stores a new state version. The workspace is created on first push, so no provisioning step\nis needed.\n\nThe Worker reads `serial`, `lineage` and the resource count out of the document, and\nclassifies managed resources into real-vs-internal counts. That classification is\nbest-effort and exception-safe: a hostile or oversized state stores `null` counts rather\nthan failing the push the client is blocking on.\n\nCapped at 100 MB, checked against `Content-Length` first and the body length again.\nPushing enqueues a state scan.\n",
+        "description": "Stores a new state version. The workspace is created on first push, so no provisioning step\nis needed.\n\nThe Worker reads `serial`, `lineage` and the resource count out of the document, and\nclassifies managed resources into real-vs-internal counts. That classification is\nbest-effort and exception-safe: a hostile or oversized state stores `null` counts rather\nthan failing the push the client is blocking on.\n\nCapped at 100 MB, checked against `Content-Length` first and the body length again.\nPushing enqueues a state scan.\n\n**A write needs the held lock.** When the workspace is locked, the push must carry the\nholder's lock id as `?ID=`, which Terraform and OpenTofu send on every write made under a\nlock; anything else is `423` with the holder's lock info. With no lock held the push is\naccepted, so `-lock=false` keeps working. A second write-capable token used to write\nstraight through a held lock.\n\n**Lineage is fixed once set.** Once a workspace has a lineage, every push must carry it\n(`409 lineage_required`), a different one is refused (`409 lineage_mismatch`), and the\nserial must exceed the current one whatever the lineage (`409 serial_conflict`). The\nserial guard used to apply only when the lineages matched, so omitting or changing\n`lineage` overwrote history. A legitimate re-initialisation goes through `POST\n/api/v1/{orgId}/state/{workspace}/lineage-reset`, which a human admin opens for one push.\nEvery version is stored under its own id, so no push can replace another version's bytes.\nA workspace stored before lineages were recorded adopts the first lineage pushed.\n",
         "tags": [
           "State Backend"
         ],
@@ -31393,6 +31543,15 @@
           },
           {
             "$ref": "#/components/parameters/StateKey"
+          },
+          {
+            "name": "ID",
+            "in": "query",
+            "required": false,
+            "description": "The lock id this write is made under. Required while the workspace is locked.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -31458,7 +31617,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "`forbidden` — the token holds no write permission on this workspace.\n\n`ci_ref_not_allowed` — a CI OIDC token whose ref is outside its trust entry's\n`allowed_refs`. Only the operations that land an artefact (this one, the lock-file\nupload and module publish) answer this; the same token still reads, `LOCK`s and pushes\nplans from any ref, so a PR pipeline keeps working and the plan gate keeps seeing PRs.\n\n`access_rule_denied` — the request's country, ASN or IP is refused by the org's access\nrules. The body never names the rule or the origin.\n",
+            "description": "`forbidden` — the token holds no write permission on this workspace.\n\n`ci_ref_not_allowed` — a CI OIDC token whose ref is outside its trust entry's\n`allowed_refs`. Only the operations that land an artefact (this one, the lock-file\nupload and module publish) answer this; the same token still reads, `LOCK`s and pushes\nplans from any ref, so a PR pipeline keeps working and the plan gate keeps seeing PRs.\n\n`access_rule_denied` — the request's country, ASN or IP is refused by the org's access\nrules. The body never names the rule or the origin.\n\n`human_state_access_blocked` — the org has switched off human access to the state\nbackend (`PATCH /api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -31500,8 +31659,32 @@
               }
             }
           },
+          "409": {
+            "description": "`lineage_required`, `lineage_mismatch` or `serial_conflict`: the push would rewrite the\nworkspace's history. See the operation description.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "lineage_mismatch",
+                  "message": "Pushed lineage 9c1e... does not match the workspace's lineage 4b2a...; an admin must open a lineage reset first"
+                }
+              }
+            }
+          },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "423": {
+            "description": "`locked`: the workspace is locked and the push did not carry the holder's lock id. The\nbody carries the holder's Terraform lock info (`ID`, `Operation`, `Who`, `Created`) so\nthe client can show who holds it.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -31691,7 +31874,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "The token holds no write permission on this workspace (`forbidden`), or the org's\nnetwork access rules refuse this origin (`access_rule_denied`). A CI token's ref rule\nis **not** applied here: a PR pipeline must still be able to lock to plan.\n",
+            "description": "The token holds no write permission on this workspace (`forbidden`), or the org's\nnetwork access rules refuse this origin (`access_rule_denied`), or the org has switched\noff human access to the state backend (`human_state_access_blocked`, see `PATCH\n/api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\nA CI token's ref rule is **not** applied here: a PR pipeline must still be able to lock\nto plan.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -32096,6 +32279,59 @@
                           }
                         ]
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/{orgId}/state/{workspace}/lineage-reset": {
+      "post": {
+        "operationId": "openStateLineageReset",
+        "summary": "Let the next push change the workspace's lineage",
+        "description": "The state backend refuses a push whose lineage differs from the workspace's, because that\nis how a writer would rewrite history. Re-initialising a workspace, or pushing a rebuilt\nstate with `tofu state push -force`, is still legitimate: this opens a 15-minute window in\nwhich the **first** push carrying a new lineage is accepted, and closes it. That push's\nserial must still exceed the current one, because reads pick the newest state by serial.\n\n`admin` and a human token: a pipeline that could reset lineage could also rewrite history.\nAudited as `state.lineage_reset`.\n",
+        "tags": [
+          "State Management"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "$ref": "#/components/parameters/Workspace"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The window is open.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "open_until"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "open_until": {
+                      "type": "integer",
+                      "description": "Epoch milliseconds at which the window closes if unused."
                     }
                   }
                 }

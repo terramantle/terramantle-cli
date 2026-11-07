@@ -1614,6 +1614,12 @@ impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json:
 ///`GetOrgSettingsResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct GetOrgSettingsResponse {
+    ///See `updateOrgEndpointProbing`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub endpoint_probe_enabled: ::std::option::Option<bool>,
+    ///See `updateOrgStateAccess`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub human_state_protocol_blocked: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provider_update_notifications: ::std::option::Option<NotificationCadence>,
 }
@@ -2891,6 +2897,15 @@ impl ::std::convert::TryFrom<::std::string::String> for OnMissingSignal {
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
+}
+///`OpenStateLineageResetResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct OpenStateLineageResetResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    ///Epoch milliseconds at which the window closes if unused.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub open_until: ::std::option::Option<i64>,
 }
 ///`OrgDependencyGraph`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -15931,6 +15946,14 @@ impl ::std::convert::TryFrom<::std::string::String> for TokenScope {
         value.parse()
     }
 }
+///`UpdateOrgEndpointProbingResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct UpdateOrgEndpointProbingResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub endpoint_probe_enabled: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+}
 ///The updated artefact fields.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
@@ -15956,6 +15979,14 @@ impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json:
     fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
         Self(value)
     }
+}
+///`UpdateOrgStateAccessResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct UpdateOrgStateAccessResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub human_state_protocol_blocked: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
 }
 ///`UploadLockFileResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
