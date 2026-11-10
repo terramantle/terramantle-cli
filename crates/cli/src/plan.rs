@@ -748,7 +748,7 @@ mod tests {
         }))
         .unwrap();
         let rows = plan_rows(&[v]);
-        assert_eq!(rows[0].binary, true);
+        assert!(rows[0].binary);
         assert_eq!(rows[0].prior_serial, Some(4));
         let table = render_ls(&rows);
         assert!(table.contains("0f8fad5b"));
