@@ -18,6 +18,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("modules.rs", include_str!("../src/modules.rs")),
     ("state.rs", include_str!("../src/state.rs")),
     ("orgs.rs", include_str!("../src/orgs.rs")),
+    ("plans.rs", include_str!("../src/plans.rs")),
 ];
 
 /// Path literals still written by hand, as `(file, count)`.

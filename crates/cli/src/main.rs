@@ -9,9 +9,11 @@ mod discovery;
 mod doctor;
 mod lock;
 mod output;
+mod plan;
 mod publish;
 mod scaffold;
 mod state;
+mod tf;
 mod trust;
 mod wizard;
 

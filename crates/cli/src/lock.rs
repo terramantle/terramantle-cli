@@ -676,7 +676,7 @@ terraform {
             "upstream": "terraform.io",
             "current_version": current,
             "latest_matching": latest,
-            "current_scan": { "critical": crit, "high": high, "medium": 0, "low": 0 },
+            "current_scan": { "critical_count": crit, "high_count": high, "vuln_count": crit + high, "scanned": true },
         }))
         .expect("workspace provider parses")
     }

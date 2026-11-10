@@ -14,6 +14,17 @@ pub const TOMBSTONED_OPERATION_IDS: &[&str] = &[
     "removedProviderFoundryRoute",
     "removedProviderMirrorRoute",
 ];
+/// `POST /api/orgs/{orgId}/billing/contacts`
+///
+/// Tag: Billing. Success: `201`.
+pub const ADD_BILLING_CONTACT: Op = Op {
+    id: "addBillingContact",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/contacts",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 201,
+};
 /// `POST /api/orgs/{orgId}/members`
 ///
 /// Tag: Orgs & Members. Success: `200`.
@@ -163,6 +174,28 @@ pub const BUILD_PROVIDER_VERSION: Op = Op {
     query: &[],
     success: 200,
 };
+/// `POST /api/orgs/{orgId}/billing/cancel`
+///
+/// Tag: Billing. Success: `200`.
+pub const CANCEL_SUBSCRIPTION: Op = Op {
+    id: "cancelSubscription",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/cancel",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `POST /api/orgs/{orgId}/billing/change-plan`
+///
+/// Tag: Billing. Success: `200`.
+pub const CHANGE_PLAN: Op = Op {
+    id: "changePlan",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/change-plan",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/orgs/{orgId}/claim-domain`
 ///
 /// Tag: Orgs & Members. Success: `200`.
@@ -170,28 +203,6 @@ pub const CLAIM_ORG_DOMAIN: Op = Op {
     id: "claimOrgDomain",
     method: Method::Post,
     template: "/api/orgs/{orgId}/claim-domain",
-    params: &[("orgId", ParamKind::Segment)],
-    query: &[],
-    success: 200,
-};
-/// `POST /api/orgs/{orgId}/billing/portal`
-///
-/// Tag: Billing. Success: `200`.
-pub const CREATE_BILLING_PORTAL_SESSION: Op = Op {
-    id: "createBillingPortalSession",
-    method: Method::Post,
-    template: "/api/orgs/{orgId}/billing/portal",
-    params: &[("orgId", ParamKind::Segment)],
-    query: &[],
-    success: 200,
-};
-/// `POST /api/orgs/{orgId}/billing/checkout`
-///
-/// Tag: Billing. Success: `200`.
-pub const CREATE_CHECKOUT_SESSION: Op = Op {
-    id: "createCheckoutSession",
-    method: Method::Post,
-    template: "/api/orgs/{orgId}/billing/checkout",
     params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
@@ -500,6 +511,17 @@ pub const GET_BILLING: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/billing/config`
+///
+/// Tag: Billing. Success: `200`.
+pub const GET_BILLING_CONFIG: Op = Op {
+    id: "getBillingConfig",
+    method: Method::Get,
+    template: "/api/billing/config",
+    params: &[],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/orgs/{orgId}/billing/limits`
 ///
 /// Tag: Billing. Success: `200`.
@@ -586,6 +608,31 @@ pub const GET_HEALTH: Op = Op {
     template: "/health",
     params: &[],
     query: &[],
+    success: 200,
+};
+/// `GET /api/orgs/{orgId}/billing/invoices/{transactionId}/pdf`
+///
+/// Tag: Billing. Success: `200`.
+pub const GET_INVOICE_PDF_URL: Op = Op {
+    id: "getInvoicePdfUrl",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/billing/invoices/{transactionId}/pdf",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("transactionId", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
+/// `GET /state/{org}/{key}/plan/latest`
+///
+/// Tag: Plans. Success: `200`.
+pub const GET_LATEST_PLAN_BINARY: Op = Op {
+    id: "getLatestPlanBinary",
+    method: Method::Get,
+    template: "/state/{org}/{key}/plan/latest",
+    params: &[("org", ParamKind::Segment), ("key", ParamKind::RawPath)],
+    query: &["ref", "allow_stale"],
     success: 200,
 };
 /// `GET /v1/modules/{namespace}/{name}/{provider}/{version}/archive.tar.gz`
@@ -783,6 +830,23 @@ pub const GET_ORG_PROVIDER_ZIP: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/provenance.intoto.jsonl`
+///
+/// Tag: Registry — Providers. Success: `200`.
+pub const GET_ORG_SELF_BUILT_PROVENANCE: Op = Op {
+    id: "getOrgSelfBuiltProvenance",
+    method: Method::Get,
+    template: "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/provenance.intoto.jsonl",
+    params: &[
+        ("orgSlug", ParamKind::Segment),
+        ("namespace", ParamKind::Segment),
+        ("type", ParamKind::Segment),
+        ("version", ParamKind::Segment),
+        ("lineage", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `GET /v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/SHA256SUMS`
 ///
 /// Tag: Registry — Providers. Success: `200`.
@@ -877,6 +941,21 @@ pub const GET_PLAN_ATTESTATION_BY_VERSION: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /state/{org}/{key}/plan/{planId}`
+///
+/// Tag: Plans. Success: `200`.
+pub const GET_PLAN_BINARY: Op = Op {
+    id: "getPlanBinary",
+    method: Method::Get,
+    template: "/state/{org}/{key}/plan/{planId}",
+    params: &[
+        ("org", ParamKind::Segment),
+        ("key", ParamKind::RawPath),
+        ("planId", ParamKind::Segment),
+    ],
+    query: &["allow_stale"],
+    success: 200,
+};
 /// `GET /api/v1/{orgId}/plans/policy-config`
 ///
 /// Tag: Plans. Success: `200`.
@@ -921,6 +1000,21 @@ pub const GET_PLAN_VERSION_POLICY_RESULTS: Op = Op {
     id: "getPlanVersionPolicyResults",
     method: Method::Get,
     template: "/api/v1/{orgId}/plans/{workspace}/versions/{versionId}/policy",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+        ("versionId", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
+/// `GET /api/v1/{orgId}/plans/{workspace}/versions/{versionId}/resources`
+///
+/// Tag: Plans. Success: `200`.
+pub const GET_PLAN_VERSION_RESOURCES: Op = Op {
+    id: "getPlanVersionResources",
+    method: Method::Get,
+    template: "/api/v1/{orgId}/plans/{workspace}/versions/{versionId}/resources",
     params: &[
         ("orgId", ParamKind::Segment),
         ("workspace", ParamKind::Segment),
@@ -980,6 +1074,17 @@ pub const GET_PORTAL_DISCOVERY: Op = Op {
     id: "getPortalDiscovery",
     method: Method::Get,
     template: "/.well-known/terramantle-portal.json",
+    params: &[],
+    query: &[],
+    success: 200,
+};
+/// `GET /.well-known/terramantle-provenance-keys.json`
+///
+/// Tag: Discovery. Success: `200`.
+pub const GET_PROVENANCE_KEYS: Op = Op {
+    id: "getProvenanceKeys",
+    method: Method::Get,
+    template: "/.well-known/terramantle-provenance-keys.json",
     params: &[],
     query: &[],
     success: 200,
@@ -1055,6 +1160,23 @@ pub const GET_PROVIDER_PATCH_COMPARISON: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/{version}/provenance`
+///
+/// Tag: Providers — Management. Success: `200`.
+pub const GET_PROVIDER_PROVENANCE: Op = Op {
+    id: "getProviderProvenance",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/{version}/provenance",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("upstream", ParamKind::Segment),
+        ("namespace", ParamKind::Segment),
+        ("type", ParamKind::Segment),
+        ("version", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/{version}/sbom`
 ///
 /// Tag: Providers — Management. Success: `200`.
@@ -1119,6 +1241,22 @@ pub const GET_PROVIDER_ZIP: Op = Op {
         ("filename", ParamKind::Segment),
     ],
     query: &["sig"],
+    success: 200,
+};
+/// `GET /v1/providers/{namespace}/{type}/{version}/files/self_built/{lineage}/provenance.intoto.jsonl`
+///
+/// Tag: Registry — Providers. Success: `200`.
+pub const GET_SELF_BUILT_PROVENANCE: Op = Op {
+    id: "getSelfBuiltProvenance",
+    method: Method::Get,
+    template: "/v1/providers/{namespace}/{type}/{version}/files/self_built/{lineage}/provenance.intoto.jsonl",
+    params: &[
+        ("namespace", ParamKind::Segment),
+        ("type", ParamKind::Segment),
+        ("version", ParamKind::Segment),
+        ("lineage", ParamKind::Segment),
+    ],
+    query: &[],
     success: 200,
 };
 /// `GET /v1/providers/{namespace}/{type}/{version}/files/self_built/{lineage}/SHA256SUMS`
@@ -1282,6 +1420,9 @@ pub const GET_WORKSPACE_PLAN_POLICY_CONFIG: Op = Op {
 /// `PUT /plans/{org}/{key}.tfplan`
 ///
 /// Tag: Plans. Success: `200`.
+#[deprecated(
+    note = "the spec marks `ingestPlan` deprecated; see its description for the replacement"
+)]
 pub const INGEST_PLAN: Op = Op {
     id: "ingestPlan",
     method: Method::Put,
@@ -1334,6 +1475,17 @@ pub const LIST_AUDIT_EVENTS: Op = Op {
     query: &["limit", "offset", "action", "before"],
     success: 200,
 };
+/// `GET /api/orgs/{orgId}/billing/contacts`
+///
+/// Tag: Billing. Success: `200`.
+pub const LIST_BILLING_CONTACTS: Op = Op {
+    id: "listBillingContacts",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/billing/contacts",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/orgs/{orgId}/policies/instance`
 ///
 /// Tag: Policies. Success: `200`.
@@ -1343,6 +1495,17 @@ pub const LIST_INSTANCE_POLICIES: Op = Op {
     template: "/api/orgs/{orgId}/policies/instance",
     params: &[("orgId", ParamKind::Segment)],
     query: &["artefact_type", "instance_key"],
+    success: 200,
+};
+/// `GET /api/orgs/{orgId}/billing/invoices`
+///
+/// Tag: Billing. Success: `200`.
+pub const LIST_INVOICES: Op = Op {
+    id: "listInvoices",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/billing/invoices",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
     success: 200,
 };
 /// `GET /v1/modules/{namespace}/{name}/{provider}/versions`
@@ -1444,6 +1607,17 @@ pub const LIST_ORGS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/orgs/{orgId}/billing/payments`
+///
+/// Tag: Billing. Success: `200`.
+pub const LIST_PAYMENTS: Op = Op {
+    id: "listPayments",
+    method: Method::Get,
+    template: "/api/orgs/{orgId}/billing/payments",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/v1/{orgId}/plans/{workspace}/versions`
 ///
 /// Tag: Plans. Success: `200`.
@@ -1514,6 +1688,17 @@ pub const LIST_PROVIDER_VERSIONS: Op = Op {
         ("namespace", ParamKind::Segment),
         ("type", ParamKind::Segment),
     ],
+    query: &[],
+    success: 200,
+};
+/// `GET /api/billing/businesses`
+///
+/// Tag: Billing. Success: `200`.
+pub const LIST_REUSABLE_BILLING_BUSINESSES: Op = Op {
+    id: "listReusableBillingBusinesses",
+    method: Method::Get,
+    template: "/api/billing/businesses",
+    params: &[],
     query: &[],
     success: 200,
 };
@@ -1675,6 +1860,17 @@ pub const PUBLISH_MODULE_VERSION: Op = Op {
     query: &["description", "wait", "timeout"],
     success: 201,
 };
+/// `POST /state/{org}/{key}/plan`
+///
+/// Tag: Plans. Success: `200`.
+pub const PUSH_PLAN: Op = Op {
+    id: "pushPlan",
+    method: Method::Post,
+    template: "/state/{org}/{key}/plan",
+    params: &[("org", ParamKind::Segment), ("key", ParamKind::RawPath)],
+    query: &[],
+    success: 200,
+};
 /// `POST /state/{org}/{key}`
 ///
 /// Tag: State Backend. Success: `200`.
@@ -1732,6 +1928,17 @@ pub const REGISTER_FEATURE_INTEREST: Op = Op {
     method: Method::Post,
     template: "/api/interest/{feature}",
     params: &[("feature", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `DELETE /api/orgs/{orgId}/billing/contacts/{email}`
+///
+/// Tag: Billing. Success: `200`.
+pub const REMOVE_BILLING_CONTACT: Op = Op {
+    id: "removeBillingContact",
+    method: Method::Delete,
+    template: "/api/orgs/{orgId}/billing/contacts/{email}",
+    params: &[("orgId", ParamKind::Segment), ("email", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1987,6 +2194,39 @@ pub const SET_WORKSPACE_PLAN_POLICY_CONFIG: Op = Op {
     query: &[],
     success: 200,
 };
+/// `POST /api/orgs/{orgId}/billing/checkout`
+///
+/// Tag: Billing. Success: `200`.
+pub const START_CHECKOUT: Op = Op {
+    id: "startCheckout",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/checkout",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `POST /api/orgs/{orgId}/billing/invoice`
+///
+/// Tag: Billing. Success: `201`.
+pub const START_INVOICE: Op = Op {
+    id: "startInvoice",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/invoice",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 201,
+};
+/// `POST /api/orgs/{orgId}/billing/payment-method`
+///
+/// Tag: Billing. Success: `200`.
+pub const START_PAYMENT_METHOD_UPDATE: Op = Op {
+    id: "startPaymentMethodUpdate",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/payment-method",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/forms`
 ///
 /// Tag: Public. Success: `201`.
@@ -2075,6 +2315,17 @@ pub const UNDEPRECATE_MODULE_VERSION: Op = Op {
         ("provider", ParamKind::Segment),
         ("version", ParamKind::Segment),
     ],
+    query: &[],
+    success: 200,
+};
+/// `DELETE /api/orgs/{orgId}/billing/cancel`
+///
+/// Tag: Billing. Success: `200`.
+pub const UNDO_CANCEL_SUBSCRIPTION: Op = Op {
+    id: "undoCancelSubscription",
+    method: Method::Delete,
+    template: "/api/orgs/{orgId}/billing/cancel",
+    params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2233,6 +2484,8 @@ pub const YANK_PROVIDER_VERSION: Op = Op {
 /// Every operation generated here, for the contract test to walk.
 pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
+    &ADD_BILLING_CONTACT,
+    #[allow(deprecated)]
     &ADD_ORG_MEMBER,
     #[allow(deprecated)]
     &ADD_ORG_PROVIDER,
@@ -2253,11 +2506,11 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &BUILD_PROVIDER_VERSION,
     #[allow(deprecated)]
+    &CANCEL_SUBSCRIPTION,
+    #[allow(deprecated)]
+    &CHANGE_PLAN,
+    #[allow(deprecated)]
     &CLAIM_ORG_DOMAIN,
-    #[allow(deprecated)]
-    &CREATE_BILLING_PORTAL_SESSION,
-    #[allow(deprecated)]
-    &CREATE_CHECKOUT_SESSION,
     #[allow(deprecated)]
     &CREATE_ORG,
     #[allow(deprecated)]
@@ -2307,6 +2560,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_BILLING,
     #[allow(deprecated)]
+    &GET_BILLING_CONFIG,
+    #[allow(deprecated)]
     &GET_BILLING_LIMITS,
     #[allow(deprecated)]
     &GET_CLI_DISCOVERY,
@@ -2322,6 +2577,10 @@ pub const ALL: &[&Op] = &[
     &GET_ECHO_STATUS,
     #[allow(deprecated)]
     &GET_HEALTH,
+    #[allow(deprecated)]
+    &GET_INVOICE_PDF_URL,
+    #[allow(deprecated)]
+    &GET_LATEST_PLAN_BINARY,
     #[allow(deprecated)]
     &GET_MODULE_ARCHIVE,
     #[allow(deprecated)]
@@ -2349,6 +2608,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_ORG_PROVIDER_ZIP,
     #[allow(deprecated)]
+    &GET_ORG_SELF_BUILT_PROVENANCE,
+    #[allow(deprecated)]
     &GET_ORG_SELF_BUILT_SHASUMS,
     #[allow(deprecated)]
     &GET_ORG_SELF_BUILT_SHASUMS_SIG,
@@ -2361,6 +2622,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_PLAN_ATTESTATION_BY_VERSION,
     #[allow(deprecated)]
+    &GET_PLAN_BINARY,
+    #[allow(deprecated)]
     &GET_PLAN_POLICY_CONFIG,
     #[allow(deprecated)]
     &GET_PLAN_REPLACEMENTS_BY_PROVIDER,
@@ -2368,6 +2631,8 @@ pub const ALL: &[&Op] = &[
     &GET_PLAN_VERSION,
     #[allow(deprecated)]
     &GET_PLAN_VERSION_POLICY_RESULTS,
+    #[allow(deprecated)]
+    &GET_PLAN_VERSION_RESOURCES,
     #[allow(deprecated)]
     &GET_POLICY,
     #[allow(deprecated)]
@@ -2379,6 +2644,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_PORTAL_DISCOVERY,
     #[allow(deprecated)]
+    &GET_PROVENANCE_KEYS,
+    #[allow(deprecated)]
     &GET_PROVIDER_BUILD_FLOW,
     #[allow(deprecated)]
     &GET_PROVIDER_CONSUME_INSTRUCTIONS,
@@ -2387,6 +2654,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_PROVIDER_PATCH_COMPARISON,
     #[allow(deprecated)]
+    &GET_PROVIDER_PROVENANCE,
+    #[allow(deprecated)]
     &GET_PROVIDER_SBOM,
     #[allow(deprecated)]
     &GET_PROVIDER_SHASUMS,
@@ -2394,6 +2663,8 @@ pub const ALL: &[&Op] = &[
     &GET_PROVIDER_SHASUMS_SIG,
     #[allow(deprecated)]
     &GET_PROVIDER_ZIP,
+    #[allow(deprecated)]
+    &GET_SELF_BUILT_PROVENANCE,
     #[allow(deprecated)]
     &GET_SELF_BUILT_SHASUMS,
     #[allow(deprecated)]
@@ -2427,7 +2698,11 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_AUDIT_EVENTS,
     #[allow(deprecated)]
+    &LIST_BILLING_CONTACTS,
+    #[allow(deprecated)]
     &LIST_INSTANCE_POLICIES,
+    #[allow(deprecated)]
+    &LIST_INVOICES,
     #[allow(deprecated)]
     &LIST_MODULE_VERSIONS,
     #[allow(deprecated)]
@@ -2445,6 +2720,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_ORGS,
     #[allow(deprecated)]
+    &LIST_PAYMENTS,
+    #[allow(deprecated)]
     &LIST_PLAN_VERSIONS,
     #[allow(deprecated)]
     &LIST_POLICIES,
@@ -2454,6 +2731,8 @@ pub const ALL: &[&Op] = &[
     &LIST_PROVIDER_FLOWS,
     #[allow(deprecated)]
     &LIST_PROVIDER_VERSIONS,
+    #[allow(deprecated)]
+    &LIST_REUSABLE_BILLING_BUSINESSES,
     #[allow(deprecated)]
     &LIST_SEEN_ASNS,
     #[allow(deprecated)]
@@ -2479,6 +2758,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &PUBLISH_MODULE_VERSION,
     #[allow(deprecated)]
+    &PUSH_PLAN,
+    #[allow(deprecated)]
     &PUSH_STATE,
     #[allow(deprecated)]
     &PUT_ACCESS_RULES,
@@ -2488,6 +2769,8 @@ pub const ALL: &[&Op] = &[
     &REGISTER_CURRENT_USER,
     #[allow(deprecated)]
     &REGISTER_FEATURE_INTEREST,
+    #[allow(deprecated)]
+    &REMOVE_BILLING_CONTACT,
     #[allow(deprecated)]
     &REMOVE_ORG_MEMBER,
     #[allow(deprecated)]
@@ -2525,6 +2808,12 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &SET_WORKSPACE_PLAN_POLICY_CONFIG,
     #[allow(deprecated)]
+    &START_CHECKOUT,
+    #[allow(deprecated)]
+    &START_INVOICE,
+    #[allow(deprecated)]
+    &START_PAYMENT_METHOD_UPDATE,
+    #[allow(deprecated)]
     &SUBMIT_APP_FORM,
     #[allow(deprecated)]
     &SUBMIT_PUBLIC_FORM,
@@ -2538,6 +2827,8 @@ pub const ALL: &[&Op] = &[
     &UNDEPRECATE_MODULE,
     #[allow(deprecated)]
     &UNDEPRECATE_MODULE_VERSION,
+    #[allow(deprecated)]
+    &UNDO_CANCEL_SUBSCRIPTION,
     #[allow(deprecated)]
     &UPDATE_CONSUMPTION_BLOCK,
     #[allow(deprecated)]

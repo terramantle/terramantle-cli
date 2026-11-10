@@ -146,7 +146,10 @@ impl ApiError {
     /// | `unauthorized`, `invalid_token`, `forbidden` | 5 |
     /// | `not_found`, `feature_disabled` (a 404) | 6 |
     /// | `bad_request` | 2 |
-    /// | `locked`, `serial_conflict` (409) | 7 |
+    /// | `locked`, `serial_conflict`, `lineage_mismatch`, `lineage_required`, `plan_stale` (409) | 7 |
+    /// | `policy_blocked` (423: a gate refused, as a posture gate would) | 3 |
+    /// | `plan_no_binary` (404) | 6 |
+    /// | `human_state_access_blocked` (403) | 5 |
     /// | `payload_too_large` | 1 |
     /// | no code, HTTP 401/403 | 5 |
     /// | unmapped / non-JSON | 1 |
@@ -159,10 +162,20 @@ impl ApiError {
             return 2;
         }
         match self.error_code() {
-            Some("unauthorized" | "invalid_token" | "forbidden") => 5,
-            Some("not_found" | "feature_disabled") => 6,
-            Some("bad_request") => 2,
-            Some("locked" | "serial_conflict") => 7,
+            Some("unauthorized" | "invalid_token" | "forbidden" | "human_state_access_blocked") => {
+                5
+            }
+            Some("not_found" | "feature_disabled" | "plan_no_binary") => 6,
+            Some("bad_request" | "invalid_tfplan") => 2,
+            // State-conflict family (§9 exit 7): the artefact does not fit the
+            // workspace's current lineage/serial, so the fix is a re-plan, not a retry.
+            Some(
+                "locked" | "serial_conflict" | "lineage_mismatch" | "lineage_required"
+                | "plan_stale",
+            ) => 7,
+            // A policy refusal is the gate tripping - the same exit `--fail-on-atrisk`
+            // uses, so one code means "Terramantle said no" to a pipeline.
+            Some("policy_blocked") => 3,
             Some("payload_too_large") => 1,
             Some(_) => 1,
             // No machine-readable code: fall back to the HTTP status for the

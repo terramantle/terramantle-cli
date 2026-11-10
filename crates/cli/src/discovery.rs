@@ -841,7 +841,7 @@ mod tests {
     /// serde is the path a real response takes.
     fn rollup(crit: i64, high: i64, medium: i64) -> VersionScanRollup {
         serde_json::from_value(serde_json::json!({
-            "critical": crit, "high": high, "medium": medium, "low": 0,
+            "critical_count": crit, "high_count": high, "vuln_count": crit + high + medium, "scanned": true,
         }))
         .expect("rollup parses")
     }

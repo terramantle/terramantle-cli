@@ -412,7 +412,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cli"
-version = "0.9.3"
+version = "0.10.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -425,8 +425,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sha2",
  "supports-color",
  "tempfile",
+ "thiserror",
  "tm-api",
  "tm-auth",
  "tm-config",
@@ -2170,7 +2172,7 @@ dependencies = [
 
 [[package]]
 name = "tm-api"
-version = "0.9.3"
+version = "0.10.0"
 dependencies = [
  "regress",
  "serde",
@@ -2181,7 +2183,7 @@ dependencies = [
 
 [[package]]
 name = "tm-auth"
-version = "0.9.3"
+version = "0.10.0"
 dependencies = [
  "base64",
  "keyring",
@@ -2194,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "tm-config"
-version = "0.9.3"
+version = "0.10.0"
 dependencies = [
  "directories",
  "serde",
@@ -2205,7 +2207,7 @@ dependencies = [
 
 [[package]]
 name = "tm-release"
-version = "0.9.3"
+version = "0.10.0"
 dependencies = [
  "flate2",
  "glob",
@@ -2221,7 +2223,7 @@ dependencies = [
 
 [[package]]
 name = "tm-scaffold"
-version = "0.9.3"
+version = "0.10.0"
 dependencies = [
  "hcl-rs",
  "serde",

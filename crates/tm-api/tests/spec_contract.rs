@@ -232,6 +232,10 @@ fn only_the_protocol_wildcards_are_raw() {
         ("getState", "key"),
         ("pushState", "key"),
         ("ingestPlan", "key"),
+        // The plan sub-resource hangs off the same wildcard key (`<key>/plan…`).
+        ("pushPlan", "key"),
+        ("getLatestPlanBinary", "key"),
+        ("getPlanBinary", "key"),
         ("lockState", "key"),
         ("unlockState", "key"),
     ];

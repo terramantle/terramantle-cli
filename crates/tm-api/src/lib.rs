@@ -28,15 +28,17 @@ pub mod generated;
 
 mod modules;
 mod orgs;
+mod plans;
 mod providers;
 mod state;
 pub mod types;
 mod vcs_trust;
 pub use vcs_trust::TrustEntry;
 
-pub use client::{HttpClient, RefreshHook};
+pub use client::{HttpClient, MultipartPart, RawResponse, RefreshHook};
 pub use error::{ApiError, ErrorBody};
 pub use models::*;
+pub use plans::{PlanPull, PlanPushOptions, PlanSelector, PLAN_TRANSFER_TIMEOUT};
 pub use spec::{Method, Op, ParamKind, PathError};
 pub use state::{VERSIONS_PAGE_DEFAULT, VERSIONS_PAGE_MAX};
 

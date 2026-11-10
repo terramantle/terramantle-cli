@@ -25,6 +25,9 @@ const SKIPPED_TAG_PREFIXES: &[&str] = &["Internal —", "Internal -", "Webhooks"
 const WILDCARD_PARAMS: &[(&str, &str)] = &[
     ("/state/{org}/{key}", "key"),
     ("/state/{org}/{key}/lock", "key"),
+    ("/state/{org}/{key}/plan", "key"),
+    ("/state/{org}/{key}/plan/latest", "key"),
+    ("/state/{org}/{key}/plan/{planId}", "key"),
     ("/plans/{org}/{key}.tfplan", "key"),
 ];
 

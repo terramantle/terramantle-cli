@@ -53,7 +53,7 @@ impl VersionScanRollup {
     /// make: an absent *rollup* means "not scanned", which is decided by the
     /// caller holding an `Option<VersionScanRollup>` — see `verdict_from_scan`.
     pub fn is_at_risk(&self) -> bool {
-        self.critical.unwrap_or(0) > 0 || self.high.unwrap_or(0) > 0
+        self.critical_count.unwrap_or(0) > 0 || self.high_count.unwrap_or(0) > 0
     }
 }
 
@@ -184,14 +184,17 @@ mod tests {
             "namespace":"hashicorp","type":"aws","upstream":"terraform.io",
             "current_version":"5.2.0","constraints":"~> 5.0",
             "latest_version":"5.4.1","latest_matching":"5.4.1",
-            "current_scan":{"critical":2,"high":3,"medium":7,"low":11},
-            "latest_scan":{"critical":0,"high":0,"medium":0,"low":0}
+            "current_scan":{"critical_count":2,"high_count":3,"vuln_count":23,"scanned":true},
+            "latest_scan":{"critical_count":0,"high_count":0,"vuln_count":0,"scanned":true}
         }"#;
         let p: WorkspaceProvider = serde_json::from_str(body).unwrap();
         assert_eq!(p.namespace, "hashicorp");
         assert_eq!(p.type_, "aws");
         let current = p.current_scan.expect("current_scan present");
-        assert_eq!((current.critical, current.high), (Some(2), Some(3)));
+        assert_eq!(
+            (current.critical_count, current.high_count),
+            (Some(2), Some(3))
+        );
         assert!(current.is_at_risk());
         // Present-but-empty is a positive clean result, NOT "unknown".
         assert!(!p.latest_scan.expect("latest_scan present").is_at_risk());
@@ -218,7 +221,7 @@ mod tests {
             serde_json::from_str(&format!(r#"{{{base},"current_scan":{{}}}}"#)).unwrap();
         let scan = p.current_scan.expect("an empty object is still a rollup");
         assert!(!scan.is_at_risk());
-        assert_eq!(scan.critical, None, "absent count, not zero");
+        assert_eq!(scan.critical_count, None, "absent count, not zero");
     }
 
     /// Only critical/high gate, matching the documented `--at-risk` filter. A
@@ -226,14 +229,14 @@ mod tests {
     #[test]
     fn only_critical_and_high_are_at_risk() {
         assert!(
-            !rollup(r#"{"medium":40,"low":99}"#).is_at_risk(),
+            !rollup(r#"{"vuln_count":139}"#).is_at_risk(),
             "medium/low must not gate"
         );
         assert!(!rollup("{}").is_at_risk(), "an empty rollup is clean");
         for body in [
-            r#"{"critical":1}"#,
-            r#"{"high":1}"#,
-            r#"{"critical":1,"high":1}"#,
+            r#"{"critical_count":1}"#,
+            r#"{"high_count":1}"#,
+            r#"{"critical_count":1,"high_count":1}"#,
         ] {
             assert!(rollup(body).is_at_risk(), "{body} must gate");
         }
@@ -242,8 +245,8 @@ mod tests {
     /// The scanner may add severities; extra keys must not fail the parse.
     #[test]
     fn rollup_tolerates_unknown_severities() {
-        let r = rollup(r#"{"critical":1,"high":0,"unknown":5,"negligible":2}"#);
-        assert_eq!(r.critical, Some(1));
+        let r = rollup(r#"{"critical_count":1,"high_count":0,"unknown":5,"negligible":2}"#);
+        assert_eq!(r.critical_count, Some(1));
         assert!(r.is_at_risk());
     }
 }

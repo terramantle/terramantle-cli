@@ -47,6 +47,7 @@ TTY-aware status. Full design notes live in the
 - 🚀 **Publish & tag** — `modules changed/publish` (conventional-commit versioning, deterministic `tar.gz`), `repo tag` (mono `<module>@<version>` release tagging) and `state publish` (per-workspace lock-file upload + posture).
 - 📦 **CI lock-file uploader** — `lock push` with eventually-consistent posture (`--fail-on-atrisk`).
 - 🗄️ **State operations** — `state ls/versions/promote/rollback/unlock`, confirmations + `--force`.
+- 🧪 **Plan push & pull** — `plan push` sends your saved plan (binary + `show -json`) to the workspace's plan surface and prints the policy gate's verdict in the same round trip; `plan pull` downloads the reviewed binary, verifies its sha-256, and hands it to `terraform apply`. The URL is derived from your backend `address`, nothing to configure.
 - 🔐 **Five auth modes, zero hardcoding** — GitHub/GitLab OIDC, device login, portal bot tokens, raw token; every client id and endpoint is fetched from a discovery endpoint at runtime.
 - 🧭 **kubectl-style contexts** — switch org/workspace with `context use`.
 - 🖥️ **Cross-platform** — macOS (arm64/x86_64), Linux (x86_64/arm64), Windows; static binaries + Homebrew + shell installer.
@@ -113,6 +114,11 @@ terramantle
 │   ├── rollback <workspace> [--to <serial>]  # promote previous (or --to) serial
 │   ├── unlock <workspace>      # force-unlock
 │   └── publish [--all] […]     # upload each workspace's .terraform.lock.hcl + posture
+├── plan
+│   ├── push [tfplan] [--ref r] # render + binary -> <backend address>/plan; exit 3 if the gate blocks
+│   ├── pull [--ref r|--id id]  # download the reviewed binary (sha-256 verified) to apply
+│   ├── ls [workspace]          # plan versions: counts, prior serial, binary?, scan, pushed
+│   └── show <workspace> <id>   # one version: counts, lineage, attestation, findings
 ├── repo
 │   └── tag [--dry-run]         # mono: create + push <module>@<version> release tags
 ├── auth
@@ -233,6 +239,55 @@ provenance header every managed file starts with (`# managed by terramantle …`
   creation** — never rewritten or pruned. Managed files are overwritten on
   `upgrade` (the header says "do not edit above this line"); review the plan first
   with `--diff`.
+
+## Plans (`plan push` / `plan pull`)
+
+Terraform and OpenTofu push state to the backend but never push a plan. The CLI fills
+that gap so a plan can be gated before apply and the apply job can fetch exactly the
+reviewed bytes:
+
+```bash
+terraform plan -out=tfplan
+terramantle plan push                # renders with `tofu|terraform show -json`, sends render + binary
+#   ==> Resolving backend
+#       org acme · workspace prod
+#   ==> Rendering plan (tofu show -json)
+#   ==> Pushing (github oidc)
+#       version 0f8fad5b-… · prior serial 14 (from the plan)
+#   ==> Verdict
+#       ✓ allowed
+
+# …after review / on the apply job:
+terramantle plan pull --out plan.tfplan     # latest mainline plan, sha-256 verified
+terraform apply plan.tfplan
+```
+
+- **Where it goes.** The org and workspace are read from the stack's backend
+  configuration — `.terraform/terraform.tfstate` after `init` (so `-backend-config`
+  partials resolve), else the `terraform { backend "http" { address } }` block — and the
+  plan surface is `<address>/plan`, the way terraform derives `lock_address`. Pass
+  `--address` to override, `--chdir` to point at the stack. The backend's origin must be
+  the API this CLI is configured for; a mismatch is an error (exit 2), not a silent push
+  elsewhere.
+- **Lineage is read from the plan itself.** A binary carries the prior state it was
+  computed against, so the server reads the serial and lineage from it rather than
+  trusting a header. A plan from another lineage, or one made against a serial that is
+  no longer current, is refused with exit 7 — re-plan. `--allow-stale` keeps a stale
+  binary for audit only; it cannot be applied.
+- **The verdict is synchronous.** `push` holds the connection while the server runs its
+  built-in gate (destroy threshold, deny-list, require-approval) and, when the org has
+  custom Rego, the OPA gate. A block prints the reasons and exits 3; the next apply's
+  LOCK is refused until an admin approves that exact plan in the portal. `-o json` emits
+  the full result (`version_id`, `attestation_hash`, `tfplan_sha256`, `verdict`, …).
+- **Pull verifies before it writes.** The body's sha-256 must match the server's
+  `X-Terramantle-Tfplan-Sha256`; a missing or mismatching hash is exit 1 and nothing is
+  written. A blocked and unapproved plan is not served (exit 3); a stale one is refused
+  unless `--allow-stale`. Use `--ref <pr-123>` for a PR plan, `--id` for a specific version.
+- **Render-only.** `--render-only --render plan.json` pushes just the `show -json` text
+  (the passive-drift recipe); that version is gated and inspectable but not pullable.
+- `TERRAMANTLE_TF_BIN` / `--tf-bin` picks the terraform-compatible binary used for
+  `show -json` (default: `tofu`, then `terraform`, on `PATH`). It runs in `--chdir`, which
+  must be where `init` ran.
 
 ## Publishing (`modules publish` / `state publish` / `repo tag`)
 
@@ -410,11 +465,11 @@ highest-wins:
 | 0 | success |
 | 1 | generic / unexpected error |
 | 2 | usage error (bad flags/args) |
-| 3 | posture gate tripped (`--fail-on-atrisk`, future policy block) |
+| 3 | a gate said no: `--fail-on-atrisk`, a `plan push` the policy gate blocked, or a `plan pull` of a blocked plan (`policy_blocked`) |
 | 4 | confirmation required but refused / non-interactive without `--yes` |
 | 5 | auth error (no/invalid/expired token, missing role) |
 | 6 | not found (org / workspace / version) |
-| 7 | state conflict — workspace locked / serial conflict (409) |
+| 7 | state conflict — workspace locked, serial conflict, or a plan from another lineage / a stale serial (409) |
 
 `upgrade --check` and `doctor` both use 3: a drifted scaffold is a gate result,
 not a crash.

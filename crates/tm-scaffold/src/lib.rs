@@ -18,7 +18,10 @@ pub mod plan;
 pub mod render;
 pub mod vcs;
 
-pub use backend::{workspace_from_backend, workspace_from_text};
+pub use backend::{
+    backend_from_hcl, resolve_backend, workspace_from_backend, workspace_from_text, BackendAddress,
+    BackendError,
+};
 pub use error::ScaffoldError;
 pub use manifest::{
     Artefact, ChangeBase, CiAuth, CiConfig, Discovery, Engine, Manifest, Structure, Terramate,

@@ -95,7 +95,7 @@
     },
     {
       "name": "Billing",
-      "description": "Tier, usage against tier limits, Stripe checkout/portal and the billing audit log."
+      "description": "Tier, usage, seats, and the Paddle subscription: inline checkout, pay-by-invoice, plan changes,\ncancellation, invoices and payments read live from Paddle, billing contacts, and the audit log.\nPaddle is the merchant of record; the tier only ever moves on its webhook.\n"
     },
     {
       "name": "VCS Trust",
@@ -139,7 +139,7 @@
     },
     {
       "name": "Webhooks",
-      "description": "Inbound webhooks (R2 object events, Stripe). Each verifies its own signature."
+      "description": "Inbound webhooks (R2 object events, Paddle). Each verifies its own signature."
     }
   ],
   "components": {
@@ -211,11 +211,11 @@
         "name": "X-Webhook-Secret",
         "description": "Shared secret for R2 event notifications, compared in constant time."
       },
-      "stripeSignature": {
+      "paddleSignature": {
         "type": "apiKey",
         "in": "header",
-        "name": "Stripe-Signature",
-        "description": "Stripe's webhook signature, verified in the handler. No other auth applies."
+        "name": "Paddle-Signature",
+        "description": "Paddle's webhook signature (`ts=…;h1=…`, HMAC-SHA256 over `ts:rawBody` with the destination's\nsecret), verified in the handler within a 300 s window. The path also carries a secret\ntoken; both must pass. No other auth applies.\n"
       }
     },
     "parameters": {
@@ -358,6 +358,43 @@
           "type": "string"
         }
       },
+      "PlanRefHeader": {
+        "name": "X-Plan-Ref",
+        "in": "header",
+        "required": false,
+        "description": "Concurrent-plan discriminator (PR / branch / SHA). Absent = default/mainline (NULL).\nTwo open PRs against one workspace are separated by this, and `plan/latest?ref=` reads it back.\n",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PlanPriorSerialHeader": {
+        "name": "X-Plan-Prior-Serial",
+        "in": "header",
+        "required": false,
+        "description": "The prior state serial the plan was made against, for a RENDER-ONLY push (`show -json`\ndoes not carry it). Digits only; anything else is treated as absent. Ignored when a\nbinary is pushed - the binary's own prior state is authoritative.\n",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      },
+      "PlanPriorLineageHeader": {
+        "name": "X-Plan-Prior-Lineage",
+        "in": "header",
+        "required": false,
+        "description": "The prior state lineage UUID, for a render-only push. Ignored when a binary is pushed.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PlanAllowStaleQuery": {
+        "name": "allow_stale",
+        "in": "query",
+        "required": false,
+        "description": "`1` downloads a plan whose prior serial is not the workspace's current serial (otherwise `409 plan_stale`).",
+        "schema": {
+          "type": "string"
+        }
+      },
       "PlatformTenantId": {
         "name": "id",
         "in": "path",
@@ -386,6 +423,15 @@
           "minimum": 1,
           "maximum": 200,
           "default": 50
+        }
+      },
+      "PaddleEventId": {
+        "name": "eventId",
+        "in": "path",
+        "required": true,
+        "description": "Paddle's `event_id` (`evt_…`), or the synthetic `unverified:<uuid>` of an unparseable delivery.",
+        "schema": {
+          "type": "string"
         }
       },
       "PlatformIdentityLimit": {
@@ -707,6 +753,69 @@
           }
         }
       },
+      "PlanLocked": {
+        "description": "`plan_locked`: the org is on the free Solo plan, which admits only its oldest owner, and\nthe caller is someone else. Reached by any org-scoped call once a subscription has ended;\n`owner_email` says who can restore it. `402`, not `403`: the membership is fine, the plan is\nwhat is missing. Leaving the org is the one call that is exempt.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "owner_email"
+                  ],
+                  "properties": {
+                    "owner_email": {
+                      "type": "string",
+                      "format": "email"
+                    }
+                  }
+                }
+              ]
+            },
+            "example": {
+              "error": "plan_locked",
+              "message": "This organisation is on the free Solo plan, which admits only its owner. Ask the owner to restore the subscription.",
+              "owner_email": "owner@example.com"
+            }
+          }
+        }
+      },
+      "PaddleError": {
+        "description": "`paddle_error`: Paddle refused or failed the call. `paddle_code` is Paddle's own error code; `message` is its detail and is not a contract.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "paddle_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "BillingNotConfigured": {
+        "description": "`not_configured` (no Paddle API key on this deployment) or `catalog_unconfigured` (the Paddle catalog has not been built for this environment).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
       "UnprocessableEntity": {
         "description": "Well-formed, but semantically rejected.",
         "content": {
@@ -963,6 +1072,16 @@
           }
         }
       },
+      "ProviderProvenance": {
+        "description": "One DSSE envelope (payloadType `application/vnd.in-toto+json`) on one newline-terminated\nline: an in-toto Statement v1 with an SLSA Provenance v1 predicate whose builder id is\n`https://terramantle.dev/builders/provider-build@v1` and whose subjects are the version's\nzips. Signed with ECDSA P-256 over the DSSE PAE, DER signature.\n",
+        "content": {
+          "application/x-ndjson": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ProviderZip": {
         "description": "The provider binary archive.",
         "content": {
@@ -1159,7 +1278,6 @@
         "description": "Billing tier. Drives every quota in `QuotaExceeded`.",
         "enum": [
           "starter",
-          "solo",
           "team",
           "business",
           "enterprise"
@@ -2903,6 +3021,19 @@
           "source_upstream": {
             "$ref": "#/components/schemas/UpstreamRegistry",
             "description": "The registry lineage the artifacts were published under. **Required on success** and\nmust equal the job row's lineage — it is part of the object key, so a mismatch is\nrefused rather than published somewhere nothing will look.\n"
+          },
+          "source_commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "The commit the pin step cloned, read before `.git` is dropped (security review E5).\nChecked before anything is published: a plain build must match the commit the provider\nscanner pinned for the base version's upstream tag, a patched build must match\n`patch_provenance.fork_commit_sha`. A patched tree is never compared with the upstream\npin, because it is a fork commit on top of it. Recorded on the job either way. Absent\n(an older template) or unpinned (a base never scanned) is accepted and logged as\nunverified rather than refused, so a staggered rollout does not fail every build.\n"
+          },
+          "source_repo_url": {
+            "type": "string",
+            "description": "The repository pin cloned: the upstream repo for a plain build, the fork for a patched one."
+          },
+          "provenance_envelope": {
+            "type": "string",
+            "description": "The build's DSSE-signed SLSA provenance, byte-for-byte as published at\n`provenance.intoto.jsonl`. Verified once, here (signature against\n`PROVENANCE_PUBLIC_KEYS`, subjects against `platforms`, builder id), and recorded with\nits outcome; the stored bytes are what the provenance routes then serve. An envelope\nthat fails is recorded as `invalid` and logged, and the build **still completes**:\nthe zips are gated and OpenPGP-signed already, so bad provenance is an alert, not an\nunpublish. Absent when the build ran without the provenance key.\n"
           }
         }
       },
@@ -3168,7 +3299,9 @@
           "is_demo",
           "tier",
           "role",
-          "created_at"
+          "created_at",
+          "plan_lock",
+          "subscription_ended"
         ],
         "properties": {
           "id": {
@@ -3212,6 +3345,21 @@
           },
           "created_at": {
             "$ref": "#/components/schemas/Timestamp"
+          },
+          "plan_lock": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlanLock"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Non-null when **this caller** is locked out of the org by the Solo plan (see `PlanLock`),\nso the portal can show the modal before any call answers `402`.\n"
+          },
+          "subscription_ended": {
+            "type": "boolean",
+            "description": "A Solo org whose Paddle subscription was cancelled (as against one that never had one),\nso the owner's portal can say \"resubscribe\" and explain why colleagues are locked out.\n"
           }
         }
       },
@@ -3819,17 +3967,579 @@
           }
         ]
       },
-      "StripeRedirect": {
+      "BillingCycle": {
+        "type": "string",
+        "title": "BillingCycle",
+        "enum": [
+          "month",
+          "year"
+        ],
+        "description": "Monthly, or annual at eleven months' price."
+      },
+      "BillingConfig": {
         "type": "object",
-        "title": "StripeRedirect",
+        "title": "BillingConfig",
         "required": [
-          "url"
+          "environment",
+          "configured",
+          "client_token",
+          "currency",
+          "plans",
+          "addons",
+          "seat_overage_pence",
+          "invoice_cycles",
+          "invoice_payment_terms_days"
         ],
         "properties": {
-          "url": {
+          "environment": {
             "type": "string",
-            "format": "uri",
-            "description": "Where to send the browser."
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "description": "Which Paddle the worker talks to. Paddle.js must be pointed at the same one."
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "client_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Paddle.js client-side token; `null` until configured."
+          },
+          "currency": {
+            "type": "string",
+            "example": "GBP"
+          },
+          "plans": {
+            "type": "array",
+            "description": "Pence per tier and cycle, from the generated catalog. No price ids.",
+            "items": {
+              "type": "object",
+              "required": [
+                "tier",
+                "cycle",
+                "pence"
+              ],
+              "properties": {
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "team",
+                    "business",
+                    "enterprise"
+                  ],
+                  "description": "Enterprise has an annual price only."
+                },
+                "cycle": {
+                  "$ref": "#/components/schemas/BillingCycle"
+                },
+                "pence": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "addons": {
+            "type": "array",
+            "description": "Every add-on OFFER this environment's catalog sells: which plan offers it, on which\ncycle, at how many pence per unit. A recurring offer renews on its plan's cycle and\nshares its trial; `once` is the onboarding package, charged against the subscription at\nits first paid renewal. The same add-on may appear for several plans at different\nprices. Empty until configured.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "tier",
+                "cycle",
+                "pence"
+              ],
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/BillingAddonKey"
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "team",
+                    "business",
+                    "enterprise"
+                  ]
+                },
+                "cycle": {
+                  "type": "string",
+                  "enum": [
+                    "month",
+                    "year",
+                    "once"
+                  ]
+                },
+                "pence": {
+                  "type": "integer"
+                }
+              }
+            },
+            "example": [
+              {
+                "key": "users",
+                "tier": "enterprise",
+                "cycle": "year",
+                "pence": 22000
+              },
+              {
+                "key": "outpost",
+                "tier": "enterprise",
+                "cycle": "year",
+                "pence": 480000
+              },
+              {
+                "key": "patch_sla",
+                "tier": "enterprise",
+                "cycle": "year",
+                "pence": 220000
+              },
+              {
+                "key": "onboarding",
+                "tier": "enterprise",
+                "cycle": "once",
+                "pence": 250000
+              }
+            ]
+          },
+          "seat_overage_pence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Per billable user past the included allowance, per month. From the catalog's `seat.extra` price; `null` until configured."
+          },
+          "invoice_cycles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingCycle"
+            },
+            "description": "Cycles that may be paid by invoice. Annual only today."
+          },
+          "invoice_payment_terms_days": {
+            "type": "integer"
+          }
+        }
+      },
+      "BillingAddonKey": {
+        "type": "string",
+        "title": "BillingAddonKey",
+        "enum": [
+          "users",
+          "outpost",
+          "patch_sla",
+          "onboarding"
+        ],
+        "description": "`users` is a pack of 10 users on top of the plan's included ones; `outpost` is one self-hosted\ninstall licensed and managed from the cloud org; `patch_sla` is the contracted 7/14/28-day\npatch remediation window; `onboarding` is the one-off onboarding and deployment package.\n"
+      },
+      "BillingAddonsBody": {
+        "type": "object",
+        "title": "BillingAddonsBody",
+        "description": "The plan options, priced by the server from the catalog for the chosen plan and cycle. An\nadd-on that plan does not offer on that cycle is a `422 not_offered`, not a silent drop, so\na client learns it bought nothing. `GET /api/billing/config` lists the offers.\n",
+        "properties": {
+          "addons": {
+            "type": "object",
+            "description": "Recurring add-on → whole-number quantity, `0`–`1000`; `0` or absent means not bought.\n`onboarding` is not a quantity and is refused here: use `onboarding: true`. Paddle caps\neach quantity again at the price's own maximum (100 user packs, 50 outposts, 1 SLA).\n",
+            "properties": {
+              "users": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "outpost": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "patch_sla": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": false,
+            "example": {
+              "users": 2,
+              "outpost": 1,
+              "patch_sla": 1
+            }
+          },
+          "onboarding": {
+            "type": "boolean",
+            "description": "Buy the one-off onboarding package. It is **never** an item in the checkout or invoice:\nPaddle documents a one-time charge on a trialing subscription but not a one-time item\nbeside trialing items in one checkout. The request is recorded, and the first\nsubscription event charges it against the subscription for the first paid renewal.\n"
+          }
+        }
+      },
+      "BillingIdentityBody": {
+        "type": "object",
+        "title": "BillingIdentityBody",
+        "description": "The business the subscription is sold to. Shared by checkout and invoice.",
+        "required": [
+          "business_name"
+        ],
+        "properties": {
+          "business_name": {
+            "type": "string",
+            "description": "The legal entity, as it should appear on invoices. Defaults to the org name in the wizard."
+          },
+          "tax_identifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "VAT or tax number, for reverse charge where it applies."
+          },
+          "reuse_business_from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "A `tenant_id` from `GET /api/billing/businesses`; bill under that org's existing business instead of creating one."
+          },
+          "contacts": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "format": "email"
+            },
+            "description": "Extra manual billing contacts. The caller and every billing admin are added regardless."
+          }
+        }
+      },
+      "BillingAddress": {
+        "type": "object",
+        "title": "BillingAddress",
+        "required": [
+          "country_code"
+        ],
+        "properties": {
+          "country_code": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2."
+          },
+          "postal_code": {
+            "type": "string",
+            "description": "Required by Paddle for GB, US and other countries that have them."
+          },
+          "region": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "first_line": {
+            "type": "string"
+          },
+          "second_line": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckoutTransaction": {
+        "type": "object",
+        "title": "CheckoutTransaction",
+        "required": [
+          "transaction_id"
+        ],
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "description": "Pass to `Paddle.Checkout.open({ transactionId })`."
+          }
+        }
+      },
+      "BillingSubscription": {
+        "type": "object",
+        "title": "BillingSubscription",
+        "description": "The Paddle subscription as last reported by its webhook events.",
+        "required": [
+          "status",
+          "tier",
+          "cycle",
+          "collection_mode",
+          "current_period_end",
+          "scheduled_cancel_at"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "trialing",
+              "past_due",
+              "paused",
+              "canceled"
+            ],
+            "description": "Paddle's status verbatim. `past_due` keeps the tier while Paddle chases."
+          },
+          "tier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "team",
+              "business",
+              "enterprise",
+              null
+            ],
+            "description": "What the price on the subscription means. Derived from the price id, never from custom data."
+          },
+          "cycle": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BillingCycle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collection_mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "automatic",
+              "manual",
+              null
+            ],
+            "description": "`automatic` is a card; `manual` is invoiced."
+          },
+          "current_period_end": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Next renewal, epoch ms."
+          },
+          "scheduled_cancel_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "When a scheduled cancellation takes effect; `null` when none."
+          }
+        }
+      },
+      "BillingInvoice": {
+        "type": "object",
+        "title": "BillingInvoice",
+        "required": [
+          "id",
+          "invoice_number",
+          "status",
+          "collection_mode",
+          "origin",
+          "total",
+          "currency",
+          "billed_at",
+          "created_at",
+          "period",
+          "has_pdf"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Paddle transaction id."
+          },
+          "invoice_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Paddle's transaction status (`billed`, `paid`, `completed`, `past_due`)."
+          },
+          "collection_mode": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "description": "Paddle's origin (`web`, `subscription_recurring`, `subscription_charge`, `api` …)."
+          },
+          "total": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Grand total in minor units, as Paddle returns it."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "billed_at": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "integer"
+          },
+          "period": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "start",
+                  "end"
+                ],
+                "properties": {
+                  "start": {
+                    "type": "integer"
+                  },
+                  "end": {
+                    "type": "integer"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_pdf": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BillingPayment": {
+        "type": "object",
+        "title": "BillingPayment",
+        "required": [
+          "transaction_id",
+          "invoice_number",
+          "payment_attempt_id",
+          "status",
+          "amount",
+          "currency",
+          "error_code",
+          "method",
+          "card_last4",
+          "created_at",
+          "captured_at"
+        ],
+        "properties": {
+          "transaction_id": {
+            "type": "string"
+          },
+          "invoice_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payment_attempt_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Minor units, as Paddle returns it."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Paddle's decline code when the attempt failed."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "card_last4": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "integer"
+          },
+          "captured_at": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "BillingContact": {
+        "type": "object",
+        "title": "BillingContact",
+        "required": [
+          "email",
+          "name",
+          "source"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "payer",
+              "billing_admin",
+              "manual"
+            ]
+          }
+        }
+      },
+      "BillingContacts": {
+        "type": "object",
+        "title": "BillingContacts",
+        "required": [
+          "contacts"
+        ],
+        "properties": {
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingContact"
+            }
+          }
+        }
+      },
+      "PlanLock": {
+        "type": "object",
+        "title": "PlanLock",
+        "description": "The Solo plan lock. Solo is single-user: an org that reverted to it when its subscription\nended keeps its members, but only the **oldest owner** may act until someone resubscribes.\nNot stored anywhere — derived from the tier and the owners' join order — so it lifts the\nmoment the tier moves. Bots and CI tokens are never locked (Solo includes CI).\n",
+        "required": [
+          "owner_email"
+        ],
+        "properties": {
+          "owner_email": {
+            "type": "string",
+            "format": "email",
+            "description": "Who to ask."
           }
         }
       },
@@ -3891,14 +4601,14 @@
               "integer",
               "null"
             ],
-            "description": "Seats inside the flat org price; `null` ⇒ negotiated (Enterprise). What makes a user\nbillable is activity, not membership: see `BillingState.seats`.\n"
+            "description": "Seats inside the flat org price. Enterprise's 100 grow by 10 per user pack on the\nsubscription. What makes a user billable is activity, not membership: see\n`BillingState.seats`.\n"
           },
           "extraUserPencePerMonth": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "Flat monthly price, in pence, for each billable user past `includedUsers`. `null` ⇒\nno overage exists on this tier (Starter hard-caps, Enterprise negotiates).\n"
+            "description": "Flat monthly price, in pence, for each billable user past `includedUsers`. `null` ⇒\nno overage exists on this tier (Starter hard-caps; Enterprise buys user packs, so\npast `includedUsers` it is a soft limit and nothing is charged in arrears).\n"
           },
           "botTokens": {
             "type": [
@@ -3924,7 +4634,15 @@
           "usage",
           "seats",
           "grace_period",
-          "has_stripe"
+          "can_write",
+          "billing_configured",
+          "business",
+          "subscription",
+          "pending_invoice_transaction_id",
+          "has_subscription",
+          "addons",
+          "entitlements",
+          "onboarding_status"
         ],
         "properties": {
           "tier": {
@@ -3980,16 +4698,116 @@
             ],
             "description": "`null` when no downgrade grace period is set."
           },
-          "has_stripe": {
+          "can_write": {
             "type": "boolean",
-            "description": "Whether a Stripe subscription backs this org."
+            "description": "Whether this caller is the owner or a billing admin, i.e. may checkout, change, cancel, or edit contacts."
+          },
+          "billing_configured": {
+            "type": "boolean",
+            "description": "Paddle is configured on this deployment and the catalog exists; false hides every paid action."
+          },
+          "business": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "tax_identifier"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "tax_identifier": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Paddle business, from the moment a checkout or invoice was started. `null` before that."
+          },
+          "subscription": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BillingSubscription"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` until Paddle has reported a subscription, or after it was cancelled."
+          },
+          "pending_invoice_transaction_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An issued invoice whose subscription event has not arrived yet."
+          },
+          "has_subscription": {
+            "type": "boolean"
+          },
+          "addons": {
+            "type": "object",
+            "description": "The recurring add-ons on the subscription, read off its price ids by the webhook\nexactly as the tier is. `{}` without a live subscription: a cancelled org keeps none.\nUser packs are already folded into `limits.includedUsers`.\n",
+            "properties": {
+              "users": {
+                "type": "integer"
+              },
+              "outpost": {
+                "type": "integer"
+              },
+              "patch_sla": {
+                "type": "integer"
+              }
+            },
+            "example": {
+              "users": 2,
+              "outpost": 1,
+              "patch_sla": 1
+            }
+          },
+          "entitlements": {
+            "type": "object",
+            "description": "What the add-ons grant beyond the limits. Zero and `false` when none are bought.",
+            "required": [
+              "outposts",
+              "patch_sla"
+            ],
+            "properties": {
+              "outposts": {
+                "type": "integer",
+                "description": "Self-hosted installs this org may license."
+              },
+              "patch_sla": {
+                "type": "boolean"
+              }
+            }
+          },
+          "onboarding_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "requested",
+              "charged",
+              null
+            ],
+            "description": "The one-off package: `requested` at checkout until a subscription exists, then\n`charged` (deferred to the first paid renewal while trialing). `null` when not bought.\n"
           }
         }
       },
       "BillingSeats": {
         "type": "object",
         "title": "BillingSeats",
-        "description": "The seat line for the current billing month. The handler computes it from\n`tenant_member_activity` (migration 132): a user is **billable** for a month when they, as\na human member, made any tenant-scoped request to this org during that UTC calendar month\n— the portal, the API, the CLI, a module or provider download, a state read or lock, all\nwith their own login. A member who was idle all month is not a seat. Bot tokens and CI\nOIDC identities are never counted; they are limited and priced separately.\n\n`billable_extra` and `estimated_overage_pence` are what the overage line would charge if\nthe month ended now. They are `0` whenever the tier has no `included` allowance\n(Enterprise) or no `extra_user_pence` (Starter), and they are an estimate even when\n`metered` is true, because the month is not over.\n",
+        "description": "The seat line for the current billing month. The handler computes it from\n`tenant_member_activity` (migration 132): a user is **billable** for a month when they, as\na human member, made any tenant-scoped request to this org during that UTC calendar month\n— the portal, the API, the CLI, a module or provider download, a state read or lock, all\nwith their own login. A member who was idle all month is not a seat. Bot tokens and CI\nOIDC identities are never counted; they are limited and priced separately.\n\n`billable_extra` and `estimated_overage_pence` are what the overage line would charge if\nthe month ended now. They are `0` whenever the tier has no `extra_user_pence` (Starter,\nand Enterprise, which buys user packs instead), and they are an estimate even when\n`metered` is true, because the month is not over.\n",
         "required": [
           "period",
           "included",
@@ -4052,7 +4870,7 @@
           },
           "metered": {
             "type": "boolean",
-            "description": "Whether the estimate is actually being invoiced. `false` while the beta free period is\non or when no Stripe subscription backs the org, so a UI can show the count without\nimplying a charge.\n"
+            "description": "Whether the estimate is actually being invoiced: true only while an `active` Paddle\nsubscription with an overage price backs the org, so a UI can show the count without\nimplying a charge. The charge itself is posted in arrears by the daily seat-overage\ncron as a one-time charge on the subscription.\n"
           }
         },
         "example": {
@@ -4090,6 +4908,11 @@
           "vcs_trust.delete",
           "billing.upgrade",
           "billing.downgrade",
+          "billing.cancel_requested",
+          "billing.cancel_withdrawn",
+          "billing.contact_added",
+          "billing.contact_removed",
+          "billing.admin_set",
           "policy.settings.update",
           "state.force_unlock",
           "state.promote_version",
@@ -4389,6 +5212,164 @@
           }
         }
       },
+      "PlanVerdict": {
+        "type": "object",
+        "description": "The synchronous gate's answer. `sources` names the engine(s) that refused - `builtin` is the destroy threshold / deny-list / require_approval gate, `opa` the org's custom Rego (an OPA outage fails closed and also reads as `opa`). `reasons` are the gates' own strings, never a plan value. When `blocked`, `state_workspaces.blocked` was set before this response and the next LOCK is refused until a human approves this exact version.\n",
+        "required": [
+          "blocked",
+          "reasons",
+          "sources"
+        ],
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "builtin",
+                "opa"
+              ]
+            }
+          }
+        }
+      },
+      "PlanPushResult": {
+        "type": "object",
+        "description": "What a push returns. HTTP 200 whether or not the gate blocked; read `verdict`.",
+        "required": [
+          "ok",
+          "version_id",
+          "attestation_hash",
+          "tfplan_sha256",
+          "prior_serial",
+          "prior_lineage",
+          "lineage_source",
+          "stale",
+          "deduped",
+          "verdict",
+          "scan_status"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "version_id": {
+            "type": "string",
+            "description": "Primary key of the plan_versions row; what `/plan/{planId}` takes."
+          },
+          "attestation_hash": {
+            "type": "string",
+            "description": "sha-256 of the redacted canonical render. Unchanged semantics; what approvals bind to."
+          },
+          "tfplan_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sha-256 of the stored binary; null for a render-only push. Verify a pull against it."
+          },
+          "prior_serial": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "prior_lineage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lineage_source": {
+            "type": "string",
+            "enum": [
+              "tfplan",
+              "header",
+              "none"
+            ],
+            "description": "`tfplan` = read from the binary's embedded prior state (authoritative); `header` = the X-Plan-Prior-* claim; `none` = neither supplied."
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "prior_serial trails the workspace's current serial (the attestation rule). Only ever true for a render-only push - a stale binary is refused."
+          },
+          "deduped": {
+            "type": "boolean",
+            "description": "A byte-identical plan for this (workspace, ref) already existed and was returned."
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/PlanVerdict"
+          },
+          "scan_status": {
+            "$ref": "#/components/schemas/PlanScanStatus"
+          }
+        }
+      },
+      "PlanResourceTree": {
+        "type": "object",
+        "description": "The plan inspector's tree. Same element shapes as the state inspector (`InspectorResource`, `InspectorOutput`), plus `drift_count`.",
+        "required": [
+          "version_id",
+          "attestation_hash",
+          "plan_ref",
+          "resources",
+          "outputs",
+          "resource_count",
+          "sensitive_count",
+          "drift_count"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "version_id": {
+            "type": "string"
+          },
+          "attestation_hash": {
+            "type": "string"
+          },
+          "plan_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectorResource"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectorOutput"
+            }
+          },
+          "resource_count": {
+            "type": "integer",
+            "description": "Resources in the change set that are not being destroyed."
+          },
+          "sensitive_count": {
+            "type": "integer",
+            "description": "Masked attribute and output occurrences. A count, never a value."
+          },
+          "drift_count": {
+            "type": "integer",
+            "description": "`resource_drift.length`; those entries are in `resources` with `drift: true`."
+          }
+        }
+      },
       "PlanScanStatus": {
         "type": "string",
         "enum": [
@@ -4424,7 +5405,10 @@
           "sensitive_change_count",
           "attestation_hash",
           "scan_status",
-          "created_at"
+          "created_at",
+          "lineage_source",
+          "render_kind",
+          "tfplan_sha256"
         ],
         "properties": {
           "id": {
@@ -4440,6 +5424,34 @@
               }
             ],
             "description": "PR/branch/SHA discriminator; null = default/mainline."
+          },
+          "lineage_source": {
+            "type": "string",
+            "enum": [
+              "tfplan",
+              "header",
+              "none"
+            ],
+            "description": "Where prior_serial / prior_lineage came from (see PlanPushResult)."
+          },
+          "render_kind": {
+            "type": "string",
+            "enum": [
+              "redacted",
+              "full"
+            ],
+            "description": "`full` since migration 145; `redacted` for a legacy version, whose inspector answers 409."
+          },
+          "tfplan_sha256": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Present when a binary is stored and pullable; null for a render-only version."
           },
           "add_count": {
             "type": "integer"
@@ -6198,6 +7210,253 @@
                 "type": "integer"
               }
             }
+          }
+        }
+      },
+      "PlatformBillingSubscription": {
+        "type": "object",
+        "title": "PlatformBillingSubscription",
+        "required": [
+          "tenant_id",
+          "slug",
+          "name",
+          "tenant_tier",
+          "deleted_at",
+          "paddle_customer_id",
+          "paddle_business_id",
+          "paddle_subscription_id",
+          "subscription_status",
+          "collection_mode",
+          "billing_cycle",
+          "tier",
+          "current_period_end",
+          "scheduled_cancel_at",
+          "business_name",
+          "pending_transaction_id",
+          "payer_email",
+          "updated_at"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tenant_tier": {
+            "type": "string"
+          },
+          "deleted_at": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "paddle_customer_id": {
+            "type": "string"
+          },
+          "paddle_business_id": {
+            "type": "string"
+          },
+          "paddle_subscription_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subscription_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "collection_mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "billing_cycle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_period_end": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "scheduled_cancel_at": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "business_name": {
+            "type": "string"
+          },
+          "pending_transaction_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payer_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "integer"
+          }
+        }
+      },
+      "PlatformBillingWebhookEvent": {
+        "type": "object",
+        "title": "PlatformBillingWebhookEvent",
+        "required": [
+          "event_id",
+          "notification_id",
+          "event_type",
+          "occurred_at",
+          "received_at",
+          "signature_valid",
+          "tenant_id",
+          "status",
+          "attempts",
+          "error",
+          "processed_at"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "notification_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "received_at": {
+            "type": "integer"
+          },
+          "signature_valid": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "tenant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processed",
+              "ignored",
+              "failed",
+              "rejected"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processed_at": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "PlatformBillingSeatCharge": {
+        "type": "object",
+        "title": "PlatformBillingSeatCharge",
+        "required": [
+          "tenant_id",
+          "slug",
+          "period",
+          "active_members",
+          "included",
+          "billable_extra",
+          "pence",
+          "paddle_subscription_id",
+          "effective_from",
+          "charged_at"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "period": {
+            "type": "string",
+            "description": "'YYYY-MM'"
+          },
+          "active_members": {
+            "type": "integer"
+          },
+          "included": {
+            "type": "integer"
+          },
+          "billable_extra": {
+            "type": "integer"
+          },
+          "pence": {
+            "type": "integer"
+          },
+          "paddle_subscription_id": {
+            "type": "string"
+          },
+          "effective_from": {
+            "type": "string",
+            "enum": [
+              "next_billing_period",
+              "immediately"
+            ]
+          },
+          "charged_at": {
+            "type": "integer"
           }
         }
       },
@@ -9428,6 +10687,65 @@
               "additionalProperties": true
             }
           },
+          "provenance": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The SLSA provenance this build recorded at completion, verified once then (see\n`ProviderVersionProvenance`). `null` when the build recorded none: no provenance key\nmounted, or the build predates provenance. Operators see every tier's, including\n`status_reason` for an `invalid` one; the envelope bytes are not in this payload.\n",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "invalid"
+                ]
+              },
+              "status_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "slsa_build_level": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "key_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "envelope_sha256": {
+                "type": "string"
+              },
+              "builder_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_repo": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_commit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "gates": {},
+              "recorded_at": {
+                "type": "integer"
+              }
+            }
+          },
           "workflow": {
             "$ref": "#/components/schemas/PlatformProvidersWorkflowBrief"
           },
@@ -10268,8 +11586,10 @@
                   "claimed_domain",
                   "r2_jurisdiction",
                   "downgrade_grace_ends_at",
-                  "has_stripe_customer",
-                  "has_stripe_subscription",
+                  "has_billing_business",
+                  "subscription_status",
+                  "subscription_tier",
+                  "billing_cycle",
                   "policies_enabled"
                 ],
                 "properties": {
@@ -10302,11 +11622,35 @@
                       "null"
                     ]
                   },
-                  "has_stripe_customer": {
-                    "type": "boolean"
+                  "has_billing_business": {
+                    "type": "boolean",
+                    "description": "A Paddle business exists for the org (a checkout or invoice was started)."
                   },
-                  "has_stripe_subscription": {
-                    "type": "boolean"
+                  "subscription_status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Paddle's subscription status as last reported",
+                    "or null.": null
+                  },
+                  "subscription_tier": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The tier the subscription's price maps to."
+                  },
+                  "billing_cycle": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "month",
+                      "year",
+                      null
+                    ]
                   },
                   "policies_enabled": {
                     "type": "boolean"
@@ -11832,6 +13176,21 @@
             "type": "integer",
             "description": "High findings on `latest_version` only. Same caveat as `vuln_count`."
           },
+          "max_cvss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Worst CVSS base score among `latest_version`'s **critical and high** findings. Same\nlatest-only scope as `vuln_count`. `null` when none of them carries a score, or the\nversion is unscanned.\n"
+          },
+          "max_epss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Highest EPSS probability (0–1) among **all** of `latest_version`'s vulnerability\nfindings — not only critical and high, because a medium that is likely to be exploited\nis exactly what EPSS is there to surface. Paired with `max_cvss` it answers \"how bad\"\nand \"how likely\" side by side. Same latest-only scope as `vuln_count`.\n\n`null` is not \"unknown\". The EPSS mirror stores only scores at or above **0.04**\n(about FIRST's 90th percentile), so `null` means every finding scored below that (or\nis not CVE-keyed and has no CVE alias), or the version is unscanned. Per-finding detail is on the detail route's\n`versions[].findings` (`ProviderVersionFinding`).\n",
+            "example": 0.94
+          },
           "downloads": {
             "$ref": "#/components/schemas/DownloadWindows"
           },
@@ -11923,6 +13282,135 @@
           }
         }
       },
+      "ProviderVersionFinding": {
+        "type": "object",
+        "title": "ProviderVersionFinding",
+        "description": "One vulnerability finding on a provider version, from the shared cross-org scan cache,\njoined to TerraMantle's mirror of the CISA KEV catalogue and FIRST.org's EPSS feed.\n\n**How the threat intel is resolved.** EPSS and KEV are keyed by CVE, but the scanner\nreports a Go dependency's advisory by its GHSA or GO id about as often as by its CVE. A\nnon-CVE id is therefore looked up through the OSV alias mirror first; `epss_cve_id` names\nthe CVE the result came from, so a client can link FIRST's record for a GHSA-keyed\nfinding. An id with no known CVE alias has `epss_cve_id: null`, `epss: null` and\n`kev: false`.\n\n**What a `null` EPSS means.** The mirror keeps only scores at or above **0.04** (about\nFIRST's 90th percentile), since the full feed (~400k CVEs) does not fit a Worker\ninvocation's D1 budget. For a resolved CVE,\n`epss: null` means it scored below 0.04 at the last daily refresh, or was published after\nit. It does not mean the CVE is unscored.\n",
+        "required": [
+          "cve_id",
+          "severity",
+          "pkg_name",
+          "installed_version",
+          "fixed_version",
+          "fixable",
+          "cvss_score",
+          "primary_url",
+          "epss",
+          "epss_percentile",
+          "epss_at",
+          "epss_cve_id",
+          "kev"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "cve_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The advisory id as the scanner reported it — `CVE-…`, `GHSA-…` or `GO-…`."
+          },
+          "severity": {
+            "type": "string",
+            "description": "Scanner severity, lower-case: `critical`, `high`, `medium`, `low`, or `info` for an advisory the scanner rates UNKNOWN."
+          },
+          "pkg_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "installed_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fixed_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "First package version carrying the fix, where one exists."
+          },
+          "fixable": {
+            "type": "boolean",
+            "description": "`true` exactly when `fixed_version` is a non-empty string."
+          },
+          "cvss_score": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "CVSS base score, preferring NVD v3, then any vendor's v3, then v2."
+          },
+          "primary_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The scanner's advisory URL, unvalidated. Often an avd.aquasec.com page that 404s for\nrecent CVEs, which is why the portal links `CVE-`/`GHSA-` ids to NVD and GitHub\nAdvisories instead.\n"
+          },
+          "file_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `go.mod` the finding was read from. Always the root module here."
+          },
+          "epss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "EPSS probability (0–1, 2 dp) that the resolved CVE is exploited in the wild in the next\n30 days. How *likely* exploitation is, where `cvss_score` says how *bad* it would be.\nSee the schema description for what `null` means.\n",
+            "example": 0.94
+          },
+          "epss_percentile": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Share (0–1) of all EPSS-scored CVEs this one ranks above, from the same feed row.\n`null` whenever `epss` is, and also on a mirror row written before the percentile was\nstored, until the next daily refresh.\n",
+            "example": 0.99
+          },
+          "epss_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "When TerraMantle's mirror last wrote this score (epoch ms). That is our refresh time,\nnot FIRST's model date. `null` whenever `epss` is.\n"
+          },
+          "epss_cve_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The CVE the EPSS and KEV data were resolved through: `cve_id` itself for a CVE, its\nalias target for a GHSA/GO id. `null` when no intel row matched — an unaliased id, or a\nCVE with neither a stored score nor a KEV listing.\n",
+            "example": "CVE-2025-22869"
+          },
+          "kev": {
+            "type": "boolean",
+            "description": "The resolved CVE is on the CISA Known Exploited Vulnerabilities catalogue."
+          }
+        },
+        "example": {
+          "cve_id": "GHSA-hcg3-q754-cr77",
+          "severity": "high",
+          "pkg_name": "golang.org/x/crypto",
+          "installed_version": "v0.31.0",
+          "fixed_version": "0.35.0",
+          "fixable": true,
+          "cvss_score": 7.5,
+          "primary_url": "https://github.com/advisories/GHSA-hcg3-q754-cr77",
+          "file_path": "go.mod",
+          "epss": 0.12,
+          "epss_percentile": 0.93,
+          "epss_at": 1762489020000,
+          "epss_cve_id": "CVE-2025-22869",
+          "kev": false
+        }
+      },
       "ProviderVersionRow": {
         "type": "object",
         "title": "ProviderVersionRow",
@@ -11980,7 +13468,15 @@
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "description": "Worst CVSS base score among this version's critical and high findings."
+          },
+          "max_epss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Highest EPSS probability among **all** of this version's vulnerability findings. The\nsame rollup and `null` semantics as `ProviderArtefactSummary.max_epss`: `null` means\nnothing scored at or above the mirror's 0.04 floor, not that the score is unknown.\n"
           },
           "has_unfixable_high": {
             "type": "boolean",
@@ -11988,9 +13484,9 @@
           },
           "findings": {
             "type": "array",
+            "description": "This version's vulnerability findings, root module only (a nested `tools/go.mod` never\nships in the binary), ordered worst severity first. The same rows the counts above are\ncomputed from, so the list and the counts cannot disagree.\n",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/ProviderVersionFinding"
             }
           },
           "has_sbom": {
@@ -12042,8 +13538,150 @@
             ],
             "description": "Build/patch state for this version. `null` when none, or when tier-gated.",
             "additionalProperties": true
+          },
+          "provenance": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProviderVersionProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SLSA build provenance of this version's self-built revision. `null` when the version\nhas no self-built revision, so nothing to have provenance for.\n\nDeliberately **not** inside `build`, which is `null` below Business: every tier sees\nthe verified state, because \"built by a platform that signed a record of how\" is the\ntrust signal itself. Enterprise also gets the material behind it (see `entitled`).\n"
           }
         }
+      },
+      "ProviderVersionProvenance": {
+        "type": "object",
+        "title": "ProviderVersionProvenance",
+        "description": "The outcome of verifying a self-built revision's DSSE-signed SLSA Provenance v1 envelope,\nwhich the Worker does **once**, when the build reports completion: the signature against\nthe keys at `/.well-known/terramantle-provenance-keys.json`, the statement's subjects\nagainst the zips the build published, and the builder id. Nothing here is re-derived on\nread.\n\n`status`:\n\n- `verified`: all of the above held.\n- `invalid`: something did not. This is an alert, not an unpublish: the zips are already\n  gated and OpenPGP-signed, which is what `tofu init` checks. `status_reason` says what\n  (Enterprise only).\n- `missing`: a self-built revision with no provenance at all, built before provenance\n  existed or without the provenance key. Only `full_version` and `entitled` accompany it.\n\n**Tier split.** Every tier gets the state fields. `entitled: true` (Enterprise) adds\n`status_reason`, `key_id`, `envelope_sha256`, `subjects` and `download_path`. Below\nEnterprise those fields are **absent**, not `null`, so a client cannot read \"not shown\" as\n\"not there\".\n\n`slsa_level` is what the platform **claimed** for the build when it was recorded: SLSA\nlevels are claimed by a build platform about itself, not attested in the statement. It is\n`2` until the build-isolation work (security review E1) is deployed and verified, and\n`null` on an `invalid` row. It is not a safety verdict; findings are.\n",
+        "required": [
+          "status",
+          "full_version",
+          "entitled"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "invalid",
+              "missing"
+            ]
+          },
+          "full_version": {
+            "type": "string",
+            "description": "The self-built revision this describes (`<base>-0.0.<rev>`)."
+          },
+          "entitled": {
+            "type": "boolean",
+            "description": "Whether the material fields below are present (Enterprise)."
+          },
+          "slsa_level": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "builder_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "https://terramantle.dev/builders/provider-build@v1"
+            ]
+          },
+          "source_repo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The repository the build cloned: upstream for a plain build, the fork for a patched one."
+          },
+          "source_commit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The commit the build cloned, checked at completion against the scan pin or the fork commit."
+          },
+          "gates": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "passed",
+                "blocked"
+              ]
+            },
+            "description": "Per-gate outcome from the statement's gate-verdict byproducts, e.g. `{\"G1\":\"passed\"}`."
+          },
+          "recorded_at": {
+            "type": "integer",
+            "description": "Epoch ms the Worker verified and recorded it."
+          },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why an `invalid` envelope failed (Enterprise only). Human-readable; not a contract."
+          },
+          "key_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The provenance key that signed it (Enterprise only)."
+          },
+          "envelope_sha256": {
+            "type": "string",
+            "description": "sha256 of the published `provenance.intoto.jsonl` bytes (Enterprise only)."
+          },
+          "subjects": {
+            "type": "array",
+            "description": "The statement's subjects, one per platform zip (Enterprise only).",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "sha256"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "download_path": {
+            "type": "string",
+            "description": "Where to fetch the envelope, relative to the API origin (Enterprise only)."
+          }
+        },
+        "examples": [
+          {
+            "status": "verified",
+            "full_version": "4.0.6-0.0.1",
+            "entitled": false,
+            "slsa_level": 2,
+            "builder_id": "https://terramantle.dev/builders/provider-build@v1",
+            "source_repo": "https://github.com/hashicorp/terraform-provider-tls",
+            "source_commit": "3f1c0e8a9b7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e",
+            "gates": {
+              "G1": "passed",
+              "G2": "passed",
+              "G3": "passed",
+              "G4": "passed"
+            },
+            "recorded_at": 1762596000000
+          }
+        ]
       },
       "ProviderArtefactDetail": {
         "type": "object",
@@ -14504,20 +16142,52 @@
       "VersionScanRollup": {
         "type": "object",
         "title": "VersionScanRollup",
-        "description": "Finding counts for one provider version, from the cross-org scan cache. Only completed\nscans are represented, which is why an absent entry means \"not scanned\".\n",
+        "description": "Finding counts for one provider version, from the cross-org scan cache. Only completed\nscans are represented, which is why an absent entry means \"not scanned\".\n\nThe same rollup the provider detail route reports per version (`ProviderVersionRow`),\npassed through whole. Counts are root module only.\n",
+        "required": [
+          "scanned",
+          "malware_detected",
+          "vuln_count",
+          "critical_count",
+          "high_count",
+          "max_cvss",
+          "max_epss",
+          "has_unfixable_high"
+        ],
         "additionalProperties": true,
         "properties": {
-          "critical": {
+          "scanned": {
+            "type": "boolean",
+            "description": "Always `true` here — an unscanned version is `null`, not a rollup."
+          },
+          "malware_detected": {
+            "type": "boolean"
+          },
+          "vuln_count": {
             "type": "integer"
           },
-          "high": {
+          "critical_count": {
             "type": "integer"
           },
-          "medium": {
+          "high_count": {
             "type": "integer"
           },
-          "low": {
-            "type": "integer"
+          "max_cvss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Worst CVSS base score among the critical and high findings."
+          },
+          "max_epss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Highest EPSS probability among all vulnerability findings. `null` means nothing scored\nat or above the EPSS mirror's 0.04 floor, not that the score is unknown.\n"
+          },
+          "has_unfixable_high": {
+            "type": "boolean",
+            "description": "A high-severity finding with no fixed version available."
           }
         }
       },
@@ -14638,12 +16308,16 @@
       "StateResourceTree": {
         "type": "object",
         "title": "StateResourceTree",
-        "description": "Managed resources as a tree. Addresses and structural metadata only — no resource values\nare ever returned. The `compare_*` fields are populated when `?compare=` was supplied.\n",
+        "description": "Managed resources as a tree plus root-module outputs. Non-sensitive values are present;\nevery sensitive value is masked server-side (see the operation description for the mask\ncontract). The `compare_*` fields are populated when `?compare=` was supplied.\n",
         "required": [
           "version_id",
           "serial",
           "compare_version_id",
-          "compare_serial"
+          "compare_serial",
+          "resources",
+          "outputs",
+          "resource_count",
+          "sensitive_count"
         ],
         "additionalProperties": true,
         "properties": {
@@ -14665,6 +16339,191 @@
               "integer",
               "null"
             ]
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectorResource"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "description": "Root-module outputs, sorted by name. Same mask rules as attributes.",
+            "items": {
+              "$ref": "#/components/schemas/InspectorOutput"
+            }
+          },
+          "resource_count": {
+            "type": "integer",
+            "description": "Resources in the inspected version (removed ones in compare mode excluded)."
+          },
+          "sensitive_count": {
+            "type": "integer",
+            "description": "Redacted attribute and output occurrences. A count, never a value."
+          }
+        }
+      },
+      "InspectorChange": {
+        "type": "string",
+        "enum": [
+          "added",
+          "removed",
+          "changed",
+          "unchanged"
+        ],
+        "description": "Compare-mode change label, computed over raw values inside the Worker."
+      },
+      "InspectorAttribute": {
+        "type": "object",
+        "title": "InspectorAttribute",
+        "description": "One resource-instance attribute. `value` is ABSENT when `redacted` is true; the mask is\n`{redacted, reason, value_type}` and nothing else. Nested redacted leaves inside a returned\nobject value are `{\"__redacted\": true, \"reason\": ..., \"value_type\": ...}`.\n",
+        "required": [
+          "key",
+          "redacted",
+          "value_type"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Present only when not redacted."
+          },
+          "redacted": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "sensitive",
+              "heuristic"
+            ]
+          },
+          "value_type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ]
+          },
+          "change": {
+            "$ref": "#/components/schemas/InspectorChange"
+          }
+        }
+      },
+      "InspectorOutput": {
+        "type": "object",
+        "title": "InspectorOutput",
+        "description": "A root-module output. Terraform's `sensitive` flag is honoured, then the heuristics. Same mask shape as InspectorAttribute.",
+        "required": [
+          "name",
+          "redacted",
+          "value_type"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Present only when not redacted."
+          },
+          "redacted": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "sensitive",
+              "heuristic"
+            ]
+          },
+          "value_type": {
+            "type": "string"
+          },
+          "change": {
+            "$ref": "#/components/schemas/InspectorChange"
+          }
+        }
+      },
+      "InspectorInstance": {
+        "type": "object",
+        "required": [
+          "index_key",
+          "attributes"
+        ],
+        "properties": {
+          "index_key": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectorAttribute"
+            }
+          },
+          "change": {
+            "$ref": "#/components/schemas/InspectorChange"
+          }
+        }
+      },
+      "InspectorResource": {
+        "type": "object",
+        "required": [
+          "address",
+          "module",
+          "mode",
+          "type",
+          "name",
+          "provider",
+          "instances"
+        ],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Full address without instance index, e.g. `module.vpc.aws_instance.web`."
+          },
+          "module": {
+            "type": "string",
+            "description": "Module path; empty string for the root module."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "managed",
+              "data"
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "instances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectorInstance"
+            }
+          },
+          "change": {
+            "$ref": "#/components/schemas/InspectorChange"
           }
         }
       }
@@ -14749,6 +16608,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PortalDiscovery"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/terramantle-provenance-keys.json": {
+      "get": {
+        "operationId": "getProvenanceKeys",
+        "summary": "Public keys for self-built providers' SLSA provenance",
+        "description": "The ECDSA P-256 keys that sign the DSSE envelope of every self-built provider version's\nSLSA Provenance v1 statement, and the builder id that statement names. Public on purpose:\na verifier needs the key without an account, as `tofu init` gets the OpenPGP key from the\ndownload document.\n\nAn **array from the start**, retired keys included (`retired: true`), so a rotation is an\noverlap: the new key is listed before the signer uses it, and a retired key stays for as\nlong as versions it signed are served. Pass one entry's `public_key_pem` to\n`cosign verify-blob-attestation --key`.\n\nFetching the envelope itself is an Enterprise feature; the keys are not.\n",
+        "tags": [
+          "Discovery"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The key list. `keys` is empty on a deployment with no provenance key yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "builder_id",
+                    "keys"
+                  ],
+                  "properties": {
+                    "builder_id": {
+                      "type": "string",
+                      "examples": [
+                        "https://terramantle.dev/builders/provider-build@v1"
+                      ]
+                    },
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "key_id",
+                          "algorithm",
+                          "public_key_pem",
+                          "retired"
+                        ],
+                        "properties": {
+                          "key_id": {
+                            "type": "string"
+                          },
+                          "algorithm": {
+                            "type": "string",
+                            "const": "ecdsa-p256-sha256"
+                          },
+                          "public_key_pem": {
+                            "type": "string",
+                            "description": "SPKI PEM."
+                          },
+                          "retired": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -15892,13 +17814,25 @@
       "get": {
         "operationId": "getPolicyReferenceData",
         "summary": "Shared reference data for policy evaluation (internal)",
-        "description": "Facts about the WORLD that policies evaluate artefacts against, as opposed to facts about\nthe artefact itself. Today that is CISA's Known Exploited Vulnerabilities catalogue.\n\nThis is deliberately not part of the policy input. OPA has two document roots: `input` is\nthe artefact under evaluation, `data` is what a policy may consult about it. A CVE\ncatalogue is identical for every artefact, so copying it into every `input` would bloat\neach evaluation for no gain — and `data.terramantle.ref.kev[cve]` is how Rego expects a\nlookup like this to read. The scanner fetches this once per job and mounts it as `data`;\nthe policy-bundle path ships the same document inside the bundle.\n\n`kev` is an ARRAY on the wire — compact and ordered, so it diffs cleanly — which the\nscanner converts into the object Rego needs for a membership test.\n\n`kev_fetched_at` is null when the mirror has never been populated. That is reported rather\nthan hidden: a policy that read an empty catalogue as \"nothing is exploited\" would fail\nopen, so the consumer is told the difference between \"nothing is listed\" and \"we do not\nknow yet\".\n",
+        "description": "Facts about the WORLD that policies evaluate artefacts against, as opposed to facts about\nthe artefact itself: CISA's Known Exploited Vulnerabilities catalogue, CVE aliases, and —\non request — FIRST's EPSS scores.\n\nThis is deliberately not part of the policy input. OPA has two document roots: `input` is\nthe artefact under evaluation, `data` is what a policy may consult about it. A CVE\ncatalogue is identical for every artefact, so copying it into every `input` would bloat\neach evaluation for no gain — and `data.terramantle.ref.kev[cve]` is how Rego expects a\nlookup like this to read. The scanner fetches this once per job and mounts it as `data`;\nthe policy-bundle path ships the same document inside the bundle.\n\n`kev` is an ARRAY on the wire — compact and ordered, so it diffs cleanly — which the\nscanner converts into the object Rego needs for a membership test.\n\n`kev_fetched_at` is null when the mirror has never been populated. That is reported rather\nthan hidden: a policy that read an empty catalogue as \"nothing is exploited\" would fail\nopen, so the consumer is told the difference between \"nothing is listed\" and \"we do not\nknow yet\".\n\n**EPSS is opt-in (`?include=epss`).** Only the provider scanner has CVE findings for it to\nmatch, and at the 0.04 floor it is ~38k scores plus their percentiles — about 2MB of JSON\nbefore transfer compression — that module, state and plan pods would download only to\nignore. Without the parameter the response is exactly the three fields it always was, so\na deployed scanner is unaffected. With it, four fields are added:\n\n- `epss` is the same map the OPA reference bundle publishes. A CVE ABSENT from it scored\n  below `epss_floor` at the last refresh — that is a known answer, not an unknown one.\n- `epss_percentile` is on this wire but deliberately not in the bundle. FIRST recommends\n  thresholding on the percentile rather than an intuitive probability, so the policy input\n  carries it; but it moves daily at 4dp, and inside the bundle it would change the\n  revision — and every OPA's download — every day for nothing.\n- `epss_floor` is NULL when the mirror holds no scores at all. An empty `epss` beside a\n  floor would read as \"every CVE scored below it\", which is the same authoritative-looking\n  fail-open `kev_fetched_at` exists to prevent, so the scanner treats a null floor as an\n  unavailable signal.\n",
         "tags": [
           "Internal — Scanners"
         ],
         "security": [
           {
             "scannerSecret": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated extras. `epss` adds `epss`, `epss_percentile`, `epss_floor` and `epss_fetched_at`. Unknown values are ignored.\n",
+            "schema": {
+              "type": "string",
+              "example": "epss"
+            }
           }
         ],
         "responses": {
@@ -15937,6 +17871,45 @@
                         "null"
                       ],
                       "description": "Epoch ms the document was built; null when never."
+                    },
+                    "epss": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "description": "Only with `include=epss`. CVE id to EPSS probability (2dp), only at or above `epss_floor`. Absent means below the floor.\n",
+                      "example": {
+                        "CVE-2021-44228": 0.94
+                      }
+                    },
+                    "epss_percentile": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "description": "Only with `include=epss`. CVE id to EPSS percentile (4dp) from the same feed row, for every CVE in `epss` whose feed row carried one.\n",
+                      "example": {
+                        "CVE-2021-44228": 0.9999
+                      }
+                    },
+                    "epss_floor": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "description": "Only with `include=epss`. The score below which nothing is kept (0.04, about FIRST's 90th percentile); null when the EPSS mirror holds no scores, which a consumer must treat as an unavailable signal.\n",
+                      "example": 0.04
+                    },
+                    "epss_fetched_at": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "Only with `include=epss`. Epoch ms the EPSS mirror last wrote a score; null with `epss_floor`.\n"
                     }
                   }
                 }
@@ -16270,16 +18243,29 @@
             }
           },
           "409": {
-            "description": "`job_identity_mismatch`: the report names a different provider, version or org than the\njob row, or comes from a different Workflow. `field` names the check.\n",
+            "description": "`job_identity_mismatch`: the report names a different provider, version or org than the\njob row, or comes from a different Workflow. `field` names the check.\n\n`source_commit_mismatch`: the commit pin cloned is not the one this build is for — the\nupstream tag was re-pointed after the scanner pinned it (`basis: scan_pin`), or the fork\ntag moved after the patch step pushed it (`basis: fork`). The job is failed with that\nreason before any catalog row is written, so nothing becomes servable; the exit\nhandler's failure report for the same attempt is then a no-op and the reason survives.\nThe body adds `basis`, `expected` and `reported`.\n",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "error": "job_identity_mismatch",
-                  "field": "org_id",
-                  "message": "Report does not match the build job it names"
+                "examples": {
+                  "identity": {
+                    "value": {
+                      "error": "job_identity_mismatch",
+                      "field": "org_id",
+                      "message": "Report does not match the build job it names"
+                    }
+                  },
+                  "commit": {
+                    "value": {
+                      "error": "source_commit_mismatch",
+                      "basis": "scan_pin",
+                      "expected": "3f1c0e8a9b7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e",
+                      "reported": "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
+                      "message": "The commit the build cloned is not the one this build is for"
+                    }
+                  }
                 }
               }
             }
@@ -18434,11 +20420,104 @@
         }
       }
     },
+    "/api/billing/config": {
+      "get": {
+        "operationId": "getBillingConfig",
+        "summary": "How the portal loads Paddle, and what the plans cost",
+        "description": "Everything the new-org wizard needs before an org has any billing record. `client_token`\nis Paddle.js's client-side token, public by design (it can only open a checkout the server\nhas already authored). `plans` carries pence per tier and cycle but **no price ids**: the\nbrowser sends a tier and a cycle to `…/billing/checkout` and the server picks the price,\nwhich is what stops a client buying Team and claiming Business.\n\n`configured` is false until `PADDLE_API_KEY`, `PADDLE_CLIENT_TOKEN` and the generated\ncatalog for `environment` are all present; the wizard then offers Solo only and says why.\n\n`addons` prices the plan options the same way, one row per offer (add-on, plan, cycle) with\nno ids. Their names, summaries and the trial length are display copy the portal takes from\nthe marketing catalog; the pence here are what Paddle will actually charge, so the portal\ntotals these. A plan with no rows offers no options and the portal skips that step.\n",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "The billing configuration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/billing/businesses": {
+      "get": {
+        "operationId": "listReusableBillingBusinesses",
+        "summary": "Paddle businesses the caller may bill a new org under",
+        "description": "The businesses behind orgs where the caller already holds billing write access (owner or\n`is_billing_admin`). The wizard offers them as \"bill this organisation under …\", because a\nfinance team often wants one business and one contact list for several orgs. It is an\n**offer, never automatic**, and it is never derived from an email domain: two orgs sharing a\nbusiness share the invoice recipients, so the choice has to be the payer's. One entry per\nbusiness even when several orgs already share it.\n",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "The businesses, oldest org first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "businesses"
+                  ],
+                  "properties": {
+                    "businesses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "tenant_id",
+                          "org_slug",
+                          "org_name",
+                          "business_name"
+                        ],
+                        "properties": {
+                          "tenant_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Pass this as `reuse_business_from` on checkout or invoice."
+                          },
+                          "org_slug": {
+                            "type": "string"
+                          },
+                          "org_name": {
+                            "type": "string"
+                          },
+                          "business_name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Bots have no billing identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/billing": {
       "get": {
         "operationId": "getBilling",
-        "summary": "Get plan, limits, usage and grace period",
-        "description": "Everything the billing page needs in one call: the effective tier, the feature matrix for\nit, current usage against the counted limits, the seat line for the current month, and\nwhether a downgrade grace period is running.\n\n`usage.users` is membership; `seats.active` is who has actually done something this\nmonth, which is the number the overage charges on. The two differ by design: an idle\nmember is free.\n\nA personal org always reports `starter`. `grace_period` is `null` when none is set; when\npresent, `active` is whether it is still running.\n\nRequires billing access — `owner`, `admin`, or a member flagged `is_billing_admin` — on top\nof the `member` role.\n",
+        "summary": "Get plan, limits, usage, seats and the subscription",
+        "description": "Everything the billing page needs in one call: the effective tier, the feature matrix for\nit, current usage against the counted limits, the seat line for the current month, the\nPaddle subscription if there is one, and whether the caller may change any of it.\n\n`usage.users` is membership; `seats.active` is who has actually done something this\nmonth, which is the number the overage charges on. The two differ by design: an idle\nmember is free.\n\n`subscription` is `null` until Paddle has sent the first `subscription.*` event, which is\nalso why the tier does not move the moment a checkout completes; the portal polls this\nendpoint until it does. `business` is set from the moment a checkout or invoice was\n*started*, because the Paddle business is created before the transaction is.\n\n**The read can link a subscription.** When the org has a Paddle customer but no live\nsubscription on record, this call asks Paddle for the customer's subscriptions and links\nthe one whose `custom_data.tenant_id` names this org *and* whose business is this org's\n(the webhook's own identity checks), deriving the tier from its price exactly as an event\nwould. Without it, a lost or refused delivery would hide Cancel and Change plan for a\nsubscription the customer is paying for. The customer is the paying human and may hold\nsubscriptions for other orgs; those are never linked, and if this org somehow has several,\nthe newest is linked and the rest are left alone. A Paddle failure here is logged, not\nreturned: the read answers with what is on record.\n\n`can_write` says whether this caller is the owner or a billing admin. Reads need the wider\nset — `owner`, `privileged_admin`, `admin` or `is_billing_admin` — on top of `member`.\n",
         "tags": [
           "Billing"
         ],
@@ -18461,8 +20540,11 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
           "403": {
-            "description": "No billing access for this caller.",
+            "description": "No billing access for this caller, or a bot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18524,6 +20606,9 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
@@ -18535,9 +20620,771 @@
     },
     "/api/orgs/{orgId}/billing/checkout": {
       "post": {
-        "operationId": "createCheckoutSession",
-        "summary": "Start a Stripe Checkout session",
-        "description": "Returns a URL to redirect the browser to. A personal org cannot be upgraded — create a real\norg first — and `starter` is not a checkout target.\n",
+        "operationId": "startCheckout",
+        "summary": "Author the transaction the inline checkout opens",
+        "description": "Creates (or reuses) the Paddle customer for the caller and the business for this org, then\na Paddle **transaction** for the chosen price, and returns its id. The browser opens it\nwith `Paddle.Checkout.open({ transactionId })` inside the portal; Paddle collects the\naddress and the card. Nothing about the price or the org is sent by the browser.\n\n**The tier does not change here.** It moves when Paddle's `subscription.activated` arrives\nat the webhook, so poll `GET …/billing` after `checkout.completed`.\n\nThe Paddle customer is the *caller's email*: Paddle keys customers on a unique email, so a\nperson who pays for two orgs has one customer and two businesses. `reuse_business_from`\ninstead attaches this org to a business the caller already administers elsewhere — the\ntwo orgs then share one invoice recipient list (see `GET /api/billing/businesses`).\n\n**Enterprise** is annual only (`cycle` defaults to `year` for it, and `month` is a `422`)\nand carries a 30-day trial on every recurring price, add-ons included, so the whole order\ntrials together and the first charge lands when the trial ends.\n\n**Add-ons** become extra items on the same transaction, priced for the chosen plan and\ncycle (each offer is its own Paddle price, carrying the plan's trial); the onboarding\npackage does not (see `BillingAddonsBody.onboarding`). An add-on the plan does not offer on\nthat cycle is a `422 not_offered`. Today only Enterprise offers any.\n\nOwner or `is_billing_admin` only. A personal org cannot be upgraded. `409\nhas_subscription` means use `…/change-plan`. `503 catalog_unconfigured` means the Paddle\ncatalog has not been built for this environment, or lacks a price for a requested add-on\n(`make paddle-configure`).\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BillingIdentityBody"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BillingAddonsBody"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "tier"
+                    ],
+                    "properties": {
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "team",
+                          "business",
+                          "enterprise"
+                        ]
+                      },
+                      "cycle": {
+                        "$ref": "#/components/schemas/BillingCycle",
+                        "description": "Defaults to `month`, or `year` for Enterprise (its only cycle)."
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "tier": "enterprise",
+                "business_name": "Acme Ltd",
+                "addons": {
+                  "users": 2,
+                  "outpost": 1
+                },
+                "onboarding": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Open this transaction in Paddle.js.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutTransaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "description": "Not the owner or a billing admin, a personal org, or `reuse_business_from` names an org the caller does not administer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`has_subscription`: change the plan instead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/invoice": {
+      "post": {
+        "operationId": "startInvoice",
+        "summary": "Issue an annual invoice instead of paying by card",
+        "description": "Creates the customer, business and a billing **address** (Paddle requires one, with a\npostcode where the country has them), issues a manually-collected transaction with 30-day\nterms, and returns the invoice number. **Paddle emails the invoice** to the customer and\nevery business contact; the invoice also carries a card-payment link.\n\nAnnual only: Paddle issues one invoice per billing period, and a monthly invoice for a\nmonthly plan is not a service anyone wants. `tier` is `team`, `business` or `enterprise`;\nEnterprise takes the same `addons` and `onboarding` as checkout, and its trial applies\nhere too (Paddle creates a trialing subscription when an invoice for trial items is\nissued). A non-catalog Enterprise amount is still the operator's invoice\n(`POST /api/platform/billing/tenants/{tenantId}/invoice`).\n\nThe recurring item makes Paddle create the subscription when the invoice is issued, so the\ntier follows `subscription.activated` as with checkout — provisioning does not wait for the\npayment. An unpaid invoice goes `past_due` 24 hours after its due date, and so does the\nsubscription; the tier is kept while Paddle chases, and reverts only on cancellation.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BillingIdentityBody"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BillingAddonsBody"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "tier",
+                      "address"
+                    ],
+                    "properties": {
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "team",
+                          "business",
+                          "enterprise"
+                        ]
+                      },
+                      "address": {
+                        "$ref": "#/components/schemas/BillingAddress"
+                      },
+                      "purchase_order_number": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Printed on the invoice."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Issued and emailed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "transaction_id",
+                    "invoice_number"
+                  ],
+                  "properties": {
+                    "transaction_id": {
+                      "type": "string"
+                    },
+                    "invoice_number": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Assigned by Paddle on issue; occasionally a beat later, in which case it appears in `…/invoices`."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`has_subscription`: change the plan instead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`address_required`, `invalid_tier`, or a validation failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/change-plan": {
+      "post": {
+        "operationId": "changePlan",
+        "summary": "Move an existing subscription to another plan or cycle",
+        "description": "Replaces the plan item and the add-on quantities on the Paddle subscription. An **upgrade** (more per month, plan and add-ons together) is prorated and\ncharged now; a **downgrade or a cycle change** takes effect at the next renewal\n(`scheduled: true`), so nobody is refunded mid-period and nobody pays twice. A **trialing**\nsubscription changes with nothing billed (Paddle applies no proration during a trial), so\n`scheduled` is `false` and the new items are simply what the trial converts into.\n\n`addons` sent replaces them (`{}` removes them all), and an add-on the target plan does not\noffer on that cycle is a `422 not_offered`. Omitted, the current quantities are **carried**\nto the target plan and cycle: re-priced on its own offers where it has them, dropped where\nit does not (an Enterprise user pack does not survive a move to Business, because Business\nsells none). `onboarding: true` buys the package for an existing subscription whose plan\noffers it: charged now, or at the first paid renewal while trialing.\n\nThe tier and add-ons follow the resulting `subscription.updated` event. Refused while the\nsubscription is `past_due`: settle the invoice first. `409` when nothing would change, and\nfor an operator-invoiced Enterprise subscription: its price is a quoted, non-catalog one,\nand replacing the items here would re-price a negotiated contract.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BillingAddonsBody"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "tier"
+                    ],
+                    "properties": {
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "team",
+                          "business",
+                          "enterprise"
+                        ]
+                      },
+                      "cycle": {
+                        "$ref": "#/components/schemas/BillingCycle",
+                        "description": "Defaults to `month`, or `year` for Enterprise (its only cycle)."
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "tier": "enterprise",
+                "addons": {
+                  "users": 3,
+                  "outpost": 1
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Requested.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "scheduled"
+                  ],
+                  "properties": {
+                    "scheduled": {
+                      "type": "boolean",
+                      "description": "`true` when the change lands at the next renewal rather than now."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`no_subscription`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already on that plan, or the subscription is cancelled or past due.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/cancel": {
+      "post": {
+        "operationId": "cancelSubscription",
+        "summary": "Cancel at the end of the current period",
+        "description": "Schedules the cancellation with Paddle for the end of the paid period. The org keeps its\ntier until then; when Paddle's `subscription.canceled` arrives the tier reverts to Solo and\nthe **plan lock** applies (see `PlanLocked`). Audited as `billing.cancel_requested`.\n\nOnly **this org's** subscription is cancelled: the one recorded for it. The paying customer\nmay hold subscriptions for other orgs; this call never lists or touches them, and there is\nno Paddle customer portal in the path that would offer them.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "effective_at"
+                  ],
+                  "properties": {
+                    "effective_at": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "When the subscription ends, epoch ms."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`no_subscription`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "undoCancelSubscription",
+        "summary": "Withdraw a scheduled cancellation",
+        "description": "Clears the scheduled change in Paddle. `409` when nothing is scheduled. Audited as `billing.cancel_withdrawn`.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Withdrawn.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`no_subscription`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No cancellation is scheduled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/payment-method": {
+      "post": {
+        "operationId": "startPaymentMethodUpdate",
+        "summary": "The transaction that replaces the stored card",
+        "description": "Paddle's per-subscription update-payment-method transaction, opened in the same inline\nframe as a checkout. **Deliberately not a Paddle customer-portal session**: a portal\nsession is per *customer*, and the paying human may hold subscriptions for other orgs that\nthis org's billing admin has no business seeing. `409` on an invoiced subscription, which\nhas no stored payment method.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Open this transaction in Paddle.js.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutTransaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`no_subscription`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Invoiced subscription, or cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/invoices": {
+      "get": {
+        "operationId": "listInvoices",
+        "summary": "List the org's invoices, live from Paddle",
+        "description": "Every billed transaction for **this org**: the customer's transactions filtered to this\norg's business and `custom_data.tenant_id`, newest first, because one Paddle customer may\npay for several orgs. Drafts and cancelled transactions are omitted. Nothing is cached in\nD1; an empty list when billing is not configured.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invoices.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "invoices"
+                  ],
+                  "properties": {
+                    "invoices": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BillingInvoice"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/invoices/{transactionId}/pdf": {
+      "get": {
+        "operationId": "getInvoicePdfUrl",
+        "summary": "A short-lived URL for the invoice PDF",
+        "description": "Paddle signs a temporary URL for the PDF; the portal opens it in a new tab. The transaction\nmust belong to this org (business and `tenant_id` are checked), else `404`; `409` when it\nhas no invoice number yet.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "url"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "No invoice on this transaction yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/payments": {
+      "get": {
+        "operationId": "listPayments",
+        "summary": "List payment attempts, live from Paddle",
+        "description": "Every payment attempt on this org's transactions, flattened, newest first. A failed card attempt appears here with its Paddle `error_code`.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The payments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "payments"
+                  ],
+                  "properties": {
+                    "payments": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BillingPayment"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/contacts": {
+      "get": {
+        "operationId": "listBillingContacts",
+        "summary": "Who receives the invoices",
+        "description": "The contacts on the org's Paddle business, with where each comes from: the **payer** (the\nowner who started billing, while still a member), every member flagged **billing_admin**,\nand **manual** addresses added here (an accounts@ mailbox). Only manual ones can be removed\nhere; the others follow membership. Paddle emails every invoice to every contact. When two\norgs share a business the list in Paddle is the union over both.\n",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingContacts"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "operationId": "addBillingContact",
+        "summary": "Add a manual billing contact",
+        "description": "Adds the address and re-syncs the business's contacts in Paddle. Audited as `billing.contact_added`. Owner or billing admin.",
         "tags": [
           "Billing"
         ],
@@ -18553,11 +21400,18 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "tier"
+                  "email"
                 ],
                 "properties": {
-                  "tier": {
-                    "$ref": "#/components/schemas/Tier"
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 }
               }
@@ -18565,12 +21419,12 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Redirect the browser to `url`.",
+          "201": {
+            "description": "Added.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StripeRedirect"
+                  "$ref": "#/components/schemas/BillingContacts"
                 }
               }
             }
@@ -18578,8 +21432,67 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
           "403": {
-            "description": "No billing access, or a personal org.",
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/billing/contacts/{email}": {
+      "delete": {
+        "operationId": "removeBillingContact",
+        "summary": "Remove a manual billing contact",
+        "description": "Manual contacts only — `404` for a derived one, which is removed by changing the member's role or flag. Audited as `billing.contact_removed`.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingContacts"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Not a manual contact.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18588,47 +21501,8 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/billing/portal": {
-      "post": {
-        "operationId": "createBillingPortalSession",
-        "summary": "Start a Stripe billing-portal session",
-        "description": "Returns a URL where the customer manages their existing subscription.",
-        "tags": [
-          "Billing"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/OrgId"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Redirect the browser to `url`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StripeRedirect"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
           }
         }
       }
@@ -18637,7 +21511,7 @@
       "post": {
         "operationId": "betaUpgrade",
         "summary": "Switch tier without payment (beta offer, ended)",
-        "description": "The beta free-tier offer. **This endpoint now returns `410` unconditionally** — use\ncheckout. It is kept so an old client bundle gets an explanatory refusal instead of a bare\n`404`.\n",
+        "description": "The beta free-tier offer. **This endpoint returns `410` unconditionally** — use checkout.\nIt is kept so an old client bundle gets an explanatory refusal instead of a bare `404`.\n",
         "tags": [
           "Billing"
         ],
@@ -18687,7 +21561,7 @@
       "patch": {
         "operationId": "setBillingAdmin",
         "summary": "Grant or revoke a member's billing access",
-        "description": "`owner` only. Lets a `member` reach the billing endpoints without promoting them to `admin`\nacross the whole org.\n",
+        "description": "`owner` only. Lets a `member` reach the billing endpoints — including the writes — without\npromoting them to `admin` across the whole org. A billing admin is also a **billing\ncontact**: the business's contacts in Paddle are re-synced, so they start (or stop)\nreceiving the invoices. Audited as `billing.admin_set`.\n",
         "tags": [
           "Billing"
         ],
@@ -18731,6 +21605,9 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "402": {
+            "$ref": "#/components/responses/PlanLocked"
+          },
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
@@ -18754,7 +21631,7 @@
       "get": {
         "operationId": "listAuditEvents",
         "summary": "List the org's audit log",
-        "description": "Every governance-relevant action: membership changes, token lifecycle, policy settings,\nserve overrides, state force-unlocks and promotions, provider build decisions. Newest\nfirst.\n\nPage either by `offset` or by `before` (a timestamp cursor). `before` wins when both are\ngiven, and is the right choice for a log that is still being appended to — an offset\nshifts under you.\n\nRequires billing access, and the retention window depends on the tier.\n",
+        "description": "Every governance-relevant action: membership changes, token lifecycle, policy settings,\nserve overrides, state force-unlocks and promotions, provider build decisions. Newest\nfirst.\n\nPage either by `offset` or by `before` (a timestamp cursor). `before` wins when both are\ngiven, and is the right choice for a log that is still being appended to — an offset\nshifts under you.\n\nRequires billing READ access (`owner`, `privileged_admin`, `admin` or `is_billing_admin`), and\nthe retention window depends on the tier.\n",
         "tags": [
           "Billing"
         ],
@@ -19439,14 +22316,327 @@
         }
       }
     },
-    "/plans/{org}/{key}.tfplan": {
-      "put": {
-        "operationId": "ingestPlan",
-        "summary": "Ingest a redacted terraform plan (plan protocol)",
+    "/state/{org}/{key}/plan": {
+      "post": {
+        "operationId": "pushPlan",
+        "summary": "Push a plan (render, optionally with the binary) for a state workspace",
         "tags": [
           "Plans"
         ],
-        "description": "Upload a `terraform show -json` plan render for a state workspace. The path `key`\nis the state workspace key (everything before the required `.tfplan` suffix; it may\ncontain slashes). Plans reuse the state workspace — no separate plan workspace — and\nshare the state push permission model: a machine client token (or a human with\n`write`) on that workspace only.\n\nThe request body is the raw `terraform show -json` output. It is REDACTED\nserver-side (`lib/tfplan.ts`) before any persistence: `before`/`after`/`sensitive`\nvalues never reach D1, R2, or any response. The server derives action counts,\ndrift/replacement/sensitive counts, hashes the redacted canonical JSON\n(`attestation_hash`), stores the redacted render to R2, and inserts a\n`plan_versions` row. Idempotent by (workspace, `plan_ref`, `attestation_hash`): a\nbyte-identical re-PUT returns the existing version.\n\nOn ingest the synchronous M2 policy gate runs inline (and the M6 custom-Rego gate\nwhen the org has plan Rego); a violation sets `state_workspaces.blocked` BEFORE the\n200 is returned, so the next apply's LOCK is rejected. An async plan-scan job is\nbest-effort enqueued for advisory insights.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "vcsOidc": []
+          }
+        ],
+        "description": "The canonical plan push. The path is the state backend `address` with `/plan` appended,\nso a client derives it the way terraform derives `lock_address`; `plan` is therefore a\nreserved segment in a workspace key (a new key containing one is refused `400`). Plans\nreuse the state workspace and the state push permission model: a machine client token\n(or a human with `write`) on that workspace.\n\nTwo body shapes:\n- `application/json`: the raw `terraform show -json` render, render-only. 100MB cap.\n- `multipart/form-data`: part `render` (the show -json output, required) and part\n  `tfplan` (the binary saved plan, optional). 64MB combined cap, 50MB for the binary:\n  the form is materialised beside the raw body in a 128MB isolate. A multipart push\n  takes the RAW-STATE permission (the binary embeds the prior state), so an org that\n  blocks humans from the state protocol blocks them from pushing a binary too.\n\n**Lineage and serial.** With a binary, `prior_serial` and `prior_lineage` are read from\nthe plan's own embedded prior state (`lineage_source: tfplan`) and the `X-Plan-Prior-*`\nheaders are ignored (a disagreement is logged). A binary whose lineage is not the\nworkspace's is refused `409 lineage_mismatch`; one whose prior serial is not the\nworkspace's CURRENT serial is refused `409 plan_stale` unless `X-Plan-Allow-Stale: 1`,\nbecause `terraform apply` would refuse it too and storing it only yields an artefact\nnobody can pull. Without a binary the headers are the pusher's claim\n(`lineage_source: header`) and staleness is recorded in `stale`, not refused: a nightly\ndrift push that raced a state push is still worth keeping. Both refusals happen before\nanything is written.\n\n**What is stored.** The full render and the binary, untouched (migration 145). The\nserver derives action counts, hashes the REDACTED canonical render\n(`attestation_hash`, unchanged semantics), hashes the binary (`tfplan_sha256`), and\ninserts a `plan_versions` row. Idempotent by (workspace, `plan_ref`,\n`attestation_hash`): a byte-identical re-push returns the existing version with\n`deduped: true`, and attaches the binary to it if that version had none.\n\n**The gate is synchronous and its answer is in the response.** The built-in gate (and\nthe custom-Rego gate when the org has plan Rego) runs inline; a violation sets\n`state_workspaces.blocked` BEFORE the `200` is returned, so the next apply's LOCK is\nrejected, and `verdict` says so with the reasons and which engine refused. The status is\n`200` either way: the push succeeded, a block is the product working. An async plan-scan\njob is best-effort enqueued for advisory insights (`scan_status: pending`).\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgSlug"
+          },
+          {
+            "$ref": "#/components/parameters/StateKey"
+          },
+          {
+            "$ref": "#/components/parameters/PlanRefHeader"
+          },
+          {
+            "$ref": "#/components/parameters/PlanPriorSerialHeader"
+          },
+          {
+            "$ref": "#/components/parameters/PlanPriorLineageHeader"
+          },
+          {
+            "name": "X-Plan-Allow-Stale",
+            "in": "header",
+            "required": false,
+            "description": "`1` accepts a BINARY whose prior serial is not the workspace's current serial\n(otherwise `409 plan_stale`). For keeping a superseded plan on record; a pull of it\nis still refused as stale unless the puller also opts in.\n",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "A `terraform show -json` plan document, render-only.",
+                "additionalProperties": true
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "render"
+                ],
+                "properties": {
+                  "render": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The `terraform show -json` output for the plan."
+                  },
+                  "tfplan": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The binary saved plan (`terraform plan -out=`). Optional; without it the version is not pullable."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan stored and gated (or an idempotent match returned). Read `verdict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanPushResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request. `bad_request` for an unparseable render or a malformed form;\n`invalid_tfplan` when the `tfplan` part is not a terraform/tofu saved plan this\nserver can read (not a zip, ZIP64, no prior-state entry).\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Tenant plan/tier quota exceeded (state-backend quota gate).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`lineage_mismatch`: the plan was made against a different state lineage than the\nworkspace's. `plan_stale`: a binary whose prior serial is not the current serial (see\n`X-Plan-Allow-Stale`). Nothing was stored.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Render over 100MB, binary over 50MB, or a multipart body over 64MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/state/{org}/{key}/plan/latest": {
+      "get": {
+        "operationId": "getLatestPlanBinary",
+        "summary": "Pull the newest binary plan for a ref",
+        "tags": [
+          "Plans"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "vcsOidc": []
+          }
+        ],
+        "description": "The binary saved plan a CLI downloads to `terraform apply` it: the newest version for\n`ref` (absent = the mainline, `plan_ref` NULL). Deliberately NOT \"the newest that has a\nbinary\": if the latest plan for the ref was pushed render-only, the honest answer is\n`404 plan_no_binary`, not an older plan.\n\nThe binary embeds the full prior state, so this has exactly the posture of the state\nbackend `GET`: raw-state permission (the human protocol block applies), the org\nconsumption kill switch (`423 policy_blocked`), and a `423` with the reason in\n`X-Terramantle-Refusal` when the plan's gate verdict is blocked and no human approved\nthat exact `attestation_hash` - the same truth the LOCK gate and the attestation\nendpoint read, because the only thing a pulled binary is for is applying it. Staleness is\nre-read at pull time (`409 plan_stale` unless `allow_stale=1`), since state may have\nmoved since the push.\n\nResponse headers carry the identity a client verifies against: `X-Terramantle-Plan-Id`,\n`X-Terramantle-Attestation-Hash`, `X-Terramantle-Tfplan-Sha256` (verify the bytes),\n`X-Terramantle-Prior-Serial`, `X-Terramantle-Prior-Lineage`, `X-Terramantle-Plan-Stale`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgSlug"
+          },
+          {
+            "$ref": "#/components/parameters/StateKey"
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "required": false,
+            "description": "The `X-Plan-Ref` the plan was pushed with. Absent = mainline (NULL ref).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PlanAllowStaleQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The binary plan, byte-for-byte as pushed.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`not_found`: no such workspace, or no plan for the ref. `plan_no_binary`: the newest version was pushed render-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`plan_stale`: the plan's prior serial is not the workspace's current serial. Re-plan, or pass `allow_stale=1`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "`policy_blocked`: the plan is blocked and unapproved, or the org kill switch is on. The reason is in `X-Terramantle-Refusal` and `message`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/state/{org}/{key}/plan/{planId}": {
+      "get": {
+        "operationId": "getPlanBinary",
+        "summary": "Pull one binary plan by id",
+        "tags": [
+          "Plans"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          },
+          {
+            "vcsOidc": []
+          }
+        ],
+        "description": "Same contract and refusals as `/plan/latest`, addressed by the plan version id (scoped to the workspace).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgSlug"
+          },
+          {
+            "$ref": "#/components/parameters/StateKey"
+          },
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "description": "plan_versions.id (UUID).",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PlanAllowStaleQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The binary plan, byte-for-byte as pushed.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "`not_found` or `plan_no_binary`, as on `/plan/latest`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`plan_stale`, as on `/plan/latest`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "`policy_blocked`, as on `/plan/latest`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{org}/{key}.tfplan": {
+      "put": {
+        "operationId": "ingestPlan",
+        "summary": "Ingest a terraform plan render (legacy plan protocol)",
+        "tags": [
+          "Plans"
+        ],
+        "deprecated": true,
+        "description": "The original render-only ingest, kept because the passive-drift recipe and CI pipelines\ncall it. It is an alias onto `POST /state/{org}/{key}/plan` with a JSON body: same\nservice, same gate, same response shape (`PlanPushResult`). New clients should use that\nroute, which also takes the binary. The path `key` is the state workspace key\n(everything before the required `.tfplan` suffix; it may contain slashes).\n\nPrior serial/lineage come from the `X-Plan-Prior-*` headers (`lineage_source: header`)\nbecause `show -json` carries neither; a lineage disagreement is `409 lineage_mismatch`,\nstaleness is recorded rather than refused.\n",
         "parameters": [
           {
             "name": "org",
@@ -19519,27 +22709,11 @@
         },
         "responses": {
           "200": {
-            "description": "Plan ingested (or an idempotent match returned).",
+            "description": "Plan ingested (or an idempotent match returned). Same body as `pushPlan`.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok",
-                    "version_id"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "version_id": {
-                      "type": "string",
-                      "description": "Primary key of the plan_versions row."
-                    }
-                  }
+                  "$ref": "#/components/schemas/PlanPushResult"
                 }
               }
             }
@@ -19563,8 +22737,74 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "description": "`lineage_mismatch`: the plan's prior lineage is not the workspace's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "413": {
             "description": "Plan file exceeds the 100MB limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/{orgId}/plans/{workspace}/versions/{versionId}/resources": {
+      "get": {
+        "operationId": "getPlanVersionResources",
+        "summary": "Get one plan version's resource tree (plan Resource Inspector)",
+        "tags": [
+          "Plans"
+        ],
+        "description": "The plan inspector's data, in the state inspector's shape (`StateResourceTree`'s\n`resources` / `outputs`, see `InspectorResource`). Built INSIDE the Worker from the stored\nfull render by `lib/tfplan.ts buildPlanResourceTree`:\n\n- one resource per `(module, mode, type, name)` from `resource_changes`, one instance per\n  entry; `actions` is Terraform's tuple (`[\"delete\",\"create\"]` for a replace); entries\n  from `resource_drift` are appended with `drift: true`.\n- attribute values come from `after` (`before` for a destroy). Non-sensitive values ARE\n  returned. A sensitive one is masked (no value, hash or length): Terraform's own\n  `before_sensitive` / `after_sensitive` mask for that attribute first (`reason:\n  sensitive`, the whole attribute, as the state inspector treats `sensitive_attributes`),\n  then the key denylist and value scan (`reason: heuristic`).\n- an attribute unknown until apply has `unknown: true` and no `value`.\n- `change` per attribute is computed over the RAW before/after; only the label leaves.\n- outputs from `output_changes`, honouring its boolean sensitivity flags.\n\n`409 plan_render_redacted` for a version stored before migration 145: its object is the\nredacted render, so there are no values to inspect; re-push the plan. Tenant `reader`+.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "$ref": "#/components/parameters/Workspace"
+          },
+          {
+            "$ref": "#/components/parameters/VersionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The redacted plan resource tree.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResourceTree"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`plan_render_redacted`: a legacy version with no stored values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The stored render exceeds the 25MB inspection limit.",
             "content": {
               "application/json": {
                 "schema": {
@@ -21688,6 +24928,495 @@
           },
           "403": {
             "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/subscriptions": {
+      "get": {
+        "operationId": "listPlatformBillingSubscriptions",
+        "summary": "Every org with a Paddle billing record",
+        "description": "One row per org that has started billing (a Paddle business exists), most recently changed\nfirst, up to 500. `subscription_status` is Paddle's status as last reported by webhook, and\n`tier` is what its price maps to; `tenant_tier` is what the org actually has, and the two\ndiffer only in the window between an event arriving and being processed.\n`summary` counts rows by status (`none` for a business with no subscription yet).\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscriptions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "summary"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlatformBillingSubscription"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/webhooks": {
+      "get": {
+        "operationId": "listPlatformBillingWebhooks",
+        "summary": "The Paddle webhook inbox, newest first",
+        "description": "Every delivery the webhook route received, verified or not. `status`: `pending` (stored,\nnot yet processed), `processed`, `ignored` (an event type we do not act on, or one older\nthan the last applied), `failed` (with `error`), `rejected` (bad signature; never\nprocessed). `summary` counts the whole table by status. Keyset paging as in\nplatform-identity.yaml.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processed",
+                "ignored",
+                "failed",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PlatformIdentityLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PlatformIdentityCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of deliveries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor",
+                    "summary"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlatformBillingWebhookEvent"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "summary": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/webhooks/{eventId}": {
+      "get": {
+        "operationId": "getPlatformBillingWebhook",
+        "summary": "One delivery, with its raw body",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaddleEventId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The delivery.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "event"
+                  ],
+                  "properties": {
+                    "event": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/PlatformBillingWebhookEvent"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "raw_body"
+                          ],
+                          "properties": {
+                            "raw_body": {
+                              "type": "string",
+                              "description": "The body exactly as received."
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/webhooks/{eventId}/reprocess": {
+      "post": {
+        "operationId": "reprocessPlatformBillingWebhook",
+        "summary": "Run one delivery through the handler again",
+        "description": "Even a `processed` one: the handler is idempotent and ignores an event older than the last\nit applied, so this is safe, and it is how a `failed` delivery is retried by hand after the\ncause (an unconfigured catalog, a Paddle outage) is fixed. A `rejected` delivery is never\nprocessed; its signature was wrong. Audited as `billing.webhook_reprocessed`.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaddleEventId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The outcome.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "error"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/seat-charges": {
+      "get": {
+        "operationId": "listPlatformBillingSeatCharges",
+        "summary": "The seat-overage charges the cron posted",
+        "description": "One row per (org, month) the daily cron closed, newest first, up to 200. A row with\n`billable_extra: 0` means the month was inspected and nothing was owed; it exists so the\ncount survives an org purge, which deletes the activity rows it was computed from.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "responses": {
+          "200": {
+            "description": "The charges.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlatformBillingSeatCharge"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/tenants/{tenantId}/invoice": {
+      "post": {
+        "operationId": "issuePlatformBillingInvoice",
+        "summary": "Issue an Enterprise invoice at a quoted amount",
+        "description": "For the tier the catalog does not price. Creates the Paddle customer (the org's oldest owner\nby default, or `payer_email`, which must be a member), the business and an address, and\nissues a manually-collected invoice with a non-catalog recurring price of `pence` per\n`cycle`. Paddle emails it and creates the subscription when it is issued.\n\nThe tier is **pre-recorded as `enterprise` against this transaction**: the webhook cannot\nderive a tier from a price it does not know, so it accepts `enterprise` only when the\nsubscription event names this transaction. Audited as `billing.invoice_issued`.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "business_name",
+                  "address",
+                  "description",
+                  "pence",
+                  "cycle"
+                ],
+                "properties": {
+                  "business_name": {
+                    "type": "string"
+                  },
+                  "tax_identifier": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "payer_email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The member who becomes the Paddle customer. Defaults to the oldest owner."
+                  },
+                  "address": {
+                    "$ref": "#/components/schemas/BillingAddress"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Internal line description."
+                  },
+                  "pence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "cycle": {
+                    "$ref": "#/components/schemas/BillingCycle"
+                  },
+                  "payment_terms_days": {
+                    "type": "integer",
+                    "default": 30
+                  },
+                  "purchase_order_number": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "transaction_id",
+                    "invoice_number"
+                  ],
+                  "properties": {
+                    "transaction_id": {
+                      "type": "string"
+                    },
+                    "invoice_number": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "502": {
+            "$ref": "#/components/responses/PaddleError"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
+          }
+        }
+      }
+    },
+    "/api/platform/billing/tenants/{tenantId}/tier": {
+      "post": {
+        "operationId": "setPlatformBillingTier",
+        "summary": "Set an org's tier by hand",
+        "description": "The escape hatch for a contract Paddle does not model (a self-hosted Enterprise paid outside\nPaddle) and for undoing a mistake. Goes through the same `applyTier` as the webhook, so the\nOPA recompute, the org audit row (`billing.upgrade`/`billing.downgrade` with\n`reason: operator`) and the email to the billing contacts all happen. `reason` is required\nand lands in the platform audit row. Note the next Paddle event for a subscribed org will\nset the tier back to what the subscription says.\n",
+        "tags": [
+          "Internal — Platform Operator"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tier",
+                  "reason"
+                ],
+                "properties": {
+                  "tier": {
+                    "$ref": "#/components/schemas/Tier"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied (or already there).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "changed",
+                    "from",
+                    "tier"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "from": {
+                      "$ref": "#/components/schemas/Tier"
+                    },
+                    "tier": {
+                      "$ref": "#/components/schemas/Tier"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/PlatformOperatorRequired"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "503": {
+            "$ref": "#/components/responses/BillingNotConfigured"
           }
         }
       }
@@ -27896,6 +31625,72 @@
         }
       }
     },
+    "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/{version}/provenance": {
+      "get": {
+        "operationId": "getProviderProvenance",
+        "summary": "Download a self-built version's signed SLSA provenance",
+        "description": "The DSSE envelope of the version's SLSA Provenance v1 statement, as the one-line\n`provenance.intoto.jsonl` the build published. `version` is the self-built revision\n(`<base>-0.0.<rev>`, the `provenance.full_version` on the detail payload), not the base.\n\n**Enterprise only** (`403` otherwise). Every tier sees the verified *state* on the detail\npayload; this is the material behind it, for verifying independently:\n\n```\ncosign verify-blob-attestation --key provenance.pub \\\n  --signature provenance.intoto.jsonl --type slsaprovenance1 \\\n  --insecure-ignore-tlog=true terraform-provider-<type>_<version>_<os>_<arch>.zip\n```\n\n`--insecure-ignore-tlog` is required because the envelope is not written to a public\ntransparency log; the key is from `/.well-known/terramantle-provenance-keys.json`.\n\nServed from the row the Worker verified at completion, so these are the bytes that\nverified. An `invalid` envelope is served too: whoever is investigating why needs it.\n",
+        "tags": [
+          "Providers — Management"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "$ref": "#/components/parameters/Upstream"
+          },
+          {
+            "$ref": "#/components/parameters/Namespace"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderType"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The envelope, one JSON object on one line, newline-terminated.",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Not an Enterprise org, or not a member with at least `reader`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "forbidden",
+                  "message": "Signed SLSA provenance requires the Enterprise plan"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such provider, or no provenance for this revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/{version}/comparison": {
       "get": {
         "operationId": "getProviderPatchComparison",
@@ -29084,23 +32879,34 @@
         }
       }
     },
-    "/billing/webhook": {
+    "/billing/webhook/paddle/{token}": {
       "post": {
-        "operationId": "handleStripeWebhook",
-        "summary": "Receive a Stripe webhook",
-        "description": "Subscription lifecycle events from Stripe. No OIDC auth — the `Stripe-Signature` header is\nverified against the raw body in the handler, which is why the body must be read as text\nand not re-serialised.\n\nA rejected signature is `400`, which is what Stripe retries on.\n",
+        "operationId": "handlePaddleWebhook",
+        "summary": "Receive a Paddle webhook",
+        "description": "Paddle's notification destination, registered by `make paddle-configure`. No OIDC auth; two\nlocks instead. `{token}` is a secret GUID (`PADDLE_WEBHOOK_PATH_TOKEN`) compared in constant\ntime — a wrong one is a bare `404` — and the `Paddle-Signature` header is verified over the\nraw body, which is why the body is read as text and never re-serialised.\n\n**Every delivery is recorded** in `paddle_webhook_events` before anything is done with it,\nrejected and unparseable ones included, and the `200` is sent before processing: Paddle\nwants an answer within five seconds and retries anything else for two days. Processing runs\nafterwards and a failure leaves a `failed` row for the 15-minute retry and the operator\nconsole. `duplicate` says the `event_id` was already seen; Paddle retries and replays, so\nthat is expected, and the handler is idempotent anyway.\n\n**One org, one subscription.** A `subscription.*` event for a different subscription id\nthan the org has on record fails as `subscription_mismatch` while the recorded one is live,\nso a second subscription is never adopted. Once the recorded one is `canceled`, a live new\none replaces it (a resubscription). Events older than the last one applied stay `stale`\nacross that swap, so a late event for the old subscription cannot take the org back.\n\nA bad signature is `401` (so Paddle's dashboard shows the destination failing, which is the\nright alarm for a secret mismatch); a verified body that is not an event is `400`.\n",
         "tags": [
           "Webhooks",
           "Billing"
         ],
         "security": [
           {
-            "stripeSignature": []
+            "paddleSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "The secret path token.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
-          "description": "The raw Stripe event. Signature verification is over these exact bytes.",
+          "description": "The raw Paddle event. Signature verification is over these exact bytes.",
           "content": {
             "application/json": {
               "schema": {
@@ -29112,25 +32918,61 @@
         },
         "responses": {
           "200": {
-            "description": "Processed.",
+            "description": "Recorded; processing continues after the response.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Ok"
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "event_id",
+                    "duplicate"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "event_id": {
+                      "type": "string"
+                    },
+                    "duplicate": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Signature verification or handling failed.",
+            "description": "Signature verified but the body is not a Paddle event.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Signature missing, malformed, stale (over 300 s) or wrong.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
                 "example": {
-                  "error": "webhook_error",
-                  "message": "No signatures found matching the expected signature for payload"
+                  "error": "invalid_signature",
+                  "message": "mismatch"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Wrong path token. Deliberately indistinguishable from an unknown route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -30941,6 +34783,47 @@
         }
       }
     },
+    "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/provenance.intoto.jsonl": {
+      "get": {
+        "operationId": "getOrgSelfBuiltProvenance",
+        "summary": "Download the signed SLSA provenance (org-scoped, self-built)",
+        "description": "The DSSE-signed SLSA Provenance v1 statement for this self-built version, whose subjects\nare the zips in SHA256SUMS. No Terraform client fetches this; it is for a verifier, and\nthe registry path is here so a mirror of a version's files can carry it beside them.\n\n**Enterprise only**: `403` for any other tier, after every check the zip itself goes\nthrough (blocklist, serve mode, yank, policy, entitlement), so a refused version stays a\n`404`. Mirrored (`{upstream}`) versions have no provenance and no such file. The bytes\nare the ones the Worker verified when the build completed. See\n`/.well-known/terramantle-provenance-keys.json` for the key.\n",
+        "tags": [
+          "Registry — Providers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProviderOrgSlug"
+          },
+          {
+            "$ref": "#/components/parameters/Namespace"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderType"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderVersion"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderLineage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProviderProvenance"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/{filename}": {
       "get": {
         "operationId": "getOrgSelfBuiltZip",
@@ -31362,6 +35245,49 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/ProviderSignature"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/providers/{namespace}/{type}/{version}/files/self_built/{lineage}/provenance.intoto.jsonl": {
+      "get": {
+        "operationId": "getSelfBuiltProvenance",
+        "summary": "Download the signed SLSA provenance (token-scoped, self-built)",
+        "description": "As the org-scoped form, Enterprise only. A pre-signed (`sig`) URL carries no org and so no\ntier to check, and is refused: nothing mints one for this file.\n",
+        "tags": [
+          "Registry — Providers"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Namespace"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderType"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderVersion"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderLineage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProviderProvenance"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -32958,7 +36884,7 @@
       "get": {
         "operationId": "getStateVersionResources",
         "summary": "Get one version's resource tree",
-        "description": "The Resource Inspector's data: managed resources as a tree, built from the stored state.\nWith `compare`, the tree is diffed against another version so added, removed and changed\nresources are distinguishable.\n\nNo resource **values** are returned — this is addresses and structural metadata only.\n",
+        "description": "The Resource Inspector's data: managed resources as a tree, plus root-module outputs,\nbuilt from the stored state. With `compare`, the tree is diffed against another version so\nadded, removed and changed resources, attributes and outputs are distinguishable.\n\n**Values.** Non-sensitive attribute and output values ARE returned — that is what makes the\ninspector useful. A sensitive one is replaced server-side by a mask that carries no value,\nno hash and no length, only `value_type` and a `reason`: `sensitive` when Terraform marked\nit (`sensitive_attributes` / an output's `sensitive` flag), `heuristic` when the Worker's\nkey-name denylist or value-pattern scan caught it. A redacted attribute has no `value` key\nat all, and a nested redacted leaf becomes `{\"__redacted\": true, ...}`. This is the only\nhuman-facing read of state content; the raw file leaves the Worker on the backend protocol\npath alone. Change labels in compare mode are computed over raw values inside the Worker,\nso a changed secret reads `changed` without its value ever being sent.\n",
         "tags": [
           "State Management"
         ],

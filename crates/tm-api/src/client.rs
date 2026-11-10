@@ -219,6 +219,117 @@ impl HttpClient {
         })
     }
 
+    // ── raw-body POST (render-only plan push) ──────────────────────────────────
+
+    /// POST raw bytes with an explicit content type and a whole-request `timeout`,
+    /// deserializing the JSON response. A render-only plan push sends the
+    /// `show -json` text verbatim: re-serialising it through `post_json` would be
+    /// a needless copy of up to 100MB and would not change the server's hash.
+    pub fn post_bytes<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &[u8],
+        content_type: &str,
+        headers: &[(&str, &str)],
+        timeout: std::time::Duration,
+    ) -> Result<T, ApiError> {
+        let url = self.url(path);
+        self.with_retry(&url, |c| {
+            let mut req = c
+                .apply_auth(c.agent.post(&url))
+                .timeout(timeout)
+                .set("Content-Type", content_type);
+            for (k, v) in headers {
+                req = req.set(k, v);
+            }
+            Self::response_json(req.send_bytes(body), &url)
+        })
+    }
+
+    // ── multipart POST (plan push) ─────────────────────────────────────────────
+
+    /// POST a `multipart/form-data` body to `path` and deserialize the JSON
+    /// response. `ureq` has no multipart support, so the body is encoded by
+    /// [`encode_multipart`] (a pure function with its own tests). `timeout` is a
+    /// WHOLE-request budget overriding the agent's 30s per-phase defaults: a plan
+    /// push holds the connection open while the server runs its synchronous
+    /// policy gate, and that may legitimately outlast a read-phase timeout.
+    pub fn post_multipart<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        parts: &[MultipartPart<'_>],
+        headers: &[(&str, &str)],
+        timeout: std::time::Duration,
+    ) -> Result<T, ApiError> {
+        let url = self.url(path);
+        let boundary = format!("terramantle-{:032x}", random_u128());
+        let body = encode_multipart(parts, &boundary);
+        self.with_retry(&url, |c| {
+            let mut req = c.apply_auth(c.agent.post(&url)).timeout(timeout).set(
+                "Content-Type",
+                &format!("multipart/form-data; boundary={boundary}"),
+            );
+            for (k, v) in headers {
+                req = req.set(k, v);
+            }
+            Self::response_json(req.send_bytes(&body), &url)
+        })
+    }
+
+    // ── raw GET (plan pull) ────────────────────────────────────────────────────
+
+    /// GET `path` with query params and return the raw body plus the response
+    /// headers (plan pull: the body is a binary `.tfplan`, and the identity the
+    /// CLI verifies - sha-256, plan id, staleness - travels in headers). A non-2xx
+    /// is still parsed as the worker's `{error}` body so the exit-code map applies.
+    pub fn get_raw(
+        &self,
+        path: &str,
+        query: &[(&str, String)],
+        timeout: std::time::Duration,
+    ) -> Result<RawResponse, ApiError> {
+        let url = self.url(path);
+        self.with_retry(&url, |c| {
+            let mut req = c.apply_auth(c.agent.get(&url)).timeout(timeout);
+            for (k, v) in query {
+                req = req.query(k, v);
+            }
+            match req.call() {
+                Ok(resp) => {
+                    let status = resp.status();
+                    let headers = resp
+                        .headers_names()
+                        .into_iter()
+                        .filter_map(|n| {
+                            resp.header(&n)
+                                .map(|v| (n.to_ascii_lowercase(), v.to_string()))
+                        })
+                        .collect();
+                    let mut body = Vec::new();
+                    std::io::Read::read_to_end(&mut resp.into_reader(), &mut body).map_err(
+                        |source| ApiError::Body {
+                            url: url.clone(),
+                            source,
+                        },
+                    )?;
+                    Ok(RawResponse {
+                        status,
+                        headers,
+                        body,
+                    })
+                }
+                Err(ureq::Error::Status(status, resp)) => {
+                    let body = resp.into_string().unwrap_or_default();
+                    Err(ApiError::from_status(status, url.clone(), body))
+                }
+                Err(ureq::Error::Transport(t)) => Err(ApiError::Transport {
+                    url: url.clone(),
+                    source: Box::new(t),
+                }),
+            }
+        })
+    }
+
     // ── retry / refresh plumbing ───────────────────────────────────────────────
 
     /// Run `send`; on a 401, invoke the refresh hook once, swap the bearer, and
@@ -273,10 +384,113 @@ impl HttpClient {
     }
 }
 
+/// One part of a multipart body.
+#[derive(Debug, Clone)]
+pub struct MultipartPart<'a> {
+    /// The form field name (`render`, `tfplan`).
+    pub name: &'a str,
+    /// A filename makes the part a FILE part; the worker reads `tfplan` as one.
+    pub filename: Option<&'a str>,
+    pub content_type: &'a str,
+    pub data: &'a [u8],
+}
+
+/// A raw (non-JSON) response: status, lower-cased header names, body bytes.
+#[derive(Debug, Clone)]
+pub struct RawResponse {
+    pub status: u16,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
+}
+
+impl RawResponse {
+    /// Case-insensitive header lookup.
+    pub fn header(&self, name: &str) -> Option<&str> {
+        let want = name.to_ascii_lowercase();
+        self.headers
+            .iter()
+            .find(|(k, _)| *k == want)
+            .map(|(_, v)| v.as_str())
+    }
+}
+
+/// Encode `parts` as an RFC 7578 multipart/form-data body with `boundary`.
+///
+/// Pure, so the wire format is pinned by a test instead of discovered against
+/// the server. The boundary is the caller's; it must not appear in any part.
+pub fn encode_multipart(parts: &[MultipartPart<'_>], boundary: &str) -> Vec<u8> {
+    let mut out = Vec::new();
+    for p in parts {
+        out.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        let mut disposition = format!("Content-Disposition: form-data; name=\"{}\"", p.name);
+        if let Some(f) = p.filename {
+            disposition.push_str(&format!("; filename=\"{f}\""));
+        }
+        out.extend_from_slice(disposition.as_bytes());
+        out.extend_from_slice(b"\r\n");
+        out.extend_from_slice(format!("Content-Type: {}\r\n\r\n", p.content_type).as_bytes());
+        out.extend_from_slice(p.data);
+        out.extend_from_slice(b"\r\n");
+    }
+    out.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+    out
+}
+
+/// A boundary nonce. Not cryptographic; it only has to be absent from the parts,
+/// and 128 bits from the clock and the allocator are plenty for that.
+fn random_u128() -> u128 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let addr = Box::new(0u8);
+    let salt = (&*addr as *const u8 as usize) as u128;
+    now ^ salt.rotate_left(64) ^ 0x9e37_79b9_7f4a_7c15_f39c_c060_5ced_c834
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[test]
+    fn multipart_encoding_is_rfc7578_shaped() {
+        let parts = [
+            MultipartPart {
+                name: "render",
+                filename: Some("plan.json"),
+                content_type: "application/json",
+                data: b"{}",
+            },
+            MultipartPart {
+                name: "tfplan",
+                filename: Some("plan.tfplan"),
+                content_type: "application/octet-stream",
+                data: &[0x50, 0x4b, 0x03, 0x04],
+            },
+        ];
+        let body = encode_multipart(&parts, "B");
+        let text = String::from_utf8_lossy(&body);
+        assert!(text.starts_with("--B\r\nContent-Disposition: form-data; name=\"render\"; filename=\"plan.json\"\r\nContent-Type: application/json\r\n\r\n{}\r\n--B\r\n"));
+        assert!(text.ends_with("\r\n--B--\r\n"));
+        // The binary part is byte-preserved between its header blank line and the CRLF.
+        let idx = body
+            .windows(4)
+            .position(|w| w == [0x50, 0x4b, 0x03, 0x04])
+            .expect("zip magic present");
+        assert_eq!(&body[idx + 4..idx + 6], b"\r\n");
+    }
+
+    #[test]
+    fn raw_response_header_lookup_is_case_insensitive() {
+        let r = RawResponse {
+            status: 200,
+            headers: vec![("x-terramantle-plan-id".into(), "abc".into())],
+            body: vec![],
+        };
+        assert_eq!(r.header("X-Terramantle-Plan-Id"), Some("abc"));
+        assert_eq!(r.header("missing"), None);
+    }
 
     /// A 401 the retry path recognizes.
     fn unauthorized() -> ApiError {

@@ -90,6 +90,11 @@ pub enum Command {
         #[command(subcommand)]
         command: StateCommand,
     },
+    /// Plan operations: push a saved plan for gating, pull the reviewed one to apply.
+    Plan {
+        #[command(subcommand)]
+        command: PlanCommand,
+    },
     /// Which repos the org trusts for keyless CI auth.
     Trust {
         #[command(subcommand)]
@@ -260,6 +265,86 @@ pub enum RepoCommand {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+/// `terramantle plan …`. The plan surface hangs off the state backend address
+/// (`<address>/plan`), so push/pull read the org and workspace from the stack's
+/// backend configuration - `.terraform/terraform.tfstate` after `init`, else the
+/// `terraform { backend "http" { address } }` block - unless `--address` says otherwise.
+#[derive(Debug, Subcommand)]
+pub enum PlanCommand {
+    /// Push a saved plan (binary + `show -json` render) and get the gate's verdict.
+    Push(PlanPushArgs),
+    /// Pull the reviewed binary plan (latest for a ref, or by id) to apply it.
+    Pull(PlanPullArgs),
+    /// List a workspace's plan versions, newest first.
+    Ls {
+        /// Workspace key. Defaults to the one in the current directory's backend config.
+        workspace: Option<String>,
+        /// Rows to show (max 100).
+        #[arg(long, value_name = "N", default_value_t = 50)]
+        limit: u64,
+        /// Directory whose backend config names the workspace (default `.`).
+        #[arg(long, value_name = "DIR")]
+        chdir: Option<String>,
+    },
+    /// Show one plan version: counts, verdict inputs, findings.
+    Show {
+        /// Workspace key.
+        workspace: String,
+        /// Plan version id (from `plan ls` or a push).
+        version_id: String,
+    },
+}
+
+#[derive(Debug, Args)]
+pub struct PlanPushArgs {
+    /// The saved plan file from `terraform plan -out=…`. Defaults to `tfplan`, then
+    /// `plan.tfplan`, in the working directory. Not needed with `--render-only`.
+    pub tfplan: Option<String>,
+    /// Concurrent-plan discriminator (PR number, branch, SHA). Omit for the mainline.
+    #[arg(long = "ref", value_name = "REF")]
+    pub plan_ref: Option<String>,
+    /// Working directory: where `terraform init` ran and the backend config lives (default `.`).
+    #[arg(long, value_name = "DIR")]
+    pub chdir: Option<String>,
+    /// A pre-rendered `terraform show -json` file, instead of running the binary.
+    #[arg(long, value_name = "FILE")]
+    pub render: Option<String>,
+    /// Backend address to use instead of the one in the Terraform config.
+    #[arg(long, value_name = "URL")]
+    pub address: Option<String>,
+    /// terraform-compatible binary for `show -json` (also TERRAMANTLE_TF_BIN; default: tofu, then terraform).
+    #[arg(long, value_name = "BIN")]
+    pub tf_bin: Option<String>,
+    /// Keep a binary whose prior serial is no longer current (audit only; it cannot be applied).
+    #[arg(long)]
+    pub allow_stale: bool,
+    /// Push the render only (needs --render); the version will not be pullable.
+    #[arg(long)]
+    pub render_only: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct PlanPullArgs {
+    /// Pull the newest plan for this ref (omit for the mainline).
+    #[arg(long = "ref", value_name = "REF", conflicts_with = "id")]
+    pub plan_ref: Option<String>,
+    /// Pull one plan version by id.
+    #[arg(long, value_name = "ID")]
+    pub id: Option<String>,
+    /// Download even if the plan's prior serial is not the workspace's current serial.
+    #[arg(long)]
+    pub allow_stale: bool,
+    /// Where to write the binary (default `plan.tfplan` in the working directory).
+    #[arg(long, value_name = "FILE")]
+    pub out: Option<String>,
+    /// Working directory holding the backend config (default `.`).
+    #[arg(long, value_name = "DIR")]
+    pub chdir: Option<String>,
+    /// Backend address to use instead of the one in the Terraform config.
+    #[arg(long, value_name = "URL")]
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
