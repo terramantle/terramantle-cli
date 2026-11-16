@@ -5177,7 +5177,7 @@
       },
       "PlanVerdict": {
         "type": "object",
-        "description": "The synchronous gate's answer. `sources` names the engine(s) that refused - `builtin` is the destroy threshold / deny-list / require_approval gate, `opa` the org's custom Rego (an OPA outage fails closed and also reads as `opa`). `reasons` are the gates' own strings, never a plan value. When `blocked`, the workspace's plan block was set before this response and the next LOCK is refused until a human approves this exact version.\n",
+        "description": "The synchronous gate's answer. `sources` names the engine(s) that refused - `builtin` is the destroy threshold / deny-list / require_approval gate, `opa` the org's custom Rego (an OPA outage fails closed and also reads as `opa`). `reasons` are the gates' own strings, never a plan value. When `blocked` and the plan gates the workspace (it was stored with no ref), the workspace's plan block was set before this response: the next apply's LOCK and state write are refused - `plan` still works - until a later plan passes or this version is approved. A blocked plan stored under a ref blocks nothing but its own pull.\n",
         "required": [
           "blocked",
           "reasons",
@@ -5226,13 +5226,48 @@
           "stale",
           "deduped",
           "verdict",
-          "scan_status"
+          "scan_status",
+          "plan_ref",
+          "gates_workspace",
+          "risk_score",
+          "risk_level"
         ],
         "properties": {
           "ok": {
             "type": "boolean",
             "enum": [
               true
+            ]
+          },
+          "plan_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The ref the plan is stored under. Usually the `X-Plan-Ref` sent; `ci:<ref>` when a CI token on a ref that may not land state sent none. `null` = stored with no ref."
+          },
+          "gates_workspace": {
+            "type": "boolean",
+            "description": "True when the plan was stored with no ref, i.e. it is the plan that decides whether this workspace may be applied. False for a pull request's plan, which gets a verdict only."
+          },
+          "risk_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The plan's 0-100 risk score (`PlanRisk.score`). The factors and the full indicator list are on the version detail. `null` only for a deduped version stored before the score existed."
+          },
+          "risk_level": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical",
+              null
             ]
           },
           "version_id": {
@@ -5529,7 +5564,7 @@
                 "type": "null"
               }
             ],
-            "description": "Prior state serial the plan was made against (from X-Plan-Prior-Serial)."
+            "description": "Prior state serial the plan was made against. From the binary's own embedded prior state when the push had one (`lineage_source` is `tfplan`); otherwise the `X-Plan-Prior-Serial` claim, or null."
           },
           "prior_lineage": {
             "oneOf": [
@@ -23790,7 +23825,7 @@
             "vcsOidc": []
           }
         ],
-        "description": "The canonical plan push. The path is the state backend `address` with `/plan` appended,\nso a client derives it the way terraform derives `lock_address`; `plan` is therefore a\nreserved segment in a workspace key (a new key containing one is refused `400`). Plans\nreuse the state workspace and the state push permission model: a machine client token\n(or a human with `write`) on that workspace.\n\nTwo body shapes:\n- `application/json`: the raw `terraform show -json` render, render-only. 100MB cap.\n- `multipart/form-data`: part `render` (the show -json output, required) and part\n  `tfplan` (the binary saved plan, optional). 64MB combined cap, 50MB for the binary:\n  the form is materialised beside the raw body in a 128MB isolate. A multipart push\n  takes the RAW-STATE permission (the binary embeds the prior state), so an org that\n  blocks humans from the state protocol blocks them from pushing a binary too.\n\n**Lineage and serial.** With a binary, `prior_serial` and `prior_lineage` are read from\nthe plan's own embedded prior state (`lineage_source: tfplan`) and the `X-Plan-Prior-*`\nheaders are ignored (a disagreement is logged). A binary whose lineage is not the\nworkspace's is refused `409 lineage_mismatch`; one that is STALE is refused\n`409 plan_stale` unless `X-Plan-Allow-Stale: 1`. Stale means either of two things. The\nprior serial is not the workspace's CURRENT serial: `terraform apply` would refuse it\ntoo, so storing it only yields an artefact nobody can pull. Or the binary carries NO\nlineage - it was planned before the workspace had any state - and the workspace has\nstate now. That second case is checked here because nothing else will: terraform and\ntofu only stale-check a saved plan that has a lineage, and the serial comparison misses\nit whenever a brand-new state starts at the plan's own serial. A workspace with no\nstate yet is never stale. Without a binary the headers are the pusher's claim\n(`lineage_source: header`) and staleness is recorded in `stale`, not refused: a nightly\ndrift push that raced a state push is still worth keeping. Both refusals happen before\nanything is written.\n\n**What is stored.** The full render and the binary, untouched (migration 145). The\nserver derives action counts, hashes the REDACTED canonical render\n(`attestation_hash`, unchanged semantics), hashes the binary (`tfplan_sha256`), and\ninserts a `plan_versions` row.\n\n**Idempotent for a retry, and only a retry.** Re-pushing the SAME RENDER, byte for\nbyte, for the same (workspace, `plan_ref`) returns the existing version with\n`deduped: true`, and attaches the binary to it if that version had none. Anything else\nis a new version - including a second plan with the same `attestation_hash`.\n\nOne exception, on purpose: **a plan that is still blocked is never deduped.** A verdict\nbelongs to its version - it is what the gate said with the limits and policies in force\nwhen that version was pushed - so returning the stored one would tell an operator who\nfixed the limit and re-ran the same push job that the plan is blocked by a rule that no\nlonger exists. Re-pushing a blocked plan is a request to judge it again: it is stored as\na NEW version and evaluated against the gate as it is now (`deduped: false`). A plan that\npassed or was approved dedupes as described. That hash\nis value-blind, so it used to fold every re-plan of an unchanged change into the first\nversion, whose binary embeds the state serial of the first run; once state moved, that\nversion could never be pulled again and the re-plan had nowhere else to go. A render\ncarries the plan's own timestamp, so two plan runs never share one. The same render\narriving with a DIFFERENT binary is also stored as its own version, not refused.\n\n**The render must describe the binary.** The gate evaluates the render and a human\nreviews it, but `terraform apply` runs the binary - and until this check nothing made\nthem the same plan: a render that adds a tag could be gated and approved while the binary\nbeside it destroyed a database. So a multipart push reads the binary's own change set\n(addresses and actions only, never a value) and refuses `400 plan_render_mismatch` unless\nthe render states the same mutating changes, address for address, and was produced by the\nsame terraform/tofu version. `message` names the first few differences. No-ops and data\nsource reads are not compared. A binary this server cannot read the change set of is\n`400 invalid_tfplan`: it is never accepted unverified.\n\nThe same read records how the plan was RUN (`plan_mode`, `plan_targeted`,\n`plan_errored` on the version), which `show -json` cannot say.\n\n**A refused push leaves nothing behind**, including the workspace: a first push for a key\ncreates the workspace only once the push has validated, so a malformed body or a foreign\nbinary sent to a fresh key does not conjure an empty workspace.\n\n**The gate is synchronous and its answer is in the response.** The built-in gate (and\nthe custom-Rego gate when the org has plan Rego) runs inline; a violation sets the\nworkspace's PLAN block BEFORE the `200` is returned, so the next apply's LOCK is\nrejected, and `verdict` says so with the reasons and which engine refused. The plan\nblock is its own flag, separate from the state-policy block: a state scan or a state\nattestation does not lift it (both used to, because the two shared one flag that every\nstate path re-derives from state policies alone).\n\n**Only a plan pushed WITHOUT a ref moves the workspace's gate.** That is the plan the\napply pipeline makes of what it is about to apply. A plan with an `X-Plan-Ref` is a pull\nrequest's: it gets this verdict, and its binary is not served while blocked, but it\nneither blocks nor unblocks the workspace - a failing PR must not stop an unrelated apply\non the main branch, and a passing PR must not lift a block the main plan raised.\n\n**A later passing plan lifts the block.** Any un-ref'd plan that fails RAISES it, whatever\nform it arrives in. LIFTING it - and satisfying \"require a passing plan\" - needs a plan\nthat can be believed: pushed with its binary (so the render has been checked against it\nand its lineage and serial are its own), current, not `-refresh-only`, and not errored. A\nrender-only push that passes changes nothing, so neither the legacy alias nor a scheduled\ndrift push can clear a block. Re-pushing a passing or approved plan (`deduped: true`) counts\nas the latest push and moves the gate the same way. Approving the plan version also lifts it. The status is\n`200` either way: the push succeeded, a block is the product working. An async plan-scan\njob is best-effort enqueued for advisory insights (`scan_status: pending`).\n\n**Advisory policies warn, they do not block.** Custom Rego policies marked advisory (for\nthe org, or for this workspace by an override) are evaluated in the same call and their\ndenials come back in `verdict.warnings`. They never set `verdict.blocked`. Until\nmigration 150 the push-time gate ignored the enforcing level and an advisory policy\nblocked exactly like an enforcing one.\n",
+        "description": "The canonical plan push. The path is the state backend `address` with `/plan` appended,\nso a client derives it the way terraform derives `lock_address`; `plan` is therefore a\nreserved segment in a workspace key (a new key containing one is refused `400`). Plans\nreuse the state workspace and the state push permission model: a machine client token\n(or a human with `write`) on that workspace.\n\nTwo body shapes:\n- `application/json`: the raw `terraform show -json` render, render-only. 100MB cap.\n- `multipart/form-data`: part `render` (the show -json output, required) and part\n  `tfplan` (the binary saved plan, optional). 64MB combined cap, 50MB for the binary:\n  the form is materialised beside the raw body in a 128MB isolate. A multipart push\n  takes the RAW-STATE permission (the binary embeds the prior state), so an org that\n  blocks humans from the state protocol blocks them from pushing a binary too.\n\n**Lineage and serial.** With a binary, `prior_serial` and `prior_lineage` are read from\nthe plan's own embedded prior state (`lineage_source: tfplan`) and the `X-Plan-Prior-*`\nheaders are ignored (a disagreement is logged). A binary whose lineage is not the\nworkspace's is refused `409 lineage_mismatch`; one that is STALE is refused\n`409 plan_stale` unless `X-Plan-Allow-Stale: 1`. Stale means either of two things. The\nprior serial is not the workspace's CURRENT serial: `terraform apply` would refuse it\ntoo, so storing it only yields an artefact nobody can pull. Or the binary carries NO\nlineage - it was planned before the workspace had any state - and the workspace has\nstate now. That second case is checked here because nothing else will: terraform and\ntofu only stale-check a saved plan that has a lineage, and the serial comparison misses\nit whenever a brand-new state starts at the plan's own serial. A workspace with no\nstate yet is never stale. Without a binary the headers are the pusher's claim\n(`lineage_source: header`) and staleness is recorded in `stale`, not refused: a nightly\ndrift push that raced a state push is still worth keeping. Both refusals happen before\nanything is written.\n\n**What is stored.** The full render and the binary, untouched (migration 145). The\nserver derives action counts, hashes the REDACTED canonical render\n(`attestation_hash`, unchanged semantics), hashes the binary (`tfplan_sha256`), and\ninserts a `plan_versions` row.\n\n**Idempotent for a retry, and only a retry.** Re-pushing the SAME RENDER, byte for\nbyte, for the same (workspace, `plan_ref`) returns the existing version with\n`deduped: true`, and attaches the binary to it if that version had none. Anything else\nis a new version - including a second plan with the same `attestation_hash`.\n\nOne exception, on purpose: **a plan that is still blocked is never deduped.** A verdict\nbelongs to its version - it is what the gate said with the limits and policies in force\nwhen that version was pushed - so returning the stored one would tell an operator who\nfixed the limit and re-ran the same push job that the plan is blocked by a rule that no\nlonger exists. Re-pushing a blocked plan is a request to judge it again: it is stored as\na NEW version and evaluated against the gate as it is now (`deduped: false`). A plan that\npassed or was approved dedupes as described. That hash\nis value-blind, so it used to fold every re-plan of an unchanged change into the first\nversion, whose binary embeds the state serial of the first run; once state moved, that\nversion could never be pulled again and the re-plan had nowhere else to go. A render\ncarries the plan's own timestamp, so two plan runs never share one. The same render\narriving with a DIFFERENT binary is also stored as its own version, not refused.\n\n**The render must describe the binary.** The gate evaluates the render and a human\nreviews it, but `terraform apply` runs the binary - and until this check nothing made\nthem the same plan: a render that adds a tag could be gated and approved while the binary\nbeside it destroyed a database. So a multipart push reads the binary's own change set\n(addresses and actions only, never a value) and refuses `400 plan_render_mismatch` unless\nthe render states the same mutating changes, address for address, and was produced by the\nsame terraform/tofu version. `message` names the first few differences. No-ops and data\nsource reads are not compared. A binary this server cannot read the change set of is\n`400 invalid_tfplan`: it is never accepted unverified.\n\nThe same read records how the plan was RUN (`plan_mode`, `plan_targeted`,\n`plan_errored` on the version), which `show -json` cannot say.\n\n**A refused push leaves nothing behind**, including the workspace: a first push for a key\ncreates the workspace only once the push has validated, so a malformed body or a foreign\nbinary sent to a fresh key does not conjure an empty workspace.\n\n**The gate is synchronous and its answer is in the response.** The built-in gate (and\nthe custom-Rego gate when the org has plan Rego) runs inline; a violation sets the\nworkspace's PLAN block BEFORE the `200` is returned, so the next apply's LOCK is\nrejected, and `verdict` says so with the reasons and which engine refused. The plan\nblock is its own flag, separate from the state-policy block: a state scan or a state\nattestation does not lift it (both used to, because the two shared one flag that every\nstate path re-derives from state policies alone).\n\n**Only a plan pushed WITHOUT a ref moves the workspace's gate.** That is the plan the\napply pipeline makes of what it is about to apply. A plan with an `X-Plan-Ref` is a pull\nrequest's: it gets this verdict, and its binary is not served while blocked, but it\nneither blocks nor unblocks the workspace - a failing PR must not stop an unrelated apply\non the main branch, and a passing PR must not lift a block the main plan raised.\n\n**A pipeline that may not land state may not push the gating plan.** A CI OIDC token whose\nref is outside its trust entry's `allowed_refs` cannot push state (`ci_ref_not_allowed`).\nIts plan is still accepted - the gate must see pull requests - but if it sends no\n`X-Plan-Ref`, the plan is stored under a derived one (`ci:<its ref>`) and so does not move\nthe workspace's gate. Otherwise a pull-request pipeline could push a passing plan with no\nref and lift a block the main branch's plan had raised, after which a plain `apply` on\nmain of the very change the gate refused would be let through; and a PR's failing plan\ncould block everyone's apply. The response says what happened: `plan_ref` is the ref the\nplan is stored under and `gates_workspace` whether it is the gating plan. Human logins,\nmachine tokens and CI tokens on an allowed ref are unaffected.\n\n**A later passing plan lifts the block.** Any un-ref'd plan that fails RAISES it, whatever\nform it arrives in. LIFTING it - and satisfying \"require a passing plan\" - needs a plan\nthat can be believed: pushed with its binary (so the render has been checked against it\nand its lineage and serial are its own), current, not `-refresh-only`, and not errored. A\nrender-only push that passes changes nothing, so neither the legacy alias nor a scheduled\ndrift push can clear a block. Re-pushing a passing or approved plan (`deduped: true`) counts\nas the latest push and moves the gate the same way. Approving the plan version also lifts it. The status is\n`200` either way: the push succeeded, a block is the product working. An async plan-scan\njob is best-effort enqueued for advisory insights (`scan_status: pending`).\n\n**Advisory policies warn, they do not block.** Custom Rego policies marked advisory (for\nthe org, or for this workspace by an override) are evaluated in the same call and their\ndenials come back in `verdict.warnings`. They never set `verdict.blocked`. Until\nmigration 150 the push-time gate ignored the enforcing level and an advisory policy\nblocked exactly like an enforcing one.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/OrgSlug"
@@ -24116,7 +24151,7 @@
             "name": "X-Plan-Ref",
             "in": "header",
             "required": false,
-            "description": "Concurrent-plan discriminator (PR / branch / SHA). NULL = default/mainline.\nTwo open PRs against one workspace are separated by this.\n",
+            "description": "Concurrent-plan discriminator (PR / branch / SHA). Absent = the plan that GATES the\nworkspace. Two open PRs against one workspace are separated by this. A CI token on\na ref that may not land state gets `ci:<its ref>` when it sends none - see the\ndescription; the response's `plan_ref` is authoritative.\n",
             "schema": {
               "type": "string"
             }
@@ -24372,9 +24407,53 @@
                     "run",
                     "outputs",
                     "impact",
-                    "supply_chain"
+                    "supply_chain",
+                    "state"
                   ],
                   "properties": {
+                    "state": {
+                      "description": "How the plan related to the workspace's state WHEN IT WAS PUSHED (`input.plan.state`). `stale` here is as of the push; whether the plan can be applied now is `listPlanVersionApprovals`' `stale`. `null` for a version pushed before it was computed.\n",
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "stale",
+                            "lineage_source",
+                            "prior_serial",
+                            "managed_resources"
+                          ],
+                          "properties": {
+                            "stale": {
+                              "type": "boolean"
+                            },
+                            "lineage_source": {
+                              "type": "string",
+                              "enum": [
+                                "tfplan",
+                                "header",
+                                "none"
+                              ]
+                            },
+                            "prior_serial": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "managed_resources": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "description": "Managed resources in the prior state; null when the render carried none."
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "impact": {
                       "oneOf": [
                         {
@@ -37411,7 +37490,7 @@
             "$ref": "#/components/responses/QuotaExceeded"
           },
           "403": {
-            "description": "`forbidden` — the token holds no write permission on this workspace.\n\n`ci_ref_not_allowed` — a CI OIDC token whose ref is outside its trust entry's\n`allowed_refs`. Only the operations that land an artefact (this one, the lock-file\nupload and module publish) answer this; the same token still reads, `LOCK`s and pushes\nplans from any ref, so a PR pipeline keeps working and the plan gate keeps seeing PRs.\n\n`access_rule_denied` — the request's country, ASN or IP is refused by the org's access\nrules. The body never names the rule or the origin.\n\n`human_state_access_blocked` — the org has switched off human access to the state\nbackend (`PATCH /api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\n",
+            "description": "`forbidden` — the token holds no write permission on this workspace.\n\n`ci_ref_not_allowed` — a CI OIDC token whose ref is outside its trust entry's\n`allowed_refs`. Only the operations that land an artefact (this one, the lock-file\nupload and module publish) answer this; the same token still reads, `LOCK`s and pushes\nplans from any ref, so a PR pipeline keeps working and the plan gate keeps seeing PRs -\nthough a plan it pushes with no ref is stored under one and cannot move the\nworkspace's gate (see `pushPlan`).\n\n`access_rule_denied` — the request's country, ASN or IP is refused by the org's access\nrules. The body never names the rule or the origin.\n\n`human_state_access_blocked` — the org has switched off human access to the state\nbackend (`PATCH /api/orgs/{orgId}/state-access`); use a CI pipeline or a machine token.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -37657,7 +37736,7 @@
       "x-lock": {
         "operationId": "lockState",
         "summary": "Acquire the state lock (http backend)",
-        "description": "Terraform's `LOCK` method, sent to the lock address before an apply.\n\n**This is where the policy gate stops an apply.** The gate runs *before* the lock row is\ncreated, so a refused apply never starts and `tofu` never mutates infrastructure. Two\nindependent blocks are read, and either refuses with `423`:\n\n- **The state block.** The workspace's latest state violates an enforcing state policy.\n  Cleared by a human attestation (`POST /api/v1/{orgId}/state/{workspace}/policy/attest`)\n  — deliberately not something the CI token that tripped it can do for itself. Only in\n  force while state policies are enabled for the org.\n- **The plan block.** The last plan pushed for the workspace was blocked by the plan\n  gate (`pushPlan`). Cleared by a human approving that plan version\n  (`approvePlanVersion`). Always in force: the plan gate has no per-artefact switch.\n\nA third obstacle is opt-in: **require a passing plan** (`setWorkspacePlanPolicyConfig`).\nWith it on, the lock is refused unless the workspace's gate plan passed (or was approved)\nAND was computed from the state as it is now - lineage and serial both. That is what\nmakes a passing plan good for one state-changing apply: the apply moves the serial and\nthe plan no longer matches.\n\n**What the lock is for decides whether a plan obstacle refuses it.** A plan block, or an\nunmet require-plan, refuses a lock that will change something - `apply`, `refresh`,\n`state mv`, and anything this server does not recognise. It does NOT refuse `plan`, nor\nthe `OperationTypeInvalid` that `console` and `import` both send: those are granted a\nREAD-ONLY lock. Planning has to work on a blocked workspace, or a passing plan could never\nlift the block; and `console` cannot be told apart from `import`, which changes no\ninfrastructure anyway. A read-only lock vouches for no write - a state `POST` under one is\ngated as if there were no lock (`pushState`) - which is why the operation name, the\nclient's own word, can be taken at face value here: claiming `plan` buys a lock that\ncannot write. The state block is unchanged and still refuses every operation.\n\n**Lifting a plan block.** Push a plan that passes: the next un-ref'd, binary-backed,\ncurrent plan to pass clears it (`pushPlan`). Or approve the blocked plan\n(`approvePlanVersion`). Break-glass (`openPlanBypass`) lifts require-plan for a short\nwindow, for operations that have no plan; it does not lift a block a failed plan raised.\n\nEach is lifted only by its own action. They were a single flag until migration 149, and\nevery state path re-derives that flag from state policies alone, so a routine state\nscan — or an attestation — used to clear a block a plan had raised. When both are set\nthe refusal names both, with one decision-ledger row per cause, and lifting one leaves\nthe other in place. A plan block's reasons are the gate's own, as returned to the\npusher in `verdict.reasons`.\n\nThe org's Danger-zone consumption kill switch (`PATCH /policies/consumption-block` with\n`state: true`) is checked ahead of all of that and refuses every workspace. It outranks a\nworkspace's `serve_override: 'allow'` and cannot be cleared by an attestation — an owner\nwho armed it meant every apply in the org. Only lifting the switch lets applies run again.\n\nActor metadata (IP, geo, name) is captured for display and audit only. The IP comes from\n`CF-Connecting-IP` alone, never `X-Forwarded-For`, because that header is client-spoofable.\n",
+        "description": "Terraform's `LOCK` method, sent to the lock address before an apply.\n\n**This is where the policy gate stops an apply.** The gate runs *before* the lock row is\ncreated, so a refused apply never starts and `tofu` never mutates infrastructure. Two\nindependent blocks are read, and either refuses with `423`:\n\n- **The state block.** The workspace's latest state violates an enforcing state policy.\n  Cleared by a human attestation (`POST /api/v1/{orgId}/state/{workspace}/policy/attest`)\n  — deliberately not something the CI token that tripped it can do for itself. Only in\n  force while state policies are enabled for the org.\n- **The plan block.** The last plan pushed for the workspace WITHOUT a ref was blocked by\n  the plan gate (`pushPlan`). Cleared by the next such plan that passes (pushed with its\n  binary, current, not refresh-only) or by approving that plan version\n  (`approvePlanVersion`). Always in force: the plan gate has no per-artefact switch.\n\nA third obstacle is opt-in: **require a passing plan** (`setWorkspacePlanPolicyConfig`).\nWith it on, the lock is refused unless the workspace's gate plan passed (or was approved)\nAND was computed from the state as it is now - lineage and serial both. That is what\nmakes a passing plan good for one state-changing apply: the apply moves the serial and\nthe plan no longer matches.\n\n**What the lock is for decides whether a plan obstacle refuses it.** A plan block, or an\nunmet require-plan, refuses a lock that will change something - `apply`, `refresh`,\n`state mv`, and anything this server does not recognise. It does NOT refuse `plan`, nor\nthe `OperationTypeInvalid` that `console` and `import` both send: those are granted a\nREAD-ONLY lock. Planning has to work on a blocked workspace, or a passing plan could never\nlift the block; and `console` cannot be told apart from `import`, which changes no\ninfrastructure anyway. A read-only lock vouches for no write - a state `POST` under one is\ngated as if there were no lock (`pushState`) - which is why the operation name, the\nclient's own word, can be taken at face value here: claiming `plan` buys a lock that\ncannot write. The state block is unchanged and still refuses every operation.\n\n**Lifting a plan block.** Push a plan that passes: the next un-ref'd, binary-backed,\ncurrent plan to pass clears it (`pushPlan`). Or approve the blocked plan\n(`approvePlanVersion`). Break-glass (`openPlanBypass`) lifts require-plan for a short\nwindow, for operations that have no plan; it does not lift a block a failed plan raised.\n\nEach is lifted only by its own action. They were a single flag until migration 149, and\nevery state path re-derives that flag from state policies alone, so a routine state\nscan — or an attestation — used to clear a block a plan had raised. When both are set\nthe refusal names both, with one decision-ledger row per cause, and lifting one leaves\nthe other in place. A plan block's reasons are the gate's own, as returned to the\npusher in `verdict.reasons`.\n\nThe org's Danger-zone consumption kill switch (`PATCH /policies/consumption-block` with\n`state: true`) is checked ahead of all of that and refuses every workspace. It outranks a\nworkspace's `serve_override: 'allow'` and cannot be cleared by an attestation — an owner\nwho armed it meant every apply in the org. Only lifting the switch lets applies run again.\n\nActor metadata (IP, geo, name) is captured for display and audit only. The IP comes from\n`CF-Connecting-IP` alone, never `X-Forwarded-For`, because that header is client-spoofable.\n",
         "tags": [
           "State Backend"
         ],

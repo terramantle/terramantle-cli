@@ -2874,6 +2874,10 @@ pub struct GetPlanVersionResponse {
     pub risk: ::std::option::Option<PlanRisk>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub run: ::std::option::Option<PlanRun>,
+    /**How the plan related to the workspace's state WHEN IT WAS PUSHED (`input.plan.state`). `stale` here is as of the push; whether the plan can be applied now is `listPlanVersionApprovals`' `stale`. `null` for a version pushed before it was computed.
+     */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state: ::std::option::Option<GetPlanVersionResponseState>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub supply_chain: ::std::option::Option<PlanSupplyChain>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -2937,6 +2941,74 @@ impl ::std::convert::TryFrom<&str> for GetPlanVersionResponseOutputsItemAction {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for GetPlanVersionResponseOutputsItemAction {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`GetPlanVersionResponseState`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct GetPlanVersionResponseState {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lineage_source: ::std::option::Option<GetPlanVersionResponseStateLineageSource>,
+    ///Managed resources in the prior state; null when the render carried none.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub managed_resources: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub prior_serial: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub stale: ::std::option::Option<bool>,
+}
+///`GetPlanVersionResponseStateLineageSource`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum GetPlanVersionResponseStateLineageSource {
+    #[serde(rename = "tfplan")]
+    Tfplan,
+    #[serde(rename = "header")]
+    Header,
+    #[serde(rename = "none")]
+    None,
+}
+impl ::std::fmt::Display for GetPlanVersionResponseStateLineageSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Tfplan => f.write_str("tfplan"),
+            Self::Header => f.write_str("header"),
+            Self::None => f.write_str("none"),
+        }
+    }
+}
+impl ::std::str::FromStr for GetPlanVersionResponseStateLineageSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "tfplan" => Ok(Self::Tfplan),
+            "header" => Ok(Self::Header),
+            "none" => Ok(Self::None),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GetPlanVersionResponseStateLineageSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GetPlanVersionResponseStateLineageSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -6262,15 +6334,26 @@ pub struct PlanPushResult {
     ///This exact render had already been pushed for this (workspace, ref) and passed or was approved, and that version was returned. Never true for a different plan of the same shape, and never for a plan that is still blocked - that one is judged again as a new version.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub deduped: ::std::option::Option<bool>,
+    ///True when the plan was stored with no ref, i.e. it is the plan that decides whether this workspace may be applied. False for a pull request's plan, which gets a verdict only.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub gates_workspace: ::std::option::Option<bool>,
     ///`tfplan` = read from the binary's embedded prior state (authoritative); `header` = the X-Plan-Prior-* claim; `none` = neither supplied.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub lineage_source: ::std::option::Option<PlanPushResultLineageSource>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub ok: ::std::option::Option<bool>,
+    ///The ref the plan is stored under. Usually the `X-Plan-Ref` sent; `ci:<ref>` when a CI token on a ref that may not land state sent none. `null` = stored with no ref.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_ref: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub prior_lineage: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub prior_serial: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub risk_level: ::std::option::Option<PlanPushResultRiskLevel>,
+    ///The plan's 0-100 risk score (`PlanRisk.score`). The factors and the full indicator list are on the version detail. `null` only for a deduped version stored before the score existed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub risk_score: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub scan_status: ::std::option::Option<PlanScanStatus>,
     ///The plan cannot be applied to the workspace's current state - its prior serial is not the current serial, or (a binary only) it predates the workspace's first state. True for a render-only push, where it is a flag, and for a binary pushed with `X-Plan-Allow-Stale`; any other stale binary is refused.
@@ -6333,6 +6416,65 @@ impl ::std::convert::TryFrom<&str> for PlanPushResultLineageSource {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for PlanPushResultLineageSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlanPushResultRiskLevel`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlanPushResultRiskLevel {
+    #[serde(rename = "low")]
+    Low,
+    #[serde(rename = "medium")]
+    Medium,
+    #[serde(rename = "high")]
+    High,
+    #[serde(rename = "critical")]
+    Critical,
+}
+impl ::std::fmt::Display for PlanPushResultRiskLevel {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Low => f.write_str("low"),
+            Self::Medium => f.write_str("medium"),
+            Self::High => f.write_str("high"),
+            Self::Critical => f.write_str("critical"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlanPushResultRiskLevel {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "low" => Ok(Self::Low),
+            "medium" => Ok(Self::Medium),
+            "high" => Ok(Self::High),
+            "critical" => Ok(Self::Critical),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlanPushResultRiskLevel {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlanPushResultRiskLevel {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -6920,7 +7062,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanSupplyChainSource {
         value.parse()
     }
 }
-/**The synchronous gate's answer. `sources` names the engine(s) that refused - `builtin` is the destroy threshold / deny-list / require_approval gate, `opa` the org's custom Rego (an OPA outage fails closed and also reads as `opa`). `reasons` are the gates' own strings, never a plan value. When `blocked`, the workspace's plan block was set before this response and the next LOCK is refused until a human approves this exact version.
+/**The synchronous gate's answer. `sources` names the engine(s) that refused - `builtin` is the destroy threshold / deny-list / require_approval gate, `opa` the org's custom Rego (an OPA outage fails closed and also reads as `opa`). `reasons` are the gates' own strings, never a plan value. When `blocked` and the plan gates the workspace (it was stored with no ref), the workspace's plan block was set before this response: the next apply's LOCK and state write are refused - `plan` still works - until a later plan passes or this version is approved. A blocked plan stored under a ref blocks nothing but its own pull.
 */
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlanVerdict {
@@ -7033,7 +7175,7 @@ pub struct PlanVersionSummary {
     pub plan_targeted: ::std::option::Option<PlanVersionSummaryPlanTargeted>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub prior_lineage: ::std::option::Option<::std::string::String>,
-    ///Prior state serial the plan was made against (from X-Plan-Prior-Serial).
+    ///Prior state serial the plan was made against. From the binary's own embedded prior state when the push had one (`lineage_source` is `tfplan`); otherwise the `X-Plan-Prior-Serial` claim, or null.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub prior_serial: ::std::option::Option<i64>,
     ///Who and what produced the plan. `null` on a version from before migration 152.
