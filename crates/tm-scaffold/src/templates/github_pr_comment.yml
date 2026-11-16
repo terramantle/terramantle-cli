@@ -14,8 +14,9 @@
     steps:
       - uses: {{USES_DOWNLOAD_ARTIFACT}}
         with:
-          # Only the summaries, never the plan bundles: this job must not have
-          # the cleartext plans anywhere near a comment body.
+          # Only the summaries (counts and addresses). The plans themselves are
+          # in Terramantle, not in an artifact, so nothing cleartext can reach
+          # a comment body from here.
           pattern: plansummary-*
           merge-multiple: true
           path: ${{ runner.temp }}/summaries

@@ -60,7 +60,10 @@ pub struct GeneratedFile {
 ///
 /// v2: OpenTofu-only pipelines, Terramate stacks, saved-plan apply, pinned
 /// action digests.
-pub const TEMPLATE_VERSION: u32 = 2;
+/// v3: plans are pushed to Terramantle's plan gate (with a ref from a pull
+/// request, without one from the default branch) and pulled back by the apply
+/// job, pinned to their sha-256. No plan file is a CI artifact any more.
+pub const TEMPLATE_VERSION: u32 = 3;
 
 /// The substring every managed file's provenance header carries. `upgrade` scans
 /// for this to recognise files it owns — the lock-free replacement for a manifest
@@ -484,16 +487,17 @@ fn terramate_config(m: &Manifest, t: &Terramate) -> GeneratedFile {
 
 /// The ignore lines every terramantle repo needs.
 ///
-/// `tfplan`/`tfplan.sha` are load-bearing, not tidiness: the apply job restores
-/// plan files into the working tree and then runs `terramate run`, whose
-/// `git-untracked` safeguard aborts the whole run — before the first stack — if
-/// it finds untracked files. `.terramantle-ci/` is the GitLab plan bundle.
+/// `tfplan` is load-bearing, not tidiness: the apply job pulls each plan into
+/// the working tree and then runs `terramate run`, whose `git-untracked`
+/// safeguard aborts the whole run — before the first stack — if it finds
+/// untracked files. `.terramantle-ci/` is where the GitLab pipeline keeps its
+/// stack list and plan digests. (`tfplan.sha` was written by the v2 pipelines;
+/// a `.gitignore` that still lists it is left alone.)
 pub const GITIGNORE_LINES: &[&str] = &[
     ".terraform/",
     "*.tfstate",
     "*.tfstate.*",
     "tfplan",
-    "tfplan.sha",
     ".terramantle-ci/",
 ];
 
@@ -899,6 +903,114 @@ mod tests {
         }
     }
 
+    /// A pull request's plan carries a ref (verdict only); the default
+    /// branch's does not (it gates the workspace). Getting this backwards would
+    /// let a pull request block, or unblock, production.
+    #[test]
+    fn only_the_default_branch_pushes_a_plan_without_a_ref() {
+        let gh = pipeline_of(&base(
+            Structure::Mono,
+            Artefact::Workspaces,
+            VcsProvider::Github,
+        ));
+        assert!(gh.contains("ref=\"pr-${PR_NUMBER}\""));
+        assert!(gh.contains("terramantle plan push tfplan --ref \"$ref\""));
+        // The un-ref'd push is reachable only when the ref is the default branch.
+        assert!(gh.contains("elif [ \"$GITHUB_REF\" != \"refs/heads/main\" ]; then"));
+        assert!(gh.contains("ref=\"branch-"));
+
+        let gl = pipeline_of(&base(
+            Structure::Mono,
+            Artefact::Workspaces,
+            VcsProvider::Gitlab,
+        ));
+        assert!(gl.contains("TM_PLAN_REF=\"mr-${CI_MERGE_REQUEST_IID}\""));
+        assert!(gl.contains("terramantle plan push tfplan --chdir \"$dir\" --ref \"$TM_PLAN_REF\""));
+        assert!(gl.contains("elif [ \"${CI_COMMIT_BRANCH:-}\" != \"${CI_DEFAULT_BRANCH}\" ]; then"));
+        assert!(gl.contains("TM_PLAN_REF=\"branch-${CI_COMMIT_REF_SLUG}\""));
+
+        for (vcs, ci) in [("github", &gh), ("gitlab", &gl)] {
+            // Exactly one push with a ref and one without, per pipeline.
+            assert_eq!(ci.matches("terramantle plan push").count(), 2, "{vcs}");
+            assert_eq!(
+                ci.lines()
+                    .filter(|l| l.contains("terramantle plan push") && l.contains("--ref"))
+                    .count(),
+                1,
+                "{vcs}"
+            );
+            // There is no "wait for the scan": the verdict is in the push.
+            assert!(!ci.contains("--wait"), "{vcs}");
+        }
+    }
+
+    /// The apply job applies the plan Terramantle hands back, pinned to the
+    /// digest the plan job recorded - and no plan file rides in a CI artifact.
+    #[test]
+    fn apply_pulls_the_gated_plan_pinned_to_its_digest() {
+        for vcs in [VcsProvider::Github, VcsProvider::Gitlab] {
+            let ci = pipeline_of(&base(Structure::Mono, Artefact::Workspaces, vcs));
+            assert!(
+                ci.contains(
+                    "terramantle plan pull --chdir \"$dir\" --out tfplan --expect-sha \"$sha\""
+                ),
+                "{vcs:?} does not pull with --expect-sha"
+            );
+            // The pull addresses the gating plan: no --ref, no --id.
+            let pull = ci
+                .lines()
+                .find(|l| l.contains("terramantle plan pull"))
+                .unwrap();
+            assert!(!pull.contains("--ref") && !pull.contains("--id"), "{vcs:?}");
+            let pull_at = ci.find("terramantle plan pull").unwrap();
+            let apply_at = ci.find("tofu apply -input=false").unwrap();
+            assert!(pull_at < apply_at, "{vcs:?} applies before it pulls");
+
+            // Nothing packages or uploads a plan file.
+            for gone in [
+                "plans.tar.gz",
+                "tar -czf",
+                "tfplan.sha",
+                "PLAN FILES ARE SENSITIVE",
+            ] {
+                assert!(!ci.contains(gone), "{vcs:?} still has `{gone}`");
+            }
+            assert!(ci.contains("sha256sum"), "{vcs:?} records no digest");
+        }
+        // GitHub: the only artifacts are digests and (optionally) summaries.
+        let gh = pipeline_of(&base(
+            Structure::Mono,
+            Artefact::Workspaces,
+            VcsProvider::Github,
+        ));
+        for line in gh.lines().filter(|l| l.trim_start().starts_with("name: ")) {
+            let name = line.trim_start().trim_start_matches("name: ");
+            if name.contains("${{ matrix.slug }}") {
+                assert!(
+                    name.starts_with("tfplan-sha-") || name.starts_with("plansummary-"),
+                    "unexpected artifact `{name}`"
+                );
+            }
+        }
+        assert!(gh.contains("path: ${{ runner.temp }}/digest/${{ matrix.slug }}.digest"));
+    }
+
+    /// The comment that said the policy gate "only runs on LOCK" described the
+    /// state gate alone. The plan must still lock (so `-lock=false` stays out),
+    /// and `-lock-timeout` stays as it was.
+    #[test]
+    fn plan_keeps_its_lock_and_the_comment_is_no_longer_stale() {
+        for vcs in [VcsProvider::Github, VcsProvider::Gitlab] {
+            let ci = pipeline_of(&base(Structure::Mono, Artefact::Workspaces, vcs));
+            assert!(ci.contains("tofu plan -input=false -lock-timeout=300s -no-color -out=tfplan"));
+            assert!(!ci.contains("policy gate only runs on LOCK"), "{vcs:?}");
+            assert!(
+                ci.contains("a passing plan is what lifts the block"),
+                "{vcs:?}"
+            );
+        }
+    }
+
     /// `terramate fmt` has no `--check`; using one fails the job on syntax.
     #[test]
     fn terramate_uses_detailed_exit_code_not_check() {
@@ -1036,7 +1148,7 @@ mod tests {
     #[test]
     fn gitignore_covers_the_plan_artefacts() {
         let out = merge_gitignore(None).unwrap();
-        for line in ["tfplan", "tfplan.sha", ".terramantle-ci/", ".terraform/"] {
+        for line in ["tfplan", ".terramantle-ci/", ".terraform/"] {
             assert!(out.contains(line), "gitignore lacks {line}");
         }
     }
@@ -1107,7 +1219,8 @@ mod tests {
         assert!(ci.contains("extends: [.tools, .ci_auth]"));
         assert!(!ci.contains("<<: *"), "YAML merge anchors are legacy here");
         assert!(ci.contains("GIT_DEPTH: \"0\""));
-        // The plan bundle is cleartext and must not be world-readable.
+        // No plan file is an artifact any more, but the summary still lists
+        // resource addresses and must not be world-readable.
         assert!(ci.contains("access: 'developer'"));
     }
 

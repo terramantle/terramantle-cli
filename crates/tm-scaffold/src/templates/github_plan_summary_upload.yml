@@ -1,7 +1,8 @@
 
       - name: Upload the plan summary
-        # Counts and resource addresses only — no values. Kept separate from the
-        # plan bundle so the comment job never downloads cleartext state.
+        # Counts and resource addresses only — no values. The plan itself is
+        # never an artifact: it goes to Terramantle, so the comment job has
+        # nothing cleartext to download.
         uses: {{USES_UPLOAD_ARTIFACT}}
         with:
           name: plansummary-${{ matrix.slug }}
