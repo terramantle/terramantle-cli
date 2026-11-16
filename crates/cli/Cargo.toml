@@ -32,6 +32,9 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 sha2 = "0.10"
+# Inflating the one zip entry `plan push` reads from a saved plan. Already in the
+# tree through tm-release, so this adds an edge, not a dependency.
+flate2 = "1"
 uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(unix)'.dependencies]

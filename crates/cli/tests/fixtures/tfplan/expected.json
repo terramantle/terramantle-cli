@@ -1,0 +1,24 @@
+{
+  "made_with": {
+    "tofu": "1.13.1",
+    "terraform": "1.16.2"
+  },
+  "tofu-fresh.tfplan": {
+    "lineage": null,
+    "has_state": false
+  },
+  "tofu-applied.tfplan": {
+    "lineage": "79007a8e-0968-21be-2bb8-0b2e5068c95a",
+    "serial": 1,
+    "has_state": true
+  },
+  "terraform-fresh.tfplan": {
+    "lineage": null,
+    "has_state": false
+  },
+  "terraform-applied.tfplan": {
+    "lineage": "e48f1ee2-dd70-5212-0268-f9666ac562dc",
+    "serial": 1,
+    "has_state": true
+  }
+}

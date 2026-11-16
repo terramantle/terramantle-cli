@@ -417,6 +417,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "comfy-table",
+ "flate2",
  "indicatif",
  "inquire",
  "libc",

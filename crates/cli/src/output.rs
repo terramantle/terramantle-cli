@@ -82,6 +82,92 @@ impl Style {
     }
 }
 
+impl Style {
+    /// The style for narration written to STDERR (a push's step lines and its
+    /// verdict), which is a TTY in a terminal even when stdout is piped to `jq`.
+    pub fn detect_stderr(no_color_flag: bool) -> Self {
+        let tty = !no_color_flag && supports_color::on(supports_color::Stream::Stderr).is_some();
+        Self {
+            color: tty,
+            glyphs: tty && locale_is_utf8(),
+        }
+    }
+}
+
+/// A policy gate's answer about a plan, and the status of anything judged
+/// against a limit. Three levels, one vocabulary everywhere a plan is shown:
+/// an advisory policy or a `warn` limit is WARN, never BLOCKED.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Gate {
+    Pass,
+    Warn,
+    Blocked,
+}
+
+impl Gate {
+    /// The verdict word, as printed and as a pipeline log is grepped for.
+    pub fn word(self) -> &'static str {
+        match self {
+            Gate::Pass => "PASS",
+            Gate::Warn => "WARN",
+            Gate::Blocked => "BLOCKED",
+        }
+    }
+
+    fn paint(self, text: String, style: Style) -> String {
+        if !style.color {
+            return text;
+        }
+        match self {
+            Gate::Pass => text.green().to_string(),
+            Gate::Warn => text.yellow().to_string(),
+            Gate::Blocked => text.red().to_string(),
+        }
+    }
+
+    /// The verdict as a headline: `✓ PASS` / `▲ WARN` / `✕ BLOCKED`. Without
+    /// glyphs the word stands alone - it already is the ASCII form.
+    pub fn render(self, style: Style) -> String {
+        let text = if style.glyphs {
+            let glyph = match self {
+                Gate::Pass => "✓",
+                Gate::Warn => "▲",
+                Gate::Blocked => "✕",
+            };
+            format!("{glyph} {}", self.word())
+        } else {
+            self.word().to_string()
+        };
+        self.paint(text, style)
+    }
+
+    /// The level as a bullet beside one item (an indicator, a provider): the
+    /// glyph alone, or the §6 ASCII stem (`OK` / `WARN` / `BLOCK`).
+    pub fn mark(self, style: Style) -> String {
+        let text = match (self, style.glyphs) {
+            (Gate::Pass, true) => "✓",
+            (Gate::Warn, true) => "▲",
+            (Gate::Blocked, true) => "✕",
+            (Gate::Pass, false) => "OK",
+            (Gate::Warn, false) => "WARN",
+            (Gate::Blocked, false) => "BLOCK",
+        };
+        self.paint(text.to_string(), style)
+    }
+}
+
+/// The bullet for an item that carries no judgement (shown for context, or not
+/// measurable): `·`, or `--` in ASCII, matching the trust-glyph vocabulary.
+pub fn neutral_mark(style: Style) -> String {
+    let text = if style.glyphs { "·" } else { "--" };
+    if style.color {
+        text.dimmed().to_string()
+    } else {
+        text.to_string()
+    }
+}
+
 /// A provider's derived Trust Seal verdict (§7). Provider-level, not per-version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -292,6 +378,34 @@ mod tests {
         assert_eq!(TrustVerdict::Trusted.render(style), "OK trusted");
         assert_eq!(TrustVerdict::AtRisk.render(style), "WARN at-risk");
         assert_eq!(TrustVerdict::Unscanned.render(style), "-- unscanned");
+    }
+
+    #[test]
+    fn gate_verdict_renders_in_both_vocabularies() {
+        let glyphs = Style {
+            color: false,
+            glyphs: true,
+        };
+        assert_eq!(Gate::Pass.render(glyphs), "✓ PASS");
+        assert_eq!(Gate::Warn.render(glyphs), "▲ WARN");
+        assert_eq!(Gate::Blocked.render(glyphs), "✕ BLOCKED");
+        assert_eq!(Gate::Blocked.mark(glyphs), "✕");
+        assert_eq!(neutral_mark(glyphs), "·");
+
+        // The ASCII form is the word itself: a CI log is grepped for it.
+        let plain = Style::plain();
+        assert_eq!(Gate::Pass.render(plain), "PASS");
+        assert_eq!(Gate::Warn.render(plain), "WARN");
+        assert_eq!(Gate::Blocked.render(plain), "BLOCKED");
+        assert_eq!(Gate::Pass.mark(plain), "OK");
+        assert_eq!(Gate::Warn.mark(plain), "WARN");
+        assert_eq!(Gate::Blocked.mark(plain), "BLOCK");
+        assert_eq!(neutral_mark(plain), "--");
+        assert!(!Gate::Blocked.render(plain).contains('\u{1b}'));
+        assert_eq!(
+            serde_json::to_string(&Gate::Blocked).unwrap(),
+            "\"blocked\""
+        );
     }
 
     #[test]

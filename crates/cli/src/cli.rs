@@ -90,7 +90,7 @@ pub enum Command {
         #[command(subcommand)]
         command: StateCommand,
     },
-    /// Plan operations: push a saved plan for gating, pull the reviewed one to apply.
+    /// Plan operations: push a saved plan for gating, review and approve it, pull it to apply.
     Plan {
         #[command(subcommand)]
         command: PlanCommand,
@@ -274,8 +274,18 @@ pub enum RepoCommand {
 #[derive(Debug, Subcommand)]
 pub enum PlanCommand {
     /// Push a saved plan (binary + `show -json` render) and get the gate's verdict.
+    ///
+    /// Pushed WITHOUT --ref, the plan gates the workspace: a blocked one refuses
+    /// the next apply (plan still works) until a passing plan is pushed or it is
+    /// approved. Pushed WITH --ref (a pull request's plan) it gets a verdict and
+    /// never blocks or unblocks the workspace. Exits 3 when blocked; warnings
+    /// alone exit 0. Before uploading, the plan is checked against the
+    /// workspace's current state and refused (exit 7) if it could not be applied.
     Push(PlanPushArgs),
-    /// Pull the reviewed binary plan (latest for a ref, or by id) to apply it.
+    /// Pull a binary plan (latest for a ref, or by id) to apply it.
+    ///
+    /// Needs WRITE access to the workspace's state. The server refuses a plan
+    /// that is blocked and not approved, and one the state has moved past.
     Pull(PlanPullArgs),
     /// List a workspace's plan versions, newest first.
     Ls {
@@ -288,12 +298,27 @@ pub enum PlanCommand {
         #[arg(long, value_name = "DIR")]
         chdir: Option<String>,
     },
-    /// Show one plan version: counts, verdict inputs, findings.
+    /// Show one plan version: verdict, risk, indicators, impact, supply chain,
+    /// per-policy results, approvals, findings.
     Show {
         /// Workspace key.
         workspace: String,
         /// Plan version id (from `plan ls` or a push).
         version_id: String,
+    },
+    /// Approve a blocked plan version. Human logins only; a CI or bot token cannot approve.
+    ///
+    /// Records YOUR approval of this exact version. An org may require several
+    /// approvers, a minimum role, and that the person who pushed a plan does not
+    /// approve it; the output says how many approvals it has and needs.
+    Approve {
+        /// Workspace key.
+        workspace: String,
+        /// Plan version id (from `plan ls`, `plan show` or a push).
+        version_id: String,
+        /// Why this plan is approved (at most 500 characters). Kept in the audit log.
+        #[arg(long, value_name = "TEXT")]
+        reason: String,
     },
 }
 
@@ -302,7 +327,9 @@ pub struct PlanPushArgs {
     /// The saved plan file from `terraform plan -out=…`. Defaults to `tfplan`, then
     /// `plan.tfplan`, in the working directory. Not needed with `--render-only`.
     pub tfplan: Option<String>,
-    /// Concurrent-plan discriminator (PR number, branch, SHA). Omit for the mainline.
+    /// Mark this as a pull request's (or branch's) plan, e.g. `pr-42`: it gets a
+    /// verdict but never blocks or unblocks the workspace. Omit it for the plan
+    /// that gates the apply.
     #[arg(long = "ref", value_name = "REF")]
     pub plan_ref: Option<String>,
     /// Working directory: where `terraform init` ran and the backend config lives (default `.`).
@@ -317,25 +344,40 @@ pub struct PlanPushArgs {
     /// terraform-compatible binary for `show -json` (also TERRAMANTLE_TF_BIN; default: tofu, then terraform).
     #[arg(long, value_name = "BIN")]
     pub tf_bin: Option<String>,
-    /// Keep a binary whose prior serial is no longer current (audit only; it cannot be applied).
+    /// Push a plan that fails the pre-flight (it was not made from the workspace's
+    /// current state) anyway, for the record. It still cannot be applied.
     #[arg(long)]
     pub allow_stale: bool,
-    /// Push the render only (needs --render); the version will not be pullable.
+    /// Push the render only (needs --render). Such a plan is not pullable, and it
+    /// can raise a block but never lift one or satisfy "require a passing plan".
     #[arg(long)]
     pub render_only: bool,
+    /// With --render-only: the state serial the plan was made from. `show -json`
+    /// does not carry it, so without this the server cannot tell if the plan is stale.
+    #[arg(long, value_name = "N", requires = "render_only")]
+    pub prior_serial: Option<u64>,
+    /// With --render-only: the state lineage the plan was made from.
+    #[arg(long, value_name = "LINEAGE", requires = "render_only")]
+    pub prior_lineage: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct PlanPullArgs {
-    /// Pull the newest plan for this ref (omit for the mainline).
+    /// Pull the newest plan pushed with this ref. Omit it for the newest plan
+    /// pushed without one - the plan that gates the workspace.
     #[arg(long = "ref", value_name = "REF", conflicts_with = "id")]
     pub plan_ref: Option<String>,
     /// Pull one plan version by id.
     #[arg(long, value_name = "ID")]
     pub id: Option<String>,
-    /// Download even if the plan's prior serial is not the workspace's current serial.
+    /// Download even if the plan can no longer be applied to the workspace's current state.
     #[arg(long)]
     pub allow_stale: bool,
+    /// Fail, writing nothing, unless the pulled binary has this sha-256 (64 hex
+    /// characters). Use the hash of the plan file the plan job produced, so the
+    /// apply job applies that plan and no other.
+    #[arg(long, value_name = "SHA256")]
+    pub expect_sha: Option<String>,
     /// Where to write the binary (default `plan.tfplan` in the working directory).
     #[arg(long, value_name = "FILE")]
     pub out: Option<String>,

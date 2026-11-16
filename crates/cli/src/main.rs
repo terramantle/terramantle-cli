@@ -10,10 +10,14 @@ mod doctor;
 mod lock;
 mod output;
 mod plan;
+mod plan_preflight;
+mod plan_refusal;
+mod plan_view;
 mod publish;
 mod scaffold;
 mod state;
 mod tf;
+mod tfplan_zip;
 mod trust;
 mod wizard;
 
