@@ -203,7 +203,7 @@ terramantle upgrade           # apply after a confirmation prompt (--yes to skip
 > [Plans](#plans-plan-push--pull--show--approve)). `upgrade --check` reports a
 > v2 pipeline as behind; `terramantle upgrade` re-renders it. The old pipeline
 > keeps working until you do.
-
+>
 > **0.9.0 changed the manifest and does not migrate.** A `terramantle.hcl`
 > written by 0.8.x is refused by name (`ci.tofu` → `ci.engine`,
 > `terraform_versions` → `tofu_versions`, `terraform_docs` → `docs`). Delete it
