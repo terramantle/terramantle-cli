@@ -1,8 +1,10 @@
-//! Plan endpoints (`plan push/pull/ls/show`).
+//! Plan endpoints (`plan push/pull/ls/show/approve`).
 //!
-//! The plan surface hangs off the state key: `/state/{org}/{key}/plan` and
+//! The machine surface hangs off the state key: `/state/{org}/{key}/plan` and
 //! `…/plan/latest` | `…/plan/{planId}`. The key is a router wildcard, so these
 //! three are in the codegen's `WILDCARD_PARAMS` list and the key is joined verbatim.
+//! The review surface (`ls`, `show`, approvals) is the management API, where the
+//! workspace is a single percent-encoded segment.
 //!
 //! A push holds the connection open while the worker runs its synchronous policy
 //! gate and (for a binary) reads the plan's embedded prior state, so both transfer
@@ -14,7 +16,9 @@ use std::time::Duration;
 use crate::client::MultipartPart;
 use crate::error::ApiError;
 use crate::generated::models::{
-    GetPlanVersionResponse, ListPlanVersionsResponse, PlanPushResult, PlanVersionSummary,
+    ApprovePlanVersionResponse, GetPlanVersionPolicyResultsResponse, GetPlanVersionResponse,
+    ListPlanVersionApprovalsResponse, ListPlanVersionsResponse, PlanPolicyResult, PlanPushResult,
+    PlanVersionSummary,
 };
 use crate::ops;
 use crate::state::VERSIONS_PAGE_MAX;
@@ -28,11 +32,17 @@ pub const PLAN_TRANSFER_TIMEOUT: Duration = Duration::from_secs(300);
 /// for a RENDER-ONLY push; with a binary it reads them from the plan itself.
 #[derive(Debug, Clone, Default)]
 pub struct PlanPushOptions<'a> {
-    /// `X-Plan-Ref`: PR / branch / SHA discriminator. `None` = mainline.
+    /// `X-Plan-Ref`: PR / branch / SHA discriminator. `None` = the plan that
+    /// gates the workspace. A plan WITH a ref gets a verdict and never blocks or
+    /// unblocks the workspace.
     pub plan_ref: Option<&'a str>,
+    /// `X-Plan-Prior-Serial` / `X-Plan-Prior-Lineage`: the pusher's CLAIM of the
+    /// state a render-only plan was made from (`show -json` carries neither).
     pub prior_serial: Option<i64>,
     pub prior_lineage: Option<&'a str>,
-    /// `X-Plan-Allow-Stale: 1` — keep a binary whose prior serial is not current.
+    /// `X-Plan-Allow-Stale: 1` — store a binary that is not current (its serial
+    /// is not the workspace's, or it predates the workspace's first state), for
+    /// the record. It does not make a lineage mismatch acceptable.
     pub allow_stale: bool,
 }
 
@@ -171,8 +181,10 @@ impl Client {
         Ok(resp.versions)
     }
 
-    /// `GET /api/v1/{org}/plans/{ws}/versions/{id}` — one version's summary plus
-    /// its redacted findings.
+    /// `GET /api/v1/{org}/plans/{ws}/versions/{id}` — one version's summary, its
+    /// redacted findings, and what the gate was shown: risk, indicators, how the
+    /// plan was run, impact and supply chain. Every block but the summary and the
+    /// findings is `None` for a version pushed before the server computed it.
     pub fn plan_version(
         &self,
         org: &str,
@@ -181,6 +193,49 @@ impl Client {
     ) -> Result<GetPlanVersionResponse, ApiError> {
         let path = ops::GET_PLAN_VERSION.path(&[org, workspace, version_id])?;
         self.http().get_json(&path)
+    }
+
+    /// `GET /api/v1/{org}/plans/{ws}/versions/{id}/policy` — the persisted policy
+    /// results. Unwraps the `{ results }` envelope. A row with `enforcing: false`
+    /// that did not pass is a warning, not a failed gate.
+    pub fn plan_policy_results(
+        &self,
+        org: &str,
+        workspace: &str,
+        version_id: &str,
+    ) -> Result<Vec<PlanPolicyResult>, ApiError> {
+        let path = ops::GET_PLAN_VERSION_POLICY_RESULTS.path(&[org, workspace, version_id])?;
+        let resp: GetPlanVersionPolicyResultsResponse = self.http().get_json(&path)?;
+        Ok(resp.results)
+    }
+
+    /// `GET /api/v1/{org}/plans/{ws}/versions/{id}/approvals` — who has approved
+    /// this version and how many approvals the workspace requires. A `reader`
+    /// gets `None` for each approver's email and reason.
+    pub fn plan_approvals(
+        &self,
+        org: &str,
+        workspace: &str,
+        version_id: &str,
+    ) -> Result<ListPlanVersionApprovalsResponse, ApiError> {
+        let path = ops::LIST_PLAN_VERSION_APPROVALS.path(&[org, workspace, version_id])?;
+        self.http().get_json(&path)
+    }
+
+    /// `POST /api/v1/{org}/plans/{ws}/versions/{id}/approve` — record the CALLER's
+    /// approval of one plan version. Human logins only; the server refuses a
+    /// machine token. `approved` in the response says whether enough people have
+    /// now approved it, which is not the same as this call having succeeded.
+    pub fn plan_approve(
+        &self,
+        org: &str,
+        workspace: &str,
+        version_id: &str,
+        reason: &str,
+    ) -> Result<ApprovePlanVersionResponse, ApiError> {
+        let path = ops::APPROVE_PLAN_VERSION.path(&[org, workspace, version_id])?;
+        let body = serde_json::json!({ "reason": reason });
+        self.http().post_json(&path, &body)
     }
 }
 
@@ -206,6 +261,31 @@ mod tests {
                 .path(&["acme", "a/b", "0f8fad5b-d9cb-469f-a165-70867728950e"])
                 .unwrap(),
             "/state/acme/a/b/plan/0f8fad5b-d9cb-469f-a165-70867728950e"
+        );
+    }
+
+    /// The review routes take the workspace as ONE segment, so a key with
+    /// slashes is percent-encoded there - unlike the protocol routes above.
+    #[test]
+    fn review_paths_encode_the_workspace_as_one_segment() {
+        let id = "0f8fad5b-d9cb-469f-a165-70867728950e";
+        assert_eq!(
+            ops::APPROVE_PLAN_VERSION
+                .path(&["acme", "stacks/net", id])
+                .unwrap(),
+            format!("/api/v1/acme/plans/stacks%2Fnet/versions/{id}/approve")
+        );
+        assert_eq!(
+            ops::LIST_PLAN_VERSION_APPROVALS
+                .path(&["acme", "prod", id])
+                .unwrap(),
+            format!("/api/v1/acme/plans/prod/versions/{id}/approvals")
+        );
+        assert_eq!(
+            ops::GET_PLAN_VERSION_POLICY_RESULTS
+                .path(&["acme", "prod", id])
+                .unwrap(),
+            format!("/api/v1/acme/plans/prod/versions/{id}/policy")
         );
     }
 

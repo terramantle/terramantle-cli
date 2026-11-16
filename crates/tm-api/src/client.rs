@@ -19,6 +19,11 @@ use serde::Serialize;
 
 use crate::error::ApiError;
 
+/// The header a policy refusal carries its reason in (state GET, plan pull). Read
+/// off every failed response, so the reason reaches the user whichever route
+/// refused.
+const REFUSAL_HEADER: &str = "X-Terramantle-Refusal";
+
 /// Invoked once on a 401. Returns a freshly rotated bearer to retry with, or
 /// `None` to give up (the 401 then propagates). Implementations persist the new
 /// token themselves (e.g. to the keyring).
@@ -319,8 +324,14 @@ impl HttpClient {
                     })
                 }
                 Err(ureq::Error::Status(status, resp)) => {
+                    let refusal = resp.header(REFUSAL_HEADER).map(str::to_string);
                     let body = resp.into_string().unwrap_or_default();
-                    Err(ApiError::from_status(status, url.clone(), body))
+                    Err(ApiError::from_status_with_refusal(
+                        status,
+                        url.clone(),
+                        body,
+                        refusal,
+                    ))
                 }
                 Err(ureq::Error::Transport(t)) => Err(ApiError::Transport {
                     url: url.clone(),
@@ -362,8 +373,14 @@ impl HttpClient {
         match result {
             Ok(resp) => Self::read_json(resp, url),
             Err(ureq::Error::Status(status, resp)) => {
+                let refusal = resp.header(REFUSAL_HEADER).map(str::to_string);
                 let body = resp.into_string().unwrap_or_default();
-                Err(ApiError::from_status(status, url.to_string(), body))
+                Err(ApiError::from_status_with_refusal(
+                    status,
+                    url.to_string(),
+                    body,
+                    refusal,
+                ))
             }
             Err(ureq::Error::Transport(t)) => Err(ApiError::Transport {
                 url: url.to_string(),

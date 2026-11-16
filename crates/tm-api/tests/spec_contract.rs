@@ -324,6 +324,10 @@ const CLI_OPERATIONS: &[&str] = &[
     "getPlanBinary",
     "listPlanVersions",
     "getPlanVersion",
+    // `plan show` (per-policy results, approvals) and `plan approve`.
+    "getPlanVersionPolicyResults",
+    "listPlanVersionApprovals",
+    "approvePlanVersion",
 ];
 
 #[test]
