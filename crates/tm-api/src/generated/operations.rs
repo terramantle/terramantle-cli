@@ -386,6 +386,20 @@ pub const DELETE_VCS_TRUST: Op = Op {
     query: &[],
     success: 200,
 };
+/// `DELETE /api/v1/{orgId}/plans/{workspace}/policy-config`
+///
+/// Tag: Plans. Success: `200`.
+pub const DELETE_WORKSPACE_PLAN_POLICY_CONFIG: Op = Op {
+    id: "deleteWorkspacePlanPolicyConfig",
+    method: Method::Delete,
+    template: "/api/v1/{orgId}/plans/{workspace}/policy-config",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `PUT /v1/modules/{namespace}/{name}/{provider}/deprecate`
 ///
 /// Tag: Registry — Modules. Success: `200`.
@@ -2659,6 +2673,8 @@ pub const ALL: &[&Op] = &[
     &DELETE_STATE_WORKSPACE,
     #[allow(deprecated)]
     &DELETE_VCS_TRUST,
+    #[allow(deprecated)]
+    &DELETE_WORKSPACE_PLAN_POLICY_CONFIG,
     #[allow(deprecated)]
     &DEPRECATE_MODULE,
     #[allow(deprecated)]

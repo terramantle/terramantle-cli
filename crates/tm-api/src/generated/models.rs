@@ -2371,6 +2371,117 @@ pub struct DailyPoint {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub date: ::std::option::Option<::std::string::String>,
 }
+///`DeleteWorkspacePlanPolicyConfigResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct DeleteWorkspacePlanPolicyConfigResponse {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub config: ::std::option::Option<DeleteWorkspacePlanPolicyConfigResponseConfig>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub effective: ::std::option::Option<DeleteWorkspacePlanPolicyConfigResponseEffective>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ok: ::std::option::Option<bool>,
+    ///Whether an override row existed.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub removed: ::std::option::Option<bool>,
+    ///The workspace's own setting. `null` = inherit the org default.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub require_passing_plan: ::std::option::Option<bool>,
+    ///The workspace's own approver count. `null` = inherit the org's.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub required_approvers: ::std::option::Option<i64>,
+}
+///The workspace's threshold row. It replaces the org's thresholds whole.
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct DeleteWorkspacePlanPolicyConfigResponseConfig {
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limits: ::std::option::Option<PlanLimits>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_destroys: ::std::option::Option<u64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub require_approval: ::std::option::Option<bool>,
+}
+///`DeleteWorkspacePlanPolicyConfigResponseEffective`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct DeleteWorkspacePlanPolicyConfigResponseEffective {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub allow_self_approval: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub approver_min_role:
+        ::std::option::Option<DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limits: ::std::option::Option<PlanLimits>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_destroys: ::std::option::Option<i64>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub require_approval: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub require_passing_plan: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub required_approvers: ::std::option::Option<i64>,
+}
+///`DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+    #[serde(rename = "admin")]
+    Admin,
+    #[serde(rename = "privileged_admin")]
+    PrivilegedAdmin,
+    #[serde(rename = "owner")]
+    Owner,
+}
+impl ::std::fmt::Display for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Admin => f.write_str("admin"),
+            Self::PrivilegedAdmin => f.write_str("privileged_admin"),
+            Self::Owner => f.write_str("owner"),
+        }
+    }
+}
+impl ::std::str::FromStr for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "admin" => Ok(Self::Admin),
+            "privileged_admin" => Ok(Self::PrivilegedAdmin),
+            "owner" => Ok(Self::Owner),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str>
+    for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole
+{
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`DirectEvent`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct DirectEvent {
@@ -3508,11 +3619,17 @@ impl ::std::convert::TryFrom<::std::string::String> for InspectorOutputReason {
 ///`InspectorResource`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct InspectorResource {
+    ///PLAN inspector only. Terraform's `change.actions` tuple for the resource, e.g. delete then create for a replace.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub actions: ::std::vec::Vec<::std::string::String>,
     ///Full address without instance index, e.g. `module.vpc.aws_instance.web`.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub address: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub change: ::std::option::Option<InspectorChange>,
+    ///PLAN inspector only. This entry came from `resource_drift` (the refresh found it changed outside Terraform), not from the change set.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub drift: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub instances: ::std::vec::Vec<InspectorInstance>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -15424,6 +15541,9 @@ pub struct PolicySettings {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub opa_tier: ::std::option::Option<bool>,
+    ///Workspaces whose PLAN block is set - the last gating plan pushed for them failed the plan gate. Counted apart from `state_blocked_count`; a workspace can be in both. Absent from a Worker older than the plan gate - treat absent as unknown, not zero.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plans_blocked_count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers: ::std::option::Option<bool>,
     ///Provider versions currently blocked.
@@ -15470,6 +15590,9 @@ pub struct PolicySettingsUpdateResult {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub opa_tier: ::std::option::Option<bool>,
+    ///Workspaces whose PLAN block is set - the last gating plan pushed for them failed the plan gate. Counted apart from `state_blocked_count`; a workspace can be in both. Absent from a Worker older than the plan gate - treat absent as unknown, not zero.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plans_blocked_count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers: ::std::option::Option<bool>,
     ///Provider versions currently blocked.
@@ -17883,6 +18006,8 @@ pub struct SetWorkspacePlanPolicyConfigResponseEffective {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limits: ::std::option::Option<PlanLimits>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_destroys: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub require_approval: ::std::option::Option<bool>,
@@ -19024,6 +19149,9 @@ pub struct StateWorkspaceSummary {
     ///`1` ⇒ specifically the PLAN block is set: lifted by a passing plan, or by approving `blocked_plan_version_id`.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_blocked: ::std::option::Option<StateWorkspaceSummaryPlanBlocked>,
+    ///When the plan block was raised (epoch ms). `null` when it is not set.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_blocked_at: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_bypass_reason: ::std::option::Option<::std::string::String>,
     ///Epoch milliseconds until which the break-glass window is open; `null` or in the past ⇒ closed.
@@ -19053,6 +19181,17 @@ pub struct StateWorkspaceSummary {
     ///What the lock gate actually uses - the workspace's setting, else the org default.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub require_plan_effective: ::std::option::Option<StateWorkspaceSummaryRequirePlanEffective>,
+    /**Under "require a passing plan": why the workspace may NOT be applied to right now,
+    or `null` when the requirement is met, is not in force, or a break-glass window is
+    open. Computed by the same function the LOCK gate uses, which compares the plan's
+    (lineage, serial) PAIR with the state's - so read this rather than re-deriving it
+    from `gate_plan_ok` and the serials, which cannot see a lineage change.
+    `failure` is `no_plan` (nothing that can be applied has been pushed),
+    `not_passing` (the gating plan failed and is not approved) or `stale` (it passed,
+    but the state has moved since).
+    */
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub require_plan_unmet: ::std::option::Option<StateWorkspaceSummaryRequirePlanUnmet>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub resource_count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -19061,6 +19200,9 @@ pub struct StateWorkspaceSummary {
     pub serve_override: ::std::option::Option<ServeOverride>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub serve_override_reason: ::std::option::Option<::std::string::String>,
+    ///`1` ⇒ specifically the STATE-policy block is set: lifted by an attestation. `blocked` is this OR `plan_blocked`, so the two are given separately - a workspace can carry both, and the remedies differ.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub state_blocked: ::std::option::Option<StateWorkspaceSummaryStateBlocked>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vcs_commit_url: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -19242,6 +19384,106 @@ impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryRequirePlanEffective 
     }
 }
 impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryRequirePlanEffective {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+    }
+}
+///`StateWorkspaceSummaryRequirePlanUnmet`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+pub struct StateWorkspaceSummaryRequirePlanUnmet {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub failure: ::std::option::Option<StateWorkspaceSummaryRequirePlanUnmetFailure>,
+    ///The sentence the LOCK refusal prints. Not a contract; `failure` is.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reason: ::std::option::Option<::std::string::String>,
+}
+///`StateWorkspaceSummaryRequirePlanUnmetFailure`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum StateWorkspaceSummaryRequirePlanUnmetFailure {
+    #[serde(rename = "no_plan")]
+    NoPlan,
+    #[serde(rename = "not_passing")]
+    NotPassing,
+    #[serde(rename = "stale")]
+    Stale,
+}
+impl ::std::fmt::Display for StateWorkspaceSummaryRequirePlanUnmetFailure {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::NoPlan => f.write_str("no_plan"),
+            Self::NotPassing => f.write_str("not_passing"),
+            Self::Stale => f.write_str("stale"),
+        }
+    }
+}
+impl ::std::str::FromStr for StateWorkspaceSummaryRequirePlanUnmetFailure {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "no_plan" => Ok(Self::NoPlan),
+            "not_passing" => Ok(Self::NotPassing),
+            "stale" => Ok(Self::Stale),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StateWorkspaceSummaryRequirePlanUnmetFailure {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for StateWorkspaceSummaryRequirePlanUnmetFailure
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`1` ⇒ specifically the STATE-policy block is set: lifted by an attestation. `blocked` is this OR `plan_blocked`, so the two are given separately - a workspace can carry both, and the remedies differ.
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct StateWorkspaceSummaryStateBlocked(i64);
+impl ::std::ops::Deref for StateWorkspaceSummaryStateBlocked {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<StateWorkspaceSummaryStateBlocked> for i64 {
+    fn from(value: StateWorkspaceSummaryStateBlocked) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryStateBlocked {
+    type Error = self::error::ConversionError;
+    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![0_i64, 1_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryStateBlocked {
     fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
     where
         D: ::serde::Deserializer<'de>,
@@ -21256,6 +21498,8 @@ pub struct WorkspaceGateConfigEffective {
     pub approver_min_role: ::std::option::Option<WorkspaceGateConfigEffectiveApproverMinRole>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub limits: ::std::option::Option<PlanLimits>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_destroys: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]

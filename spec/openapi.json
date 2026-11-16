@@ -6785,6 +6785,9 @@
               },
               "require_passing_plan": {
                 "type": "boolean"
+              },
+              "limits": {
+                "$ref": "#/components/schemas/PlanLimits"
               }
             }
           }
@@ -13860,6 +13863,10 @@
                 "type": "integer",
                 "description": "Provider versions currently blocked."
               },
+              "plans_blocked_count": {
+                "type": "integer",
+                "description": "Workspaces whose PLAN block is set - the last gating plan pushed for them failed the plan gate. Counted apart from `state_blocked_count`; a workspace can be in both. Absent from a Worker older than the plan gate - treat absent as unknown, not zero."
+              },
               "last_changed_by": {
                 "type": [
                   "string",
@@ -16739,6 +16746,14 @@
                 ],
                 "description": "`1` ⇒ the policy gate will reject the next apply's `LOCK`: the state block, the\nplan block, or both are set (see `lockState`). Which one decides the remedy —\nattest the state, or approve the plan. An integer rather than a boolean for\ncompatibility: it was the raw column before the two blocks were separated.\n"
               },
+              "state_blocked": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ],
+                "description": "`1` ⇒ specifically the STATE-policy block is set: lifted by an attestation. `blocked` is this OR `plan_blocked`, so the two are given separately - a workspace can carry both, and the remedies differ."
+              },
               "plan_blocked": {
                 "type": "integer",
                 "enum": [
@@ -16746,6 +16761,42 @@
                   1
                 ],
                 "description": "`1` ⇒ specifically the PLAN block is set: lifted by a passing plan, or by approving `blocked_plan_version_id`."
+              },
+              "plan_blocked_at": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "When the plan block was raised (epoch ms). `null` when it is not set."
+              },
+              "require_plan_unmet": {
+                "description": "Under \"require a passing plan\": why the workspace may NOT be applied to right now,\nor `null` when the requirement is met, is not in force, or a break-glass window is\nopen. Computed by the same function the LOCK gate uses, which compares the plan's\n(lineage, serial) PAIR with the state's - so read this rather than re-deriving it\nfrom `gate_plan_ok` and the serials, which cannot see a lineage change.\n`failure` is `no_plan` (nothing that can be applied has been pushed),\n`not_passing` (the gating plan failed and is not approved) or `stale` (it passed,\nbut the state has moved since).\n",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "failure",
+                      "reason"
+                    ],
+                    "properties": {
+                      "failure": {
+                        "type": "string",
+                        "enum": [
+                          "no_plan",
+                          "not_passing",
+                          "stale"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "description": "The sentence the LOCK refusal prints. Not a contract; `failure` is."
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "blocked_reason": {
                 "type": [
@@ -17872,6 +17923,17 @@
           },
           "change": {
             "$ref": "#/components/schemas/InspectorChange"
+          },
+          "actions": {
+            "type": "array",
+            "description": "PLAN inspector only. Terraform's `change.actions` tuple for the resource, e.g. delete then create for a replace.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "drift": {
+            "type": "boolean",
+            "description": "PLAN inspector only. This entry came from `resource_drift` (the refresh found it changed outside Terraform), not from the change set."
           }
         }
       }
@@ -25288,6 +25350,63 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspacePlanPolicyConfig",
+        "summary": "Remove a workspace's threshold override (inherit the org's again)",
+        "tags": [
+          "Plans"
+        ],
+        "description": "A workspace's threshold row REPLACES the org's thresholds whole, and the PUT can only\nwrite one: even a PUT naming no threshold writes a row that says \"no rule\", which is an\noverride, not inheritance. Without this an override, once set, could be emptied but\nnever removed. This removes the row, so the org's `max_destroys`, `destroy_denylist`,\n`require_approval` and `limits` apply to the workspace again.\n\nIt does not touch the workspace's own `require_passing_plan` or `required_approvers`:\nthose are not thresholds and live on the workspace - send `null` for either on the PUT\nto inherit again. Idempotent: `removed` is `false` when there was no override.\n`privileged_admin`, human login only, audited as `plan.policy_config.update`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OrgId"
+          },
+          {
+            "$ref": "#/components/parameters/Workspace"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed, or there was nothing to remove. The same shape as the GET, read back.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "ok",
+                        "removed"
+                      ],
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "removed": {
+                          "type": "boolean",
+                          "description": "Whether an override row existed."
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkspaceGateConfig"
+                    }
+                  ]
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
