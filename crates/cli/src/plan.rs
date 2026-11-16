@@ -11,7 +11,10 @@
 //! What a push means depends on `--ref`. Without one, the plan gates the
 //! workspace: blocked, it refuses the next apply until a passing plan is pushed or
 //! it is approved. With one (a pull request's plan) it gets a verdict and never
-//! blocks or unblocks anything.
+//! blocks or unblocks anything. The server has the last word on which it was: a
+//! CI pipeline on a ref that may not push state may not push the gating plan
+//! either, and the response's `gates_workspace` - not the flag - is what the
+//! output reports.
 //!
 //! Where org and workspace come from: the stack's backend configuration
 //! ([`tm_scaffold::resolve_backend`]), because the plan URL is derived from the
@@ -47,7 +50,7 @@ use crate::discovery::client_and_org;
 use crate::output::{self, relative_time, Gate, Style, TableView, DASH};
 use crate::plan_preflight::{self, Preflight, StatePointer};
 use crate::plan_refusal::{explain, Explained, PlanOp};
-use crate::plan_view::{self, PushContext};
+use crate::plan_view::{self, PushContext, Standing};
 use crate::tf;
 use crate::tfplan_zip::{self, PlanPrior};
 
@@ -223,9 +226,10 @@ fn tf_name(flag: Option<&str>) -> String {
 
 // ── plan push ───────────────────────────────────────────────────────────────
 
-/// The `-o json` shape of a push: the server's response, whole, plus where it
-/// went, the three-level verdict, and the risk and indicators when the version's
-/// detail could be read back.
+/// The `-o json` shape of a push: the server's response, whole (so `plan_ref`,
+/// `gates_workspace`, `risk_score` and `risk_level` are the server's), plus where
+/// it went, the three-level verdict, and the full risk block and indicators when
+/// the version's detail could be read back.
 #[derive(Debug, Serialize)]
 struct PushOutput<'a> {
     org: &'a str,
@@ -436,7 +440,7 @@ fn push(cli: &Cli, args: &PlanPushArgs) -> CmdResult {
             backend.workspace,
             match args.plan_ref.as_deref() {
                 Some(r) => format!(" · ref {r} (verdict only)"),
-                None => " · no ref (this plan gates the workspace)".to_string(),
+                None => " · no ref (to be the plan that gates the workspace)".to_string(),
             }
         ));
     }
@@ -560,8 +564,11 @@ fn push(cli: &Cli, args: &PlanPushArgs) -> CmdResult {
                                 "current: made from serial {}, which is where the workspace is",
                                 p.serial
                             ),
+                            // No state on the server is never stale, whatever the
+                            // plan was made from: a first apply, or a workspace whose
+                            // state lives elsewhere.
                             None => {
-                                "current: made against no state, and the workspace has none yet"
+                                "current: the workspace has no state yet, so there is nothing for a plan to be behind"
                                     .to_string()
                             }
                         });
@@ -616,9 +623,10 @@ fn push(cli: &Cli, args: &PlanPushArgs) -> CmdResult {
         return fail(cli, &x);
     }
 
-    // The push response carries the verdict but not the numbers behind it, so the
-    // version's detail is read back for the risk score and indicators. Best
-    // effort: the verdict and the exit code never depend on it.
+    // The push response carries the verdict and the risk score, but not the
+    // indicators behind them or how the plan was run, so the version's detail is
+    // read back for those. Best effort: the verdict, the risk line and the exit
+    // code never depend on it.
     let version_detail: Option<GetPlanVersionResponse> =
         result.version_id.as_deref().and_then(|id| {
             client
@@ -627,6 +635,19 @@ fn push(cli: &Cli, args: &PlanPushArgs) -> CmdResult {
         });
 
     let gate = plan_view::push_gate(&result);
+    // Asked to be the gating plan and stored under a ref instead: said on stderr
+    // in every output mode, because a pipeline that expected to gate the
+    // workspace and did not is about to find its apply has nothing to pull.
+    if let Standing::Demoted(stored) = plan_view::push_standing(&result, args.plan_ref.as_deref()) {
+        eprintln!(
+            "warning: this plan does NOT gate workspace `{}`: the server stored it under {} because this pipeline's ref may not push state (see the verdict)",
+            backend.workspace,
+            match stored {
+                Some(r) => format!("ref {r}"),
+                None => "a ref".to_string(),
+            }
+        );
+    }
     if json {
         let out = PushOutput {
             org: &backend.org,
@@ -658,7 +679,7 @@ fn push(cli: &Cli, args: &PlanPushArgs) -> CmdResult {
         step("Verdict");
         let ctx_view = PushContext {
             workspace: &backend.workspace,
-            plan_ref: args.plan_ref.as_deref(),
+            requested_ref: args.plan_ref.as_deref(),
             has_binary: tfplan_bytes.is_some(),
         };
         for line in plan_view::push_verdict_lines(&result, version_detail.as_ref(), ctx_view, style)
@@ -1280,6 +1301,20 @@ mod tests {
         assert_eq!(x.exit_code, 7);
         assert_eq!(x.error.as_deref(), Some("lineage_mismatch"));
         assert!(x.lines().join("\n").contains("two different states"));
+    }
+
+    /// A plan made from real state (it has a lineage) pushed to a workspace with
+    /// NO state on the server: accepted, with no --allow-stale. That is the
+    /// passive-drift shape - state that lives elsewhere - and the server never
+    /// calls it stale, so neither may the pre-flight.
+    #[test]
+    fn a_real_plan_with_a_lineage_passes_when_the_workspace_has_no_state() {
+        let prior = tfplan_zip::read_prior_state(TOFU_APPLIED).unwrap();
+        assert!(prior.lineage.is_some(), "the fixture must carry a lineage");
+        assert_eq!(
+            preflight_action(&plan_preflight::check(&prior, None), false, "prod", "tofu"),
+            PreflightAction::Proceed
+        );
     }
 
     #[test]

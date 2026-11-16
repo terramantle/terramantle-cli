@@ -258,7 +258,7 @@ the apply job fetches exactly the bytes that were judged:
 terraform plan -out=tfplan
 terramantle plan push                # no --ref: this plan gates the workspace
 #   ==> Resolving backend
-#       org acme · workspace prod · no ref (this plan gates the workspace)
+#       org acme · workspace prod · no ref (to be the plan that gates the workspace)
 #   ==> Rendering plan (tofu show -json)
 #   ==> Checking the plan against the workspace's current state
 #       current: made from serial 14, which is where the workspace is
@@ -286,7 +286,7 @@ terraform apply tfplan
 
 **What a push means depends on `--ref`.**
 
-| | pushed without `--ref` | pushed with `--ref pr-42` |
+| | stored with no ref (pushed without `--ref`) | stored under a ref (`--ref pr-42`) |
 |---|---|---|
 | Gets a verdict, and exits 3 when blocked | yes | yes |
 | Blocked: refuses the workspace's next apply | **yes** — the state LOCK and the state write are refused; `plan` still works | no |
@@ -300,25 +300,50 @@ passing plan" switched on for the org or workspace, an apply additionally needs 
 latest un-ref'd, binary-backed plan to be passing (or approved) *and* computed from the
 state as it is now.
 
+**The server has the last word on which column a push landed in.** A CI pipeline whose
+ref is not one its trust entry allows to push state may not push the gating plan either
+— otherwise a pull request could push a passing plan with no `--ref` and lift a block
+the main branch raised. Its plan is still judged, but without `--ref` it is stored under
+a derived ref (`ci:<its ref>`) and gates nothing. The response says so (`plan_ref`,
+`gates_workspace`), and so does `push`, on stderr and under the verdict:
+
+```text
+warning: this plan does NOT gate workspace `prod`: the server stored it under ref ci:refs/pull/42/merge because this pipeline's ref may not push state (see the verdict)
+==> Verdict
+    ✓ PASS
+    risk 12 of 100 · low
+    this plan was judged, but it is NOT the plan that gates workspace `prod`
+    it was stored under ref ci:refs/pull/42/merge: this pipeline's ref is not one the workspace's trust entry allows to push state, so it may not push the gating plan either
+    it neither blocks nor unblocks the workspace; push from an allowed ref to gate it, or pass --ref to push a verdict-only plan deliberately
+```
+
+A `BLOCKED` verdict exits 3 in every column.
+
 - **Three verdicts, one of which stops anything.** `PASS`, `WARN`, `BLOCKED`. Advisory
   policies and limits in `warn` mode produce warnings: each is printed on its own line,
   the verdict is `WARN`, and the exit code is 0. Only `BLOCKED` exits 3. The verdict is
   synchronous — everything that gates is decided in the push, so there is nothing to
-  wait for afterwards. The lines under it are the risk score and the indicators that are
-  over a limit, could not be measured against one, or matter on their own (a class of
-  resource lost, an exploited or blocked provider).
+  wait for afterwards. The risk score under it comes with the push response; the
+  indicator lines — those over a limit, those that could not be measured against one,
+  and the few that matter on their own (a class of resource lost, an exploited or blocked
+  provider) — are read back from the version, best effort.
 - **Pre-flight: is the plan current?** A saved plan is a zip whose `tfstate` entry is the
   state it was computed from. Before uploading, `push` reads that state's lineage and
-  serial and compares the pair with the workspace's newest state version. With state in
-  the workspace, both must match; with none, only a plan made against no state is
-  current. A mismatch is refused **before anything is uploaded**, exit 7, with what
-  happened and what to run next — a stale serial (state changed since the plan: re-plan)
-  reads differently from a lineage mismatch (a different state altogether: check the
-  backend address first). The second rule catches the case neither tool checks at apply
-  time: a plan made against an empty state, for a workspace that has since gained one.
-  If the workspace's state cannot be read the push goes ahead and the server makes the
-  same check. `--allow-stale` skips the refusal and stores the plan for the record; it
-  still cannot be applied.
+  serial and compares them with the workspace's newest state version, by the same rules
+  the server applies to the push. A workspace with **no state is never stale**: any plan
+  is accepted there, lineage or not — a first apply, or a workspace whose state lives
+  somewhere else (the passive-drift recipe). With state in the workspace: a lineage that
+  differs is a `lineage_mismatch`; a plan with no lineage (made against an empty state) is
+  stale; a serial that differs is stale. A plan that fails is refused **before anything
+  is uploaded**, exit 7, with what happened and what to run next — a stale serial (state
+  changed since the plan: re-plan) reads differently from a lineage mismatch (a different
+  state altogether: check the backend address first). The no-lineage rule catches the
+  case neither tool checks at apply time: a plan made against an empty state, for a
+  workspace that has since gained one. If the workspace's state cannot be read the push
+  goes ahead and the server makes the same check. `--allow-stale` skips the refusal and
+  stores a stale plan for the record; it still cannot be applied. (This is the rule for
+  *accepting a push*. Whether an *apply* may start under "require a passing plan" is the
+  server's stricter question, asked at LOCK.)
 - **The render must be of the binary.** The gate judges the render, apply runs the
   binary, and the server refuses a pair that does not describe the same changes
   (`plan_render_mismatch`, exit 2). Let `push` do the rendering and this cannot happen.
@@ -345,7 +370,9 @@ state as it is now.
   removed so an older one cannot be applied in its place.
 - **Show.** `plan show <workspace> <id>`: the verdict; the risk score and the factors it
   is made of; every indicator against its limit; how the plan was run and who produced
-  it (verified only for a CI OIDC push); what it reaches beyond its change list
+  it (verified only for a CI OIDC push); the state it was made from, in two tenses —
+  whether it was current *when pushed*, and whether it can still be applied *now*; what
+  it reaches beyond its change list
   (surviving resources that depend on something it removes, other workspaces that read
   this state); the providers and modules it runs with, naming the ones that are blocked,
   exploited, critical or unverified; each policy's result, with an advisory failure
@@ -404,8 +431,10 @@ branch on — `error` is the contract, the prose is not:
 
 `status` is the HTTP status, and is `null` for a check the CLI made itself. A blocked
 *push* is not a refusal: it is a successful push whose result has `"gate": "blocked"`,
-alongside the server's whole response (`verdict`, `version_id`, `tfplan_sha256`,
-`stale`, `deduped`, …) and, when they could be read back, `risk` and `indicators`.
+alongside the server's whole response (`verdict`, `version_id`, `plan_ref`,
+`gates_workspace`, `risk_score`, `risk_level`, `tfplan_sha256`, `stale`, `deduped`, …)
+and, when the version could be read back, the full `risk` block and `indicators`.
+`gates_workspace` is the field to branch on for "did this push become the gating plan".
 
 ### In a pipeline
 

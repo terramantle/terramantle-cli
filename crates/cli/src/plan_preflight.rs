@@ -7,18 +7,29 @@
 //! server's refusal is one sentence in a 409, while a pipeline author needs to
 //! know what happened and what to run next.
 //!
-//! A state is identified by the PAIR (lineage, serial). Lineage is the state's
-//! identity, minted once at the first apply; serial counts its writes. A plan is
-//! current only if it was computed from exactly the pair the workspace holds now:
+//! The rules are the server's PUSH rules, exactly - the lineage guard in
+//! `PlanService.pushPlan` and `planStaleReason` beside it - because a pre-flight
+//! that is stricter than the server refuses plans the server would have taken,
+//! and one that is laxer explains nothing. A state is identified by the pair
+//! (lineage, serial): lineage is its identity, minted once at the first apply;
+//! serial counts its writes.
 //!
-//! * the workspace HAS state: the plan's lineage and serial must both equal it;
-//! * the workspace has NO state: only a plan made against no state (no lineage)
-//!   is current.
+//! * The workspace has NO state: every plan is current. Plans are pushed for a
+//!   first apply, and for workspaces whose state lives somewhere else (the
+//!   passive-drift recipe), so there is nothing here for a plan to be behind.
+//! * The workspace HAS state:
+//!   - a plan whose lineage differs from the workspace's is a `lineage_mismatch`;
+//!   - a plan with NO lineage (made against an empty state) is stale;
+//!   - a plan whose serial differs from the workspace's is stale.
 //!
-//! The second half is the one terraform and tofu cannot see for themselves: they
-//! stale-check a saved plan at apply time only when the plan has a lineage, so a
-//! plan made against an empty state applies happily to a workspace that has since
-//! gained one - and tries to create everything again.
+//! The no-lineage rule is the one terraform and tofu cannot see for themselves:
+//! they stale-check a saved plan at apply time only when the plan has a lineage,
+//! so a plan made against an empty state applies happily to a workspace that has
+//! since gained one - and tries to create everything again.
+//!
+//! This is NOT the "require a passing plan" freshness rule, which the server
+//! applies at LOCK and which needs a state to match: that one decides whether an
+//! apply may start, this one only whether a push will be accepted.
 //!
 //! Pure: [`check`] compares two values and the text is built from the result, so
 //! every rule and every sentence is tested with no network.
@@ -45,32 +56,33 @@ pub enum Preflight {
     PredatesState { current: i64 },
     /// The plan was made against a different state altogether.
     LineageMismatch { plan: String, current: String },
-    /// The plan was made against some state and the workspace has none.
-    NoStateForLineage { plan: String },
 }
 
 /// Compare the plan's prior state with the workspace's current one.
 /// `current` is `None` when the workspace has no state (or does not exist yet).
+///
+/// The order is the server's: the lineage guard runs first and answers
+/// `lineage_mismatch`; staleness is asked only of a plan that survived it.
 pub fn check(plan: &PlanPrior, current: Option<&StatePointer>) -> Preflight {
+    // No state: never stale, and nothing to mismatch. Whatever the plan was
+    // made from, the server stores it.
     let Some(current) = current else {
-        return match &plan.lineage {
-            None => Preflight::Current,
-            Some(l) => Preflight::NoStateForLineage { plan: l.clone() },
-        };
+        return Preflight::Current;
     };
-    match (&plan.lineage, &current.lineage) {
-        (None, _) => {
-            return Preflight::PredatesState {
-                current: current.serial,
-            }
-        }
-        (Some(p), Some(c)) if p != c => {
+    // Lineage guard: both known, and different.
+    if let (Some(p), Some(c)) = (&plan.lineage, &current.lineage) {
+        if p != c {
             return Preflight::LineageMismatch {
                 plan: p.clone(),
                 current: c.clone(),
-            }
+            };
         }
-        _ => {}
+    }
+    // A binary with no lineage, for a workspace whose state has one.
+    if plan.lineage.is_none() && current.lineage.is_some() {
+        return Preflight::PredatesState {
+            current: current.serial,
+        };
     }
     match plan.serial {
         Some(s) if s != current.serial => Preflight::StaleSerial {
@@ -90,9 +102,7 @@ impl Preflight {
         match self {
             Preflight::Current => None,
             Preflight::StaleSerial { .. } | Preflight::PredatesState { .. } => Some("plan_stale"),
-            Preflight::LineageMismatch { .. } | Preflight::NoStateForLineage { .. } => {
-                Some("lineage_mismatch")
-            }
+            Preflight::LineageMismatch { .. } => Some("lineage_mismatch"),
         }
     }
 
@@ -108,9 +118,6 @@ impl Preflight {
             }
             Preflight::LineageMismatch { .. } => {
                 "this plan was made against a different state than the one this workspace holds"
-            }
-            Preflight::NoStateForLineage { .. } => {
-                "this plan was made against a state this workspace does not have"
             }
         })
     }
@@ -153,15 +160,6 @@ impl Preflight {
                 "Usual causes: the plan was made in another stack or against another backend, the backend address resolves to the wrong workspace, or this workspace's state was replaced."
                     .to_string(),
                 format!("Check the backend address, then: {}", lowercase_first(&replan)),
-            ],
-            Preflight::NoStateForLineage { plan } => vec![
-                format!("The plan's state has lineage {plan}; workspace `{workspace}` has no state at all."),
-                "So the plan was computed from a state that lives somewhere else: another backend, another workspace, or a local state file."
-                    .to_string(),
-                format!(
-                    "`{tf} apply` would refuse it against this backend. Check the backend address, then: {}",
-                    lowercase_first(&replan)
-                ),
             ],
         }
     }
@@ -249,16 +247,76 @@ mod tests {
         );
     }
 
+    /// A workspace with no state is never stale and never a mismatch, WHATEVER
+    /// the plan was made from. The server's `planStaleReason` returns null as
+    /// soon as there is no current serial, and its lineage guard needs a current
+    /// lineage to compare. Refusing a lineage-bearing plan here (as this did
+    /// before) broke the passive-drift recipe: a workspace whose state lives
+    /// elsewhere has plans with a lineage and no state on the server.
     #[test]
-    fn without_state_only_a_plan_with_no_lineage_is_current() {
+    fn without_state_every_plan_is_current() {
+        // A first apply: made against nothing, whatever serial a new state
+        // starts at in this release.
         assert_eq!(check(&plan(None, Some(0)), None), Preflight::Current);
-        // Whatever serial a new state starts at in this release.
         assert_eq!(check(&plan(None, Some(1)), None), Preflight::Current);
         assert_eq!(check(&plan(None, None), None), Preflight::Current);
-        assert_eq!(
-            check(&plan(Some("L"), Some(4)), None),
-            Preflight::NoStateForLineage { plan: "L".into() }
+        // State that lives somewhere else: a lineage and a serial, and still current.
+        assert_eq!(check(&plan(Some("L"), Some(4)), None), Preflight::Current);
+        assert_eq!(check(&plan(Some("L"), None), None), Preflight::Current);
+    }
+
+    /// The server's `planStaleReason`, case for case, as a table: the pre-flight
+    /// must give the same answer the push would. `tfplan` is the lineage source
+    /// throughout, since the pre-flight only ever runs for a binary.
+    #[test]
+    fn the_answer_is_the_servers_for_every_combination() {
+        // (plan lineage, plan serial, workspace state, expected machine code)
+        type Case = (
+            Option<&'static str>,
+            Option<i64>,
+            Option<(Option<&'static str>, i64)>,
+            Option<&'static str>,
         );
+        let cases: &[Case] = &[
+            // current.serial == null  ->  null
+            (None, Some(0), None, None),
+            (Some("L"), Some(7), None, None),
+            // lineage guard: both known and different -> lineage_mismatch (before staleness)
+            (
+                Some("X"),
+                Some(5),
+                Some((Some("L"), 5)),
+                Some("lineage_mismatch"),
+            ),
+            (
+                Some("X"),
+                Some(1),
+                Some((Some("L"), 5)),
+                Some("lineage_mismatch"),
+            ),
+            // tfplan && prior_lineage == null && current.lineage != null -> stale
+            (None, Some(0), Some((Some("L"), 3)), Some("plan_stale")),
+            (None, Some(3), Some((Some("L"), 3)), Some("plan_stale")),
+            // ...but not when the workspace's own lineage is unknown: then only the serial is compared
+            (None, Some(3), Some((None, 3)), None),
+            (None, Some(2), Some((None, 3)), Some("plan_stale")),
+            // prior_serial != null && prior_serial !== current.serial -> stale
+            (Some("L"), Some(4), Some((Some("L"), 5)), Some("plan_stale")),
+            (Some("L"), Some(6), Some((Some("L"), 5)), Some("plan_stale")),
+            (Some("L"), None, Some((Some("L"), 5)), None),
+            // otherwise -> null
+            (Some("L"), Some(5), Some((Some("L"), 5)), None),
+            (Some("L"), Some(5), Some((None, 5)), None),
+        ];
+        for (lineage, serial, ws, want) in cases {
+            let ws = ws.map(|(l, s)| state(l, s));
+            let got = check(&plan(*lineage, *serial), ws.as_ref());
+            assert_eq!(
+                got.code(),
+                *want,
+                "plan ({lineage:?}, {serial:?}) against {ws:?} gave {got:?}"
+            );
+        }
     }
 
     /// What cannot be compared is not a reason to refuse: the server does not
@@ -307,10 +365,6 @@ mod tests {
             .code(),
             Some("lineage_mismatch")
         );
-        assert_eq!(
-            Preflight::NoStateForLineage { plan: "a".into() }.code(),
-            Some("lineage_mismatch")
-        );
     }
 
     /// A stale serial and a lineage mismatch must not read alike: one is fixed by
@@ -357,7 +411,6 @@ mod tests {
                 plan: "a".into(),
                 current: "b".into(),
             },
-            Preflight::NoStateForLineage { plan: "a".into() },
         ] {
             assert!(p.code().is_some());
             assert!(p.headline().is_some());

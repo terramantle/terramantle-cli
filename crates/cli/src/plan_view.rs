@@ -10,10 +10,10 @@
 //! never printed as a block, because the server never treats it as one.
 
 use tm_api::generated::models::{
-    ApprovePlanVersionResponse, GetPlanVersionResponse, ListPlanVersionApprovalsResponse,
-    PlanImpact, PlanImpactGraph, PlanIndicator, PlanIndicatorMode, PlanIndicatorStatus,
-    PlanPolicyResult, PlanProvenance, PlanPushResult, PlanRun, PlanSupplyChain,
-    PlanSupplyChainModulesListItem, PlanSupplyChainModulesListItemOrigin,
+    ApprovePlanVersionResponse, GetPlanVersionResponse, GetPlanVersionResponseState,
+    ListPlanVersionApprovalsResponse, PlanImpact, PlanImpactGraph, PlanIndicator,
+    PlanIndicatorMode, PlanIndicatorStatus, PlanPolicyResult, PlanProvenance, PlanPushResult,
+    PlanRun, PlanSupplyChain, PlanSupplyChainModulesListItem, PlanSupplyChainModulesListItemOrigin,
     PlanSupplyChainProvidersListItem, PlanSupplyChainSource, PlanVersionSummary,
 };
 
@@ -142,10 +142,41 @@ pub fn push_gate(r: &PlanPushResult) -> Gate {
 #[derive(Debug, Clone, Copy)]
 pub struct PushContext<'a> {
     pub workspace: &'a str,
-    /// `X-Plan-Ref` the plan was pushed with. `None` = the plan that gates the workspace.
-    pub plan_ref: Option<&'a str>,
+    /// `--ref` as it was passed. `None` asks for the plan to gate the workspace -
+    /// which the server may not grant; see [`Standing`].
+    pub requested_ref: Option<&'a str>,
     /// Was the binary sent? A render-only plan can raise a block, never clear one.
     pub has_binary: bool,
+}
+
+/// Where a pushed plan stands, as the SERVER stored it. Not the same as what was
+/// asked for: a CI token on a ref its trust entry does not allow to push state
+/// may not push the gating plan either, so a push with no `--ref` from such a
+/// pipeline is stored under a derived ref (`ci:<its ref>`) and gates nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Standing<'a> {
+    /// Stored with no ref: this is the plan that decides whether the workspace may be applied.
+    Gating,
+    /// Stored under the ref that was asked for: a verdict only.
+    Ref(&'a str),
+    /// No ref was asked for, and the server stored the plan under one anyway
+    /// (the ref, when it said which).
+    Demoted(Option<&'a str>),
+}
+
+/// Read a pushed plan's standing off the response. `gates_workspace` is the
+/// authority; "was `--ref` passed" is only the fallback for a server from before
+/// the field existed.
+pub fn push_standing<'a>(r: &'a PlanPushResult, requested_ref: Option<&'a str>) -> Standing<'a> {
+    let stored = r.plan_ref.as_deref();
+    let gates = r
+        .gates_workspace
+        .unwrap_or(stored.is_none() && requested_ref.is_none());
+    match (gates, requested_ref) {
+        (true, _) => Standing::Gating,
+        (false, Some(asked)) => Standing::Ref(stored.unwrap_or(asked)),
+        (false, None) => Standing::Demoted(stored),
+    }
 }
 
 /// The lines under `==> Verdict`: the verdict, each reason and each warning on
@@ -193,26 +224,24 @@ pub fn push_verdict_lines(
         }
     }
 
+    // The risk score is in the push response itself. The detail is only its
+    // fallback, for a server from before the response carried it.
+    let score = r
+        .risk_score
+        .or(detail.and_then(|d| d.risk.as_ref()).and_then(|k| k.score));
+    let level = r.risk_level.map(|l| l.to_string()).or(detail
+        .and_then(|d| d.risk.as_ref())
+        .and_then(|k| k.level.map(|l| l.to_string())));
+    if let Some(score) = score {
+        out.push(format!(
+            "risk {score} of 100 · {}",
+            level.as_deref().unwrap_or(DASH)
+        ));
+    }
+
+    // The indicators are not in the push response: they come from the version's
+    // detail, when it could be read back.
     if let Some(d) = detail {
-        let score = d
-            .risk
-            .as_ref()
-            .and_then(|k| k.score)
-            .or(d.version.as_ref().and_then(|v| v.risk_score));
-        let level = d
-            .risk
-            .as_ref()
-            .and_then(|k| k.level.map(|l| l.to_string()))
-            .or(d
-                .version
-                .as_ref()
-                .and_then(|v| v.risk_level.map(|l| l.to_string())));
-        if let Some(score) = score {
-            out.push(format!(
-                "risk {score} of 100 · {}",
-                level.as_deref().unwrap_or(DASH)
-            ));
-        }
         for i in d.indicators.iter().flatten().filter(|i| is_notable(i)) {
             out.push(format!("  {}", indicator_line(i, style)));
         }
@@ -231,7 +260,8 @@ pub fn push_verdict_lines(
             .is_some_and(|run| run.has_binary == Some(true) && run_caveat(run).is_none());
     out.extend(push_consequence(
         gate,
-        ctx,
+        push_standing(r, ctx.requested_ref),
+        ctx.workspace,
         r.version_id.as_deref(),
         believable,
     ));
@@ -258,42 +288,60 @@ fn run_caveat(run: &PlanRun) -> Option<String> {
 /// What the verdict does to the workspace. This is the sentence that used to
 /// say "the next apply's LOCK is refused until an admin approves", which stopped
 /// being true: a passing plan lifts a block too, and a plan with a ref never
-/// raised one.
+/// raised one. Which case applies is the server's answer ([`Standing`]), not a
+/// guess from the flags.
 fn push_consequence(
     gate: Gate,
-    ctx: PushContext<'_>,
+    standing: Standing<'_>,
+    workspace: &str,
     version_id: Option<&str>,
     believable: bool,
 ) -> Vec<String> {
     let id = version_id.unwrap_or("<version-id>");
-    match (gate, ctx.plan_ref) {
-        (Gate::Blocked, None) => vec![
+    let blocked = gate == Gate::Blocked;
+    match standing {
+        Standing::Gating if blocked => vec![
             format!(
-                "apply is refused for workspace `{}` (plan still works) until a passing plan is pushed or this plan is approved",
-                ctx.workspace
+                "apply is refused for workspace `{workspace}` (plan still works) until a passing plan is pushed or this plan is approved"
             ),
-            format!(
-                "to approve: terramantle plan approve {} {id} --reason \"…\"",
-                ctx.workspace
-            ),
+            format!("to approve: terramantle plan approve {workspace} {id} --reason \"…\""),
         ],
-        (Gate::Blocked, Some(r)) => vec![
+        // A render-only push was told what it cannot do before it was sent, and a
+        // stale one is warned about above the verdict: neither is repeated here.
+        Standing::Gating if believable => vec![format!(
+            "this is now the plan that gates workspace `{workspace}`; any block an earlier plan raised is lifted"
+        )],
+        Standing::Gating => Vec::new(),
+        Standing::Ref(r) if blocked => vec![
             format!(
-                "this plan has a ref ({r}), so it does not block workspace `{}`: applies there are unaffected",
-                ctx.workspace
+                "this plan has a ref ({r}), so it does not block workspace `{workspace}`: applies there are unaffected"
             ),
             "its binary cannot be pulled until this version is approved".to_string(),
         ],
-        (_, Some(r)) => vec![format!(
+        Standing::Ref(r) => vec![format!(
             "pushed with ref {r}: a verdict only - it neither blocks nor unblocks the workspace"
         )],
-        // A render-only push was told what it cannot do before it was sent, and a
-        // stale one is warned about above the verdict: neither is repeated here.
-        (_, None) if believable => vec![format!(
-            "this is now the plan that gates workspace `{}`; any block an earlier plan raised is lifted",
-            ctx.workspace
-        )],
-        (_, None) => Vec::new(),
+        // Asked to be the gating plan, and was not allowed to be.
+        Standing::Demoted(stored) => {
+            let mut out = vec![
+                format!(
+                    "this plan was judged, but it is NOT the plan that gates workspace `{workspace}`"
+                ),
+                match stored {
+                    Some(r) => format!(
+                        "it was stored under ref {r}: this pipeline's ref is not one the workspace's trust entry allows to push state, so it may not push the gating plan either"
+                    ),
+                    None => "the server stored it under a ref: this pipeline's ref is not one the workspace's trust entry allows to push state, so it may not push the gating plan either"
+                        .to_string(),
+                },
+                "it neither blocks nor unblocks the workspace; push from an allowed ref to gate it, or pass --ref to push a verdict-only plan deliberately"
+                    .to_string(),
+            ];
+            if blocked {
+                out.push("its binary cannot be pulled until this version is approved".to_string());
+            }
+            out
+        }
     }
 }
 
@@ -395,23 +443,50 @@ fn run_row(run: &PlanRun) -> String {
     row("run", parts.join(" · "))
 }
 
-fn state_row(v: &PlanVersionSummary, stale: Option<bool>) -> String {
-    let source = match v.lineage_source.map(|s| s.to_string()).as_deref() {
+/// The state a plan was made from, in two tenses. `pushed` is how it related to
+/// the workspace's state WHEN IT WAS PUSHED (it does not change afterwards);
+/// `stale_now` is whether it can still be applied, which does.
+fn state_rows(
+    v: &PlanVersionSummary,
+    pushed: Option<&GetPlanVersionResponseState>,
+    stale_now: Option<bool>,
+) -> Vec<String> {
+    // The detail's own state block when there is one; the summary otherwise.
+    let source = pushed
+        .and_then(|p| p.lineage_source.map(|s| s.to_string()))
+        .or(v.lineage_source.map(|s| s.to_string()));
+    let source = match source.as_deref() {
         Some("tfplan") => "read from the plan",
         Some("header") => "claimed by the pusher",
         _ => "not stated",
     };
     let mut text = format!(
         "serial {} · lineage {} ({source})",
-        opt_i64(v.prior_serial),
+        opt_i64(pushed.and_then(|p| p.prior_serial).or(v.prior_serial)),
         v.prior_lineage.as_deref().unwrap_or(DASH),
     );
-    match stale {
-        Some(true) => text.push_str(" · STALE: the workspace's state has moved on"),
-        Some(false) => text.push_str(" · current"),
+    if let Some(n) = pushed.and_then(|p| p.managed_resources) {
+        text.push_str(&format!(
+            " · {} in it",
+            plural(n, "managed resource", "managed resources")
+        ));
+    }
+    let mut out = vec![row("state", text)];
+    match pushed.and_then(|p| p.stale) {
+        Some(true) => out.push(continuation(
+            "when pushed: already stale (kept for the record, or a render-only plan the workspace had moved past)",
+        )),
+        Some(false) => out.push(continuation("when pushed: current")),
         None => {}
     }
-    row("state", text)
+    match stale_now {
+        Some(true) => out.push(continuation(
+            "now: STALE - the workspace's state has moved on, so it can no longer be applied",
+        )),
+        Some(false) => out.push(continuation("now: current - it can still be applied")),
+        None => {}
+    }
+    out
 }
 
 fn provenance_rows(p: &PlanProvenance) -> Vec<String> {
@@ -819,7 +894,11 @@ pub fn render_show(
     if let Some(run) = detail.run.as_ref() {
         out.push(run_row(run));
     }
-    out.push(state_row(v, approvals.and_then(|a| a.stale)));
+    out.extend(state_rows(
+        v,
+        detail.state.as_ref(),
+        approvals.and_then(|a| a.stale),
+    ));
     if let Some(p) = v.provenance.as_ref() {
         out.extend(provenance_rows(p));
     }
@@ -963,7 +1042,7 @@ mod tests {
 
     const MAIN: PushContext<'static> = PushContext {
         workspace: "prod-network",
-        plan_ref: None,
+        requested_ref: None,
         has_binary: true,
     };
 
@@ -1020,6 +1099,7 @@ mod tests {
                 { "key": "drift.percent", "label": "Share drifted", "value": null, "unit": "%", "limit": 10, "mode": "enforce", "status": "unknown" }
             ],
             "run": { "mode": "normal", "targeted": false, "errored": false, "has_binary": true },
+            "state": { "stale": false, "lineage_source": "tfplan", "prior_serial": 4, "managed_resources": 12 },
             "outputs": [ { "name": "vpc_id", "action": "update", "sensitive": false } ],
             "impact": {
                 "graph": "ok",
@@ -1139,13 +1219,139 @@ mod tests {
         assert!(!text.contains("LOCK is refused until an admin approves"));
     }
 
+    /// The push response with the fields the server now sends on every push.
+    fn pushed(blocked: bool, plan_ref: Option<&str>, gates_workspace: bool) -> PlanPushResult {
+        push_result(json!({
+            "ok": true, "version_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+            "attestation_hash": "ab", "tfplan_sha256": "cd", "prior_serial": 4,
+            "prior_lineage": "l", "lineage_source": "tfplan", "stale": false, "deduped": false,
+            "verdict": { "blocked": blocked, "reasons": if blocked { vec!["x"] } else { vec![] },
+                         "sources": if blocked { vec!["builtin"] } else { vec![] }, "warnings": [] },
+            "scan_status": "pending",
+            "plan_ref": plan_ref, "gates_workspace": gates_workspace,
+            "risk_score": 62, "risk_level": "high"
+        }))
+    }
+
+    /// `gates_workspace` decides the consequence text, not whether --ref was passed.
+    #[test]
+    fn standing_is_read_from_the_response_not_the_flag() {
+        // The ordinary cases agree with the flag.
+        assert_eq!(
+            push_standing(&pushed(false, None, true), None),
+            Standing::Gating
+        );
+        assert_eq!(
+            push_standing(&pushed(false, Some("pr-42"), false), Some("pr-42")),
+            Standing::Ref("pr-42")
+        );
+        // No --ref, and the server stored it under a derived ref: demoted.
+        assert_eq!(
+            push_standing(&pushed(false, Some("ci:refs/pull/42/merge"), false), None),
+            Standing::Demoted(Some("ci:refs/pull/42/merge"))
+        );
+        // The stored ref is the one reported, even if it differs from the flag.
+        assert_eq!(
+            push_standing(&pushed(false, Some("pr-042"), false), Some("pr-42")),
+            Standing::Ref("pr-042")
+        );
+        // A server from before the fields: fall back to what was asked for.
+        let old = base_push(json!({ "blocked": false, "reasons": [], "sources": [] }));
+        assert_eq!(push_standing(&old, None), Standing::Gating);
+        assert_eq!(push_standing(&old, Some("pr-1")), Standing::Ref("pr-1"));
+    }
+
+    /// A CI pipeline on a ref that may not push state asked to push the gating
+    /// plan. The plan is judged, and the output must not let anyone believe it
+    /// gates the workspace.
+    #[test]
+    fn a_demoted_push_says_plainly_that_it_does_not_gate() {
+        let d = full_detail();
+        let r = pushed(false, Some("ci:refs/pull/42/merge"), false);
+        let text = push_verdict_lines(&r, Some(&d), MAIN, plain()).join("\n");
+        assert!(text.starts_with("PASS"));
+        assert!(text.contains(
+            "this plan was judged, but it is NOT the plan that gates workspace `prod-network`"
+        ));
+        assert!(text.contains("it was stored under ref ci:refs/pull/42/merge"));
+        assert!(text.contains("not one the workspace's trust entry allows to push state"));
+        assert!(text.contains("push from an allowed ref to gate it, or pass --ref"));
+        // Everything that would be true of a gating plan is absent.
+        assert!(!text.contains("this is now the plan that gates"));
+        assert!(!text.contains("is lifted"));
+        assert!(!text.contains("apply is refused"));
+
+        // Blocked and demoted: still BLOCKED (the caller exits 3), still not a
+        // block on the workspace, and its own binary is not pullable.
+        let r = pushed(true, Some("ci:refs/pull/42/merge"), false);
+        assert_eq!(push_gate(&r), Gate::Blocked);
+        let text = push_verdict_lines(&r, Some(&d), MAIN, plain()).join("\n");
+        assert!(text.starts_with("BLOCKED by builtin"));
+        assert!(text.contains("it is NOT the plan that gates workspace"));
+        assert!(text.contains("its binary cannot be pulled until this version is approved"));
+        assert!(!text.contains("apply is refused"));
+        assert!(!text.contains("terramantle plan approve prod-network"));
+    }
+
+    /// The risk line comes from the push response, so it is there even when the
+    /// version detail could not be read back. Only the indicator lines need it.
+    #[test]
+    fn risk_is_printed_from_the_push_response_alone() {
+        let r = pushed(false, None, true);
+        let without_detail = push_verdict_lines(&r, None, MAIN, plain());
+        assert_eq!(without_detail, vec!["PASS", "risk 62 of 100 · high"]);
+
+        let with_detail = push_verdict_lines(&r, Some(&full_detail()), MAIN, plain()).join("\n");
+        assert_eq!(with_detail.matches("risk 62 of 100 · high").count(), 1);
+        assert!(with_detail.contains("Share of the workspace destroyed or replaced: 60%"));
+        assert!(with_detail.contains("this is now the plan that gates workspace `prod-network`"));
+
+        // The response wins over the detail if the two ever disagree.
+        let mut odd = pushed(false, None, true);
+        odd.risk_score = Some(10);
+        odd.risk_level = None;
+        let text = push_verdict_lines(&odd, Some(&full_detail()), MAIN, plain()).join("\n");
+        assert!(text.contains("risk 10 of 100 · high"), "{text}");
+    }
+
+    /// `state` on the detail is how the plan stood WHEN PUSHED; "now" is the
+    /// approvals endpoint's. Either can be absent, and a plan stored stale with
+    /// --allow-stale says so.
+    #[test]
+    fn show_separates_state_at_push_from_state_now() {
+        let mut d = full_detail();
+        d.state = Some(
+            serde_json::from_value(json!({ "stale": true, "lineage_source": "header", "prior_serial": 9, "managed_resources": null })).unwrap(),
+        );
+        let text = render_show(&d, None, None, plain()).unwrap();
+        // The state block's own serial and source are the ones shown.
+        assert!(text.contains("state      serial 9 · lineage 79007a8e (claimed by the pusher)"));
+        assert!(!text.contains("managed resource"));
+        assert!(text.contains("when pushed: already stale"));
+        assert!(
+            !text.contains("now:"),
+            "nothing is known about now without the approvals read"
+        );
+
+        d.state = None;
+        let text = render_show(&d, None, None, plain()).unwrap();
+        assert!(text.contains("state      serial 4 · lineage 79007a8e (read from the plan)"));
+        assert!(!text.contains("when pushed"));
+
+        d.state = Some(
+            serde_json::from_value(json!({ "stale": false, "lineage_source": "tfplan", "prior_serial": 4, "managed_resources": 1 })).unwrap(),
+        );
+        let text = render_show(&d, None, None, plain()).unwrap();
+        assert!(text.contains("· 1 managed resource in it"));
+    }
+
     #[test]
     fn a_blocked_plan_with_a_ref_does_not_block_the_workspace() {
         let r = base_push(
             json!({ "blocked": true, "reasons": ["x"], "sources": ["opa"], "warnings": [] }),
         );
         let ctx = PushContext {
-            plan_ref: Some("pr-12"),
+            requested_ref: Some("pr-12"),
             ..MAIN
         };
         let text = push_verdict_lines(&r, None, ctx, plain()).join("\n");
@@ -1202,7 +1408,7 @@ mod tests {
             .contains(lifted));
         // A plan with a ref never moves the gate, however clean.
         let pr = PushContext {
-            plan_ref: Some("pr-1"),
+            requested_ref: Some("pr-1"),
             ..MAIN
         };
         assert!(!push_verdict_lines(&pass(), Some(&d), pr, plain())
@@ -1391,9 +1597,13 @@ mod tests {
         assert!(text.contains("+22  60% of the workspace destroyed or replaced"));
         // Run, state, provenance.
         assert!(text.contains("run        normal plan · binary stored"));
-        assert!(
-            text.contains("state      serial 4 · lineage 79007a8e (read from the plan) · current")
-        );
+        // State, in two tenses: as it was at the push (the detail's `state`
+        // block) and as it is now (the approvals endpoint's `stale`).
+        assert!(text.contains(
+            "state      serial 4 · lineage 79007a8e (read from the plan) · 12 managed resources in it"
+        ));
+        assert!(text.contains("when pushed: current"));
+        assert!(text.contains("now: current - it can still be applied"));
         assert!(text.contains(
             "produced   by CI · verified · github acme/infra · main (protected) @ 5f2c1e0"
         ));
@@ -1517,7 +1727,9 @@ mod tests {
         }));
         let text = render_show(&d, Some(&rows), Some(&a), plain()).unwrap();
         assert!(text.contains("verdict    BLOCKED · approved (1 of 1)"));
-        assert!(text.contains("STALE: the workspace's state has moved on"));
+        // Current when pushed, stale now: the two are separate facts.
+        assert!(text.contains("when pushed: current"));
+        assert!(text.contains("now: STALE - the workspace's state has moved on"));
         assert!(text.contains("these approvals are history, not permission"));
         // A reader sees the role and the time, not the person.
         assert!(text.contains("(hidden from the reader role) · owner · "));

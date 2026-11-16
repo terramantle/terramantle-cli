@@ -377,6 +377,9 @@ jobs:
           # WITHOUT a ref and so gates the workspace. Everything else carries
           # one and gets a verdict only - including a manual run on some other
           # branch, which must not be able to block or unblock the workspace.
+          # (The server holds the same line: a CI token on a ref that may not
+          # push state cannot push the gating plan, and `plan push` says so if
+          # it was stored under a ref it did not ask for.)
           if [ "$EVENT" = "pull_request" ]; then
             ref="pr-${PR_NUMBER}"
           elif [ "$GITHUB_REF" != "refs/heads/main" ]; then

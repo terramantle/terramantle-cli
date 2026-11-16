@@ -278,9 +278,12 @@ pub enum PlanCommand {
     /// Pushed WITHOUT --ref, the plan gates the workspace: a blocked one refuses
     /// the next apply (plan still works) until a passing plan is pushed or it is
     /// approved. Pushed WITH --ref (a pull request's plan) it gets a verdict and
-    /// never blocks or unblocks the workspace. Exits 3 when blocked; warnings
-    /// alone exit 0. Before uploading, the plan is checked against the
-    /// workspace's current state and refused (exit 7) if it could not be applied.
+    /// never blocks or unblocks the workspace. A CI pipeline on a ref that may
+    /// not push state cannot push the gating plan: without --ref its plan is
+    /// stored under `ci:<ref>` and the output says it does not gate. Exits 3 when
+    /// blocked; warnings alone exit 0. Before uploading, the plan is checked
+    /// against the workspace's current state, if it has any, and refused (exit 7)
+    /// if it was not made from it.
     Push(PlanPushArgs),
     /// Pull a binary plan (latest for a ref, or by id) to apply it.
     ///
@@ -344,8 +347,8 @@ pub struct PlanPushArgs {
     /// terraform-compatible binary for `show -json` (also TERRAMANTLE_TF_BIN; default: tofu, then terraform).
     #[arg(long, value_name = "BIN")]
     pub tf_bin: Option<String>,
-    /// Push a plan that fails the pre-flight (it was not made from the workspace's
-    /// current state) anyway, for the record. It still cannot be applied.
+    /// Push a plan that fails the pre-flight (the workspace has state, and the
+    /// plan was not made from it) anyway, for the record. It still cannot be applied.
     #[arg(long)]
     pub allow_stale: bool,
     /// Push the render only (needs --render). Such a plan is not pullable, and it
