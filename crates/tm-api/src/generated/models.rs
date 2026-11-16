@@ -6259,7 +6259,7 @@ pub struct PlanPushResult {
     ///sha-256 of the redacted canonical render. Value-blind, so it names a plan's SHAPE and is shared by every plan with the same resources and actions. Not what dedupe or approvals key on; use `version_id` to name a plan.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub attestation_hash: ::std::option::Option<::std::string::String>,
-    ///This exact render had already been pushed for this (workspace, ref), and that version was returned. Never true for a different plan of the same shape.
+    ///This exact render had already been pushed for this (workspace, ref) and passed or was approved, and that version was returned. Never true for a different plan of the same shape, and never for a plan that is still blocked - that one is judged again as a new version.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub deduped: ::std::option::Option<bool>,
     ///`tfplan` = read from the binary's embedded prior state (authoritative); `header` = the X-Plan-Prior-* claim; `none` = neither supplied.
