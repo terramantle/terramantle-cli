@@ -66,18 +66,38 @@ pub fn indicator_gate(i: &PlanIndicator) -> Option<Gate> {
     }
 }
 
+/// Indicators a reviewer wants called out whenever they are above zero, limit
+/// or no limit: things the plan takes away, or runs with, that are bad news on
+/// their own. Suffix-matched for the per-class family (`classes.<class>.lost`).
+const ALWAYS_NOTABLE_WHEN_POSITIVE: &[&str] = &[
+    ".lost",
+    "impact.dependents.untouched",
+    "supply_chain.providers.exploited",
+    "supply_chain.providers.critical",
+    "supply_chain.providers.blocked",
+    "supply_chain.modules.blocked",
+];
+
 /// Is this indicator worth a line in a push's verdict? Over a limit, or under a
-/// limit but not measurable (which is not a pass), or a resource class the plan
-/// actually touches. The always-listed headline numbers that are simply fine are
-/// left to `plan show`.
+/// limit but not measurable (which is not a pass), or one of the few that
+/// matter whenever they are non-zero. The headline numbers that are simply fine
+/// are left to `plan show`, which lists every indicator.
 pub fn is_notable(i: &PlanIndicator) -> bool {
     let limited = i.mode.is_some() && i.mode != Some(PlanIndicatorMode::Info);
     match i.status {
         Some(PlanIndicatorStatus::Block | PlanIndicatorStatus::Warn) => true,
         Some(PlanIndicatorStatus::Unknown) => limited,
         _ => {
-            i.key.as_deref().is_some_and(|k| k.starts_with("classes."))
-                && i.value.is_some_and(|v| v > 0.0)
+            i.value.is_some_and(|v| v > 0.0)
+                && i.key.as_deref().is_some_and(|k| {
+                    ALWAYS_NOTABLE_WHEN_POSITIVE.iter().any(|n| {
+                        if n.starts_with('.') {
+                            k.starts_with("classes.") && k.ends_with(n)
+                        } else {
+                            k == *n
+                        }
+                    })
+                })
         }
     }
 }
@@ -1245,6 +1265,44 @@ mod tests {
             json!({ "key": "x", "label": "X", "value": null, "unit": "%", "limit": null, "mode": "info", "status": "unknown" }),
         );
         assert!(!is_notable(&unknown_unlimited));
+
+        // With no limit at all, a handful still matter when they are non-zero -
+        // and only then, and only those. Keys are the server's (planIndicators).
+        let unlimited = |key: &str, value: i64| {
+            ind(
+                json!({ "key": key, "label": key, "value": value, "unit": null, "limit": null, "mode": "info", "status": "ok" }),
+            )
+        };
+        for key in [
+            "classes.stateful.lost",
+            "classes.iam.lost",
+            "impact.dependents.untouched",
+            "supply_chain.providers.exploited",
+            "supply_chain.providers.critical",
+            "supply_chain.providers.blocked",
+            "supply_chain.modules.blocked",
+        ] {
+            assert!(
+                is_notable(&unlimited(key, 1)),
+                "{key} > 0 should be notable"
+            );
+            assert!(!is_notable(&unlimited(key, 0)), "{key} = 0 should not be");
+        }
+        for key in [
+            // The same class twice would only repeat the line above it.
+            "classes.stateful.changed",
+            "destructive.count",
+            "replace.count",
+            "impact.consumers.count",
+            "supply_chain.modules.external",
+            "supply_chain.providers.unverified",
+            "outputs.lost",
+        ] {
+            assert!(
+                !is_notable(&unlimited(key, 3)),
+                "{key} should be left to plan show"
+            );
+        }
 
         let fractional = ind(
             json!({ "key": "x", "label": "X", "value": 12.5, "unit": "%", "limit": 10, "mode": "enforce", "status": "block" }),
