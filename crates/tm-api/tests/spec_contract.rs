@@ -317,6 +317,13 @@ const CLI_OPERATIONS: &[&str] = &[
     "forceUnlockState",
     "listWorkspaceProviders",
     "uploadLockFile",
+    // `plan push|pull|ls|show`. These shipped in 0.10.0 without being listed here,
+    // so a server-side removal would have surfaced as a 410 in a pipeline.
+    "pushPlan",
+    "getLatestPlanBinary",
+    "getPlanBinary",
+    "listPlanVersions",
+    "getPlanVersion",
 ];
 
 #[test]

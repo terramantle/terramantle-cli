@@ -14,6 +14,21 @@ pub const TOMBSTONED_OPERATION_IDS: &[&str] = &[
     "removedProviderFoundryRoute",
     "removedProviderMirrorRoute",
 ];
+/// `POST /api/v1/{orgId}/state/{workspace}/quarantine/{quarantineId}/accept`
+///
+/// Tag: State Management. Success: `200`.
+pub const ACCEPT_QUARANTINED_STATE: Op = Op {
+    id: "acceptQuarantinedState",
+    method: Method::Post,
+    template: "/api/v1/{orgId}/state/{workspace}/quarantine/{quarantineId}/accept",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+        ("quarantineId", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/orgs/{orgId}/billing/contacts`
 ///
 /// Tag: Billing. Success: `201`.
@@ -207,6 +222,20 @@ pub const CLAIM_ORG_DOMAIN: Op = Op {
     query: &[],
     success: 200,
 };
+/// `DELETE /api/v1/{orgId}/state/{workspace}/plan-bypass`
+///
+/// Tag: State Management. Success: `200`.
+pub const CLOSE_PLAN_BYPASS: Op = Op {
+    id: "closePlanBypass",
+    method: Method::Delete,
+    template: "/api/v1/{orgId}/state/{workspace}/plan-bypass",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/orgs`
 ///
 /// Tag: Orgs & Members. Success: `201`.
@@ -384,6 +413,21 @@ pub const DEPRECATE_MODULE_VERSION: Op = Op {
         ("name", ParamKind::Segment),
         ("provider", ParamKind::Segment),
         ("version", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
+/// `POST /api/v1/{orgId}/state/{workspace}/quarantine/{quarantineId}/discard`
+///
+/// Tag: State Management. Success: `200`.
+pub const DISCARD_QUARANTINED_STATE: Op = Op {
+    id: "discardQuarantinedState",
+    method: Method::Post,
+    template: "/api/v1/{orgId}/state/{workspace}/quarantine/{quarantineId}/discard",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+        ("quarantineId", ParamKind::Segment),
     ],
     query: &[],
     success: 200,
@@ -610,16 +654,16 @@ pub const GET_HEALTH: Op = Op {
     query: &[],
     success: 200,
 };
-/// `GET /api/orgs/{orgId}/billing/invoices/{transactionId}/pdf`
+/// `GET /api/orgs/{orgId}/billing/invoices/{invoiceId}/pdf`
 ///
 /// Tag: Billing. Success: `200`.
-pub const GET_INVOICE_PDF_URL: Op = Op {
-    id: "getInvoicePdfUrl",
+pub const GET_INVOICE_PDF: Op = Op {
+    id: "getInvoicePdf",
     method: Method::Get,
-    template: "/api/orgs/{orgId}/billing/invoices/{transactionId}/pdf",
+    template: "/api/orgs/{orgId}/billing/invoices/{invoiceId}/pdf",
     params: &[
         ("orgId", ParamKind::Segment),
-        ("transactionId", ParamKind::Segment),
+        ("invoiceId", ParamKind::Segment),
     ],
     query: &[],
     success: 200,
@@ -1618,6 +1662,32 @@ pub const LIST_PAYMENTS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `GET /api/v1/{orgId}/plans/indicators`
+///
+/// Tag: Plans. Success: `200`.
+pub const LIST_PLAN_INDICATORS: Op = Op {
+    id: "listPlanIndicators",
+    method: Method::Get,
+    template: "/api/v1/{orgId}/plans/indicators",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `GET /api/v1/{orgId}/plans/{workspace}/versions/{versionId}/approvals`
+///
+/// Tag: Plans. Success: `200`.
+pub const LIST_PLAN_VERSION_APPROVALS: Op = Op {
+    id: "listPlanVersionApprovals",
+    method: Method::Get,
+    template: "/api/v1/{orgId}/plans/{workspace}/versions/{versionId}/approvals",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+        ("versionId", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `GET /api/v1/{orgId}/plans/{workspace}/versions`
 ///
 /// Tag: Plans. Success: `200`.
@@ -1691,15 +1761,18 @@ pub const LIST_PROVIDER_VERSIONS: Op = Op {
     query: &[],
     success: 200,
 };
-/// `GET /api/billing/businesses`
+/// `GET /api/v1/{orgId}/state/{workspace}/quarantine`
 ///
-/// Tag: Billing. Success: `200`.
-pub const LIST_REUSABLE_BILLING_BUSINESSES: Op = Op {
-    id: "listReusableBillingBusinesses",
+/// Tag: State Management. Success: `200`.
+pub const LIST_QUARANTINED_STATE: Op = Op {
+    id: "listQuarantinedState",
     method: Method::Get,
-    template: "/api/billing/businesses",
-    params: &[],
-    query: &[],
+    template: "/api/v1/{orgId}/state/{workspace}/quarantine",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &["all"],
     success: 200,
 };
 /// `GET /api/orgs/{orgId}/access-rules/seen-asns`
@@ -1777,6 +1850,20 @@ pub const LIST_WORKSPACE_PROVIDERS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `POST /api/v1/{orgId}/state/{workspace}/plan-bypass`
+///
+/// Tag: State Management. Success: `200`.
+pub const OPEN_PLAN_BYPASS: Op = Op {
+    id: "openPlanBypass",
+    method: Method::Post,
+    template: "/api/v1/{orgId}/state/{workspace}/plan-bypass",
+    params: &[
+        ("orgId", ParamKind::Segment),
+        ("workspace", ParamKind::Segment),
+    ],
+    query: &[],
+    success: 200,
+};
 /// `POST /api/v1/{orgId}/state/{workspace}/lineage-reset`
 ///
 /// Tag: State Management. Success: `200`.
@@ -1815,6 +1902,17 @@ pub const OVERRIDE_MODULE_VERSION_CONSUMABLE: Op = Op {
         ("provider", ParamKind::Segment),
         ("version", ParamKind::Segment),
     ],
+    query: &[],
+    success: 200,
+};
+/// `POST /api/orgs/{orgId}/billing/pause`
+///
+/// Tag: Billing. Success: `200`.
+pub const PAUSE_SUBSCRIPTION: Op = Op {
+    id: "pauseSubscription",
+    method: Method::Post,
+    template: "/api/orgs/{orgId}/billing/pause",
+    params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2031,6 +2129,17 @@ pub const RESCAN_WORKSPACE_PROVIDERS: Op = Op {
     query: &[],
     success: 200,
 };
+/// `DELETE /api/orgs/{orgId}/billing/pause`
+///
+/// Tag: Billing. Success: `200`.
+pub const RESUME_SUBSCRIPTION: Op = Op {
+    id: "resumeSubscription",
+    method: Method::Delete,
+    template: "/api/orgs/{orgId}/billing/pause",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
 /// `DELETE /api/orgs/{orgId}/tokens/{tokenId}`
 ///
 /// Tag: Tokens. Success: `200`.
@@ -2205,17 +2314,6 @@ pub const START_CHECKOUT: Op = Op {
     query: &[],
     success: 200,
 };
-/// `POST /api/orgs/{orgId}/billing/invoice`
-///
-/// Tag: Billing. Success: `201`.
-pub const START_INVOICE: Op = Op {
-    id: "startInvoice",
-    method: Method::Post,
-    template: "/api/orgs/{orgId}/billing/invoice",
-    params: &[("orgId", ParamKind::Segment)],
-    query: &[],
-    success: 201,
-};
 /// `POST /api/orgs/{orgId}/billing/payment-method`
 ///
 /// Tag: Billing. Success: `200`.
@@ -2325,6 +2423,28 @@ pub const UNDO_CANCEL_SUBSCRIPTION: Op = Op {
     id: "undoCancelSubscription",
     method: Method::Delete,
     template: "/api/orgs/{orgId}/billing/cancel",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `DELETE /api/orgs/{orgId}/billing/change-plan`
+///
+/// Tag: Billing. Success: `200`.
+pub const UNDO_SCHEDULED_PLAN_CHANGE: Op = Op {
+    id: "undoScheduledPlanChange",
+    method: Method::Delete,
+    template: "/api/orgs/{orgId}/billing/change-plan",
+    params: &[("orgId", ParamKind::Segment)],
+    query: &[],
+    success: 200,
+};
+/// `PATCH /api/orgs/{orgId}/billing/details`
+///
+/// Tag: Billing. Success: `200`.
+pub const UPDATE_BILLING_DETAILS: Op = Op {
+    id: "updateBillingDetails",
+    method: Method::Patch,
+    template: "/api/orgs/{orgId}/billing/details",
     params: &[("orgId", ParamKind::Segment)],
     query: &[],
     success: 200,
@@ -2484,6 +2604,8 @@ pub const YANK_PROVIDER_VERSION: Op = Op {
 /// Every operation generated here, for the contract test to walk.
 pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
+    &ACCEPT_QUARANTINED_STATE,
+    #[allow(deprecated)]
     &ADD_BILLING_CONTACT,
     #[allow(deprecated)]
     &ADD_ORG_MEMBER,
@@ -2512,6 +2634,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &CLAIM_ORG_DOMAIN,
     #[allow(deprecated)]
+    &CLOSE_PLAN_BYPASS,
+    #[allow(deprecated)]
     &CREATE_ORG,
     #[allow(deprecated)]
     &CREATE_ORG_TOKEN,
@@ -2539,6 +2663,8 @@ pub const ALL: &[&Op] = &[
     &DEPRECATE_MODULE,
     #[allow(deprecated)]
     &DEPRECATE_MODULE_VERSION,
+    #[allow(deprecated)]
+    &DISCARD_QUARANTINED_STATE,
     #[allow(deprecated)]
     &DOWNLOAD_MODULE_VERSION,
     #[allow(deprecated)]
@@ -2578,7 +2704,7 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &GET_HEALTH,
     #[allow(deprecated)]
-    &GET_INVOICE_PDF_URL,
+    &GET_INVOICE_PDF,
     #[allow(deprecated)]
     &GET_LATEST_PLAN_BINARY,
     #[allow(deprecated)]
@@ -2722,6 +2848,10 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_PAYMENTS,
     #[allow(deprecated)]
+    &LIST_PLAN_INDICATORS,
+    #[allow(deprecated)]
+    &LIST_PLAN_VERSION_APPROVALS,
+    #[allow(deprecated)]
     &LIST_PLAN_VERSIONS,
     #[allow(deprecated)]
     &LIST_POLICIES,
@@ -2732,7 +2862,7 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_PROVIDER_VERSIONS,
     #[allow(deprecated)]
-    &LIST_REUSABLE_BILLING_BUSINESSES,
+    &LIST_QUARANTINED_STATE,
     #[allow(deprecated)]
     &LIST_SEEN_ASNS,
     #[allow(deprecated)]
@@ -2746,11 +2876,15 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &LIST_WORKSPACE_PROVIDERS,
     #[allow(deprecated)]
+    &OPEN_PLAN_BYPASS,
+    #[allow(deprecated)]
     &OPEN_STATE_LINEAGE_RESET,
     #[allow(deprecated)]
     &OVERRIDE_BUILD_GATE,
     #[allow(deprecated)]
     &OVERRIDE_MODULE_VERSION_CONSUMABLE,
+    #[allow(deprecated)]
+    &PAUSE_SUBSCRIPTION,
     #[allow(deprecated)]
     &PREVIEW_ACCESS_RULES,
     #[allow(deprecated)]
@@ -2784,6 +2918,8 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &RESCAN_WORKSPACE_PROVIDERS,
     #[allow(deprecated)]
+    &RESUME_SUBSCRIPTION,
+    #[allow(deprecated)]
     &REVOKE_ORG_TOKEN,
     #[allow(deprecated)]
     &ROTATE_ORG_TOKEN,
@@ -2810,8 +2946,6 @@ pub const ALL: &[&Op] = &[
     #[allow(deprecated)]
     &START_CHECKOUT,
     #[allow(deprecated)]
-    &START_INVOICE,
-    #[allow(deprecated)]
     &START_PAYMENT_METHOD_UPDATE,
     #[allow(deprecated)]
     &SUBMIT_APP_FORM,
@@ -2829,6 +2963,10 @@ pub const ALL: &[&Op] = &[
     &UNDEPRECATE_MODULE_VERSION,
     #[allow(deprecated)]
     &UNDO_CANCEL_SUBSCRIPTION,
+    #[allow(deprecated)]
+    &UNDO_SCHEDULED_PLAN_CHANGE,
+    #[allow(deprecated)]
+    &UPDATE_BILLING_DETAILS,
     #[allow(deprecated)]
     &UPDATE_CONSUMPTION_BLOCK,
     #[allow(deprecated)]
