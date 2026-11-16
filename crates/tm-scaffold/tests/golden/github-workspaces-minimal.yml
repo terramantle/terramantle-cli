@@ -266,7 +266,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -LsSf \
-            "https://github.com/terramantle/terramantle-cli/releases/download/v0.10.1/cli-installer.sh" | sh
+            "https://github.com/terramantle/terramantle-cli/releases/download/v0.11.0/cli-installer.sh" | sh
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Init, validate, plan
@@ -524,7 +524,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -LsSf \
-            "https://github.com/terramantle/terramantle-cli/releases/download/v0.10.1/cli-installer.sh" | sh
+            "https://github.com/terramantle/terramantle-cli/releases/download/v0.11.0/cli-installer.sh" | sh
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Download the plan digests
@@ -630,7 +630,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -LsSf \
-            "https://github.com/terramantle/terramantle-cli/releases/download/v0.10.1/cli-installer.sh" | sh
+            "https://github.com/terramantle/terramantle-cli/releases/download/v0.11.0/cli-installer.sh" | sh
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Every stack has a committed lock file
