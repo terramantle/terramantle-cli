@@ -262,19 +262,28 @@ fn codegen(check: bool) -> Res<()> {
                  pub mod operations;\n"
         .to_string();
 
-    let formatted = rustfmt_module(&[
-        ("models.rs", &models),
-        ("operations.rs", &operations),
-        ("mod.rs", &r#mod),
-    ])?;
+    // Written exactly as `prettyplease` laid it out, with no rustfmt pass. The
+    // output used to be piped through whichever `rustfmt` was on PATH so that
+    // `cargo fmt --all -- --check` would accept it, which made the committed
+    // tree a function of the toolchain that generated it: rustfmt 1.100 moved
+    // the closing `*/` of a block doc comment, and code generated a week
+    // earlier failed CI's format step without a line of it changing. The
+    // module is `#[rustfmt::skip]` in `crates/tm-api/src/lib.rs` instead, so
+    // `cargo fmt` never reads these files, and what is generated depends only
+    // on the spec and on the crate versions in `xtask/Cargo.lock`.
+    let generated = [
+        ("models.rs", models),
+        ("operations.rs", operations),
+        ("mod.rs", r#mod),
+    ];
 
     let mut stale = Vec::new();
-    for (name, content) in &formatted {
+    for (name, content) in &generated {
         let path = root.join("crates/tm-api/src/generated").join(name);
         if check {
             let current = std::fs::read_to_string(&path).unwrap_or_default();
             if &current != content {
-                stale.push(name.clone());
+                stale.push((*name).to_string());
             }
         } else {
             std::fs::create_dir_all(path.parent().unwrap())?;
@@ -308,47 +317,4 @@ fn codegen(check: bool) -> Res<()> {
     println!("tombstoned: {} (no constants emitted: {})", tombstones.len(), tombstones.join(", "));
     println!("extensions: {} skipped (LOCK/UNLOCK)", extensions.len());
     Ok(())
-}
-
-/// Format the generated module exactly as `cargo fmt` would.
-///
-/// Two subtleties, both learned the hard way:
-///
-/// 1. Formatting is done on FILES, not through stdin. The two disagree -- piped
-///    rustfmt leaves the closing `*/` of a block doc comment one space short of
-///    where `cargo fmt` puts it, so a stdin-formatted file is dirty the moment
-///    CI runs `cargo fmt --all -- --check`. By path it matches, and is
-///    idempotent.
-/// 2. All the files are written to one temp directory FIRST, because `mod.rs`
-///    declares `pub mod models;` and rustfmt resolves that relative to the file
-///    it is given. Formatting `mod.rs` alone fails with "failed to resolve mod".
-///    (`--skip-children` would avoid this but is not on stable.)
-fn rustfmt_module(files: &[(&str, &String)]) -> Res<Vec<(String, String)>> {
-    let dir = std::env::temp_dir().join(format!("tm-xtask-fmt-{}", std::process::id()));
-    std::fs::create_dir_all(&dir)?;
-
-    for (name, content) in files {
-        std::fs::write(dir.join(name), content.as_str())?;
-    }
-
-    let mut cmd = Command::new("rustfmt");
-    cmd.args(["--edition", "2021", "--quiet"]);
-    for (name, _) in files {
-        cmd.arg(dir.join(name));
-    }
-    let status = cmd.status()?;
-    if !status.success() {
-        let _ = std::fs::remove_dir_all(&dir);
-        return Err("rustfmt failed on generated output".into());
-    }
-
-    let mut out = Vec::new();
-    for (name, _) in files {
-        out.push((
-            (*name).to_string(),
-            std::fs::read_to_string(dir.join(name))?,
-        ));
-    }
-    let _ = std::fs::remove_dir_all(&dir);
-    Ok(out)
 }

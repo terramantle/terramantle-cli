@@ -24,6 +24,12 @@ pub mod spec;
 ///
 /// Regenerate with `cargo xtask codegen`; CI runs `--check` and fails on a stale
 /// tree. Nothing in here is hand-edited.
+///
+/// `rustfmt::skip` because the generator is the only thing that formats this
+/// module (with a `prettyplease` pinned in `xtask/Cargo.lock`). `cargo fmt`
+/// does not descend into a skipped `mod`, so a new rustfmt release cannot turn
+/// committed generated code into a formatting failure.
+#[rustfmt::skip]
 pub mod generated;
 
 mod modules;

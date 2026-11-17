@@ -94,8 +94,7 @@ pub const APPROVE_PLAN_VERSION: Op = Op {
 pub const ATTEST_PROVIDER_POLICY_BLOCK: Op = Op {
     id: "attestProviderPolicyBlock",
     method: Method::Post,
-    template:
-        "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/policy-attest",
+    template: "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/policy-attest",
     params: &[
         ("orgId", ParamKind::Segment),
         ("upstream", ParamKind::Segment),
@@ -113,10 +112,7 @@ pub const ATTEST_STATE_POLICY_BLOCK: Op = Op {
     id: "attestStatePolicyBlock",
     method: Method::Post,
     template: "/api/v1/{orgId}/state/{workspace}/policy/attest",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -126,8 +122,7 @@ pub const ATTEST_STATE_POLICY_BLOCK: Op = Op {
 pub const AUTO_PATCH_PROVIDER_VERSION: Op = Op {
     id: "autoPatchProviderVersion",
     method: Method::Post,
-    template:
-        "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/auto-patch",
+    template: "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/auto-patch",
     params: &[
         ("orgId", ParamKind::Segment),
         ("upstream", ParamKind::Segment),
@@ -160,8 +155,7 @@ pub const BLOCK_MODULE_VERSION: Op = Op {
 pub const BLOCKLIST_PROVIDER_VERSION: Op = Op {
     id: "blocklistProviderVersion",
     method: Method::Post,
-    template:
-        "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/blocklist",
+    template: "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/blocklist",
     params: &[
         ("orgId", ParamKind::Segment),
         ("upstream", ParamKind::Segment),
@@ -229,10 +223,7 @@ pub const CLOSE_PLAN_BYPASS: Op = Op {
     id: "closePlanBypass",
     method: Method::Delete,
     template: "/api/v1/{orgId}/state/{workspace}/plan-bypass",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -298,10 +289,7 @@ pub const DELETE_NAMESPACE_MODULE: Op = Op {
     id: "deleteNamespaceModule",
     method: Method::Delete,
     template: "/api/namespaces/{namespace}/modules/{name}",
-    params: &[
-        ("namespace", ParamKind::Segment),
-        ("name", ParamKind::Segment),
-    ],
+    params: &[("namespace", ParamKind::Segment), ("name", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -365,10 +353,7 @@ pub const DELETE_STATE_WORKSPACE: Op = Op {
     id: "deleteStateWorkspace",
     method: Method::Delete,
     template: "/api/v1/{orgId}/state/{workspace}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -379,10 +364,7 @@ pub const DELETE_VCS_TRUST: Op = Op {
     id: "deleteVcsTrust",
     method: Method::Delete,
     template: "/api/orgs/{orgId}/vcs-trust/{trustId}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("trustId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("trustId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -393,10 +375,7 @@ pub const DELETE_WORKSPACE_PLAN_POLICY_CONFIG: Op = Op {
     id: "deleteWorkspacePlanPolicyConfig",
     method: Method::Delete,
     template: "/api/v1/{orgId}/plans/{workspace}/policy-config",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -507,10 +486,7 @@ pub const FORCE_UNLOCK_STATE: Op = Op {
     id: "forceUnlockState",
     method: Method::Delete,
     template: "/api/v1/{orgId}/state/{workspace}/lock",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -675,10 +651,7 @@ pub const GET_INVOICE_PDF: Op = Op {
     id: "getInvoicePdf",
     method: Method::Get,
     template: "/api/orgs/{orgId}/billing/invoices/{invoiceId}/pdf",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("invoiceId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("invoiceId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -858,8 +831,7 @@ pub const GET_ORG_PROVIDER_SHASUMS: Op = Op {
 pub const GET_ORG_PROVIDER_SHASUMS_SIG: Op = Op {
     id: "getOrgProviderShasumsSig",
     method: Method::Get,
-    template:
-        "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/{upstream}/SHA256SUMS.sig",
+    template: "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/{upstream}/SHA256SUMS.sig",
     params: &[
         ("orgSlug", ParamKind::Segment),
         ("namespace", ParamKind::Segment),
@@ -911,8 +883,7 @@ pub const GET_ORG_SELF_BUILT_PROVENANCE: Op = Op {
 pub const GET_ORG_SELF_BUILT_SHASUMS: Op = Op {
     id: "getOrgSelfBuiltShasums",
     method: Method::Get,
-    template:
-        "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/SHA256SUMS",
+    template: "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/SHA256SUMS",
     params: &[
         ("orgSlug", ParamKind::Segment),
         ("namespace", ParamKind::Segment),
@@ -946,8 +917,7 @@ pub const GET_ORG_SELF_BUILT_SHASUMS_SIG: Op = Op {
 pub const GET_ORG_SELF_BUILT_ZIP: Op = Op {
     id: "getOrgSelfBuiltZip",
     method: Method::Get,
-    template:
-        "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/{filename}",
+    template: "/v1/providers/{orgSlug}/{namespace}/{type}/{version}/files/self_built/{lineage}/{filename}",
     params: &[
         ("orgSlug", ParamKind::Segment),
         ("namespace", ParamKind::Segment),
@@ -977,10 +947,7 @@ pub const GET_PLAN_ATTESTATION_BY_HASH: Op = Op {
     id: "getPlanAttestationByHash",
     method: Method::Get,
     template: "/api/v1/{orgId}/plans/{workspace}/attestation",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &["hash"],
     success: 200,
 };
@@ -1339,8 +1306,7 @@ pub const GET_SELF_BUILT_SHASUMS: Op = Op {
 pub const GET_SELF_BUILT_SHASUMS_SIG: Op = Op {
     id: "getSelfBuiltShasumsSig",
     method: Method::Get,
-    template:
-        "/v1/providers/{namespace}/{type}/{version}/files/self_built/{lineage}/SHA256SUMS.sig",
+    template: "/v1/providers/{namespace}/{type}/{version}/files/self_built/{lineage}/SHA256SUMS.sig",
     params: &[
         ("namespace", ParamKind::Segment),
         ("type", ParamKind::Segment),
@@ -1385,10 +1351,7 @@ pub const GET_STATE_LOCK: Op = Op {
     id: "getStateLock",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/lock",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1429,10 +1392,7 @@ pub const GET_STATE_WORKSPACE_ACTIVITY: Op = Op {
     id: "getStateWorkspaceActivity",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/activity",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1443,10 +1403,7 @@ pub const GET_STATE_WORKSPACE_DECISIONS: Op = Op {
     id: "getStateWorkspaceDecisions",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/decisions",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &["limit"],
     success: 200,
 };
@@ -1468,10 +1425,7 @@ pub const GET_WORKSPACE_PLAN_POLICY_CONFIG: Op = Op {
     id: "getWorkspacePlanPolicyConfig",
     method: Method::Get,
     template: "/api/v1/{orgId}/plans/{workspace}/policy-config",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1588,10 +1542,7 @@ pub const LIST_NAMESPACE_MODULE_VERSIONS: Op = Op {
     id: "listNamespaceModuleVersions",
     method: Method::Get,
     template: "/api/namespaces/{namespace}/modules/{name}/versions",
-    params: &[
-        ("namespace", ParamKind::Segment),
-        ("name", ParamKind::Segment),
-    ],
+    params: &[("namespace", ParamKind::Segment), ("name", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1709,10 +1660,7 @@ pub const LIST_PLAN_VERSIONS: Op = Op {
     id: "listPlanVersions",
     method: Method::Get,
     template: "/api/v1/{orgId}/plans/{workspace}/versions",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &["limit", "offset"],
     success: 200,
 };
@@ -1768,10 +1716,7 @@ pub const LIST_PROVIDER_VERSIONS: Op = Op {
     id: "listProviderVersions",
     method: Method::Get,
     template: "/v1/providers/{namespace}/{type}/versions",
-    params: &[
-        ("namespace", ParamKind::Segment),
-        ("type", ParamKind::Segment),
-    ],
+    params: &[("namespace", ParamKind::Segment), ("type", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1782,10 +1727,7 @@ pub const LIST_QUARANTINED_STATE: Op = Op {
     id: "listQuarantinedState",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/quarantine",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &["all"],
     success: 200,
 };
@@ -1807,10 +1749,7 @@ pub const LIST_STATE_FINDINGS: Op = Op {
     id: "listStateFindings",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/findings",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1821,10 +1760,7 @@ pub const LIST_STATE_VERSIONS: Op = Op {
     id: "listStateVersions",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/versions",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &["limit", "offset"],
     success: 200,
 };
@@ -1857,10 +1793,7 @@ pub const LIST_WORKSPACE_PROVIDERS: Op = Op {
     id: "listWorkspaceProviders",
     method: Method::Get,
     template: "/api/v1/{orgId}/state/{workspace}/providers",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1871,10 +1804,7 @@ pub const OPEN_PLAN_BYPASS: Op = Op {
     id: "openPlanBypass",
     method: Method::Post,
     template: "/api/v1/{orgId}/state/{workspace}/plan-bypass",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -1885,10 +1815,7 @@ pub const OPEN_STATE_LINEAGE_RESET: Op = Op {
     id: "openStateLineageReset",
     method: Method::Post,
     template: "/api/v1/{orgId}/state/{workspace}/lineage-reset",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2061,10 +1988,7 @@ pub const REMOVE_ORG_MEMBER: Op = Op {
     id: "removeOrgMember",
     method: Method::Delete,
     template: "/api/orgs/{orgId}/members/{userId}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("userId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("userId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2122,10 +2046,7 @@ pub const RESCAN_STATE_WORKSPACE: Op = Op {
     id: "rescanStateWorkspace",
     method: Method::Post,
     template: "/api/v1/{orgId}/state/{workspace}/rescan",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2136,10 +2057,7 @@ pub const RESCAN_WORKSPACE_PROVIDERS: Op = Op {
     id: "rescanWorkspaceProviders",
     method: Method::Post,
     template: "/api/v1/{orgId}/state/{workspace}/providers/rescan",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2161,10 +2079,7 @@ pub const REVOKE_ORG_TOKEN: Op = Op {
     id: "revokeOrgToken",
     method: Method::Delete,
     template: "/api/orgs/{orgId}/tokens/{tokenId}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("tokenId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("tokenId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2175,10 +2090,7 @@ pub const ROTATE_ORG_TOKEN: Op = Op {
     id: "rotateOrgToken",
     method: Method::Post,
     template: "/api/orgs/{orgId}/tokens/{tokenId}/rotate",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("tokenId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("tokenId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2211,10 +2123,7 @@ pub const SET_BILLING_ADMIN: Op = Op {
     id: "setBillingAdmin",
     method: Method::Patch,
     template: "/api/orgs/{orgId}/billing/admin/{userId}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("userId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("userId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2277,8 +2186,7 @@ pub const SET_POLICY_INSTANCE_OVERRIDE: Op = Op {
 pub const SET_PROVIDER_VERSION_SERVE_OVERRIDE: Op = Op {
     id: "setProviderVersionServeOverride",
     method: Method::Put,
-    template:
-        "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/override",
+    template: "/api/orgs/{orgId}/providers/{upstream}/{namespace}/{type}/versions/{version}/override",
     params: &[
         ("orgId", ParamKind::Segment),
         ("upstream", ParamKind::Segment),
@@ -2296,10 +2204,7 @@ pub const SET_STATE_WORKSPACE_SERVE_OVERRIDE: Op = Op {
     id: "setStateWorkspaceServeOverride",
     method: Method::Put,
     template: "/api/v1/{orgId}/state/{workspace}/serve-override",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2310,10 +2215,7 @@ pub const SET_WORKSPACE_PLAN_POLICY_CONFIG: Op = Op {
     id: "setWorkspacePlanPolicyConfig",
     method: Method::Put,
     template: "/api/v1/{orgId}/plans/{workspace}/policy-config",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2492,10 +2394,7 @@ pub const UPDATE_ORG_MEMBER_ROLE: Op = Op {
     id: "updateOrgMemberRole",
     method: Method::Patch,
     template: "/api/orgs/{orgId}/members/{userId}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("userId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("userId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2566,10 +2465,7 @@ pub const UPDATE_STATE_WORKSPACE_SETTINGS: Op = Op {
     id: "updateStateWorkspaceSettings",
     method: Method::Patch,
     template: "/api/v1/{orgId}/state/{workspace}/settings",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("workspace", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("workspace", ParamKind::Segment)],
     query: &[],
     success: 200,
 };
@@ -2580,10 +2476,7 @@ pub const UPDATE_VCS_TRUST: Op = Op {
     id: "updateVcsTrust",
     method: Method::Patch,
     template: "/api/orgs/{orgId}/vcs-trust/{trustId}",
-    params: &[
-        ("orgId", ParamKind::Segment),
-        ("trustId", ParamKind::Segment),
-    ],
+    params: &[("orgId", ParamKind::Segment), ("trustId", ParamKind::Segment)],
     query: &[],
     success: 200,
 };

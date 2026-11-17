@@ -96,7 +96,7 @@ schema rejects every real response instead.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ActorType {
     #[serde(rename = "human")]
@@ -117,7 +117,9 @@ impl ::std::fmt::Display for ActorType {
 }
 impl ::std::str::FromStr for ActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "human" => Ok(Self::Human),
             "bot_token" => Ok(Self::BotToken),
@@ -128,7 +130,9 @@ impl ::std::str::FromStr for ActorType {
 }
 impl ::std::convert::TryFrom<&str> for ActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -150,12 +154,14 @@ impl ::std::ops::Deref for AllowedRefs {
         &self.0
     }
 }
-impl ::std::convert::From<AllowedRefs> for ::std::option::Option<::std::vec::Vec<AllowedRefsItem>> {
+impl ::std::convert::From<AllowedRefs>
+for ::std::option::Option<::std::vec::Vec<AllowedRefsItem>> {
     fn from(value: AllowedRefs) -> Self {
         value.0
     }
 }
-impl ::std::convert::From<::std::option::Option<::std::vec::Vec<AllowedRefsItem>>> for AllowedRefs {
+impl ::std::convert::From<::std::option::Option<::std::vec::Vec<AllowedRefsItem>>>
+for AllowedRefs {
     fn from(value: ::std::option::Option<::std::vec::Vec<AllowedRefsItem>>) -> Self {
         Self(value)
     }
@@ -177,11 +183,11 @@ impl ::std::convert::From<AllowedRefsItem> for ::std::string::String {
 }
 impl ::std::str::FromStr for AllowedRefsItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
-            ::std::sync::LazyLock::new(|| {
-                ::regress::Regex::new("^(tag:)?[A-Za-z0-9._/+*-]+$").unwrap()
-            });
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> = ::std::sync::LazyLock::new(||
+        { ::regress::Regex::new("^(tag:)?[A-Za-z0-9._/+*-]+$").unwrap() });
         if PATTERN.find(value).is_none() {
             return Err("doesn't match pattern \"^(tag:)?[A-Za-z0-9._/+*-]+$\"".into());
         }
@@ -190,7 +196,9 @@ impl ::std::str::FromStr for AllowedRefsItem {
 }
 impl ::std::convert::TryFrom<&str> for AllowedRefsItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -223,9 +231,9 @@ pub struct ApiSpecLinks {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub asyncapi_url: ::std::option::Option<::std::string::String>,
     /**The redirect URI `/docs` runs its PKCE flow against. Published so an operator can diff
-    it against the application's registered redirect URIs instead of guessing why sign-in
-    fails — a missing entry there is that flow's one failure mode.
-    */
+it against the application's registered redirect URIs instead of guessing why sign-in
+fails — a missing entry there is that flow's one failure mode.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub docs_redirect_uri: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -254,7 +262,7 @@ pub struct ApplyPolicyBaselineResponse {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ApplyPolicyBaselineResponseRescan {
     #[serde(rename = "queued")]
@@ -275,7 +283,9 @@ impl ::std::fmt::Display for ApplyPolicyBaselineResponseRescan {
 }
 impl ::std::str::FromStr for ApplyPolicyBaselineResponseRescan {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "queued" => Ok(Self::Queued),
             "coalesced" => Ok(Self::Coalesced),
@@ -286,11 +296,14 @@ impl ::std::str::FromStr for ApplyPolicyBaselineResponseRescan {
 }
 impl ::std::convert::TryFrom<&str> for ApplyPolicyBaselineResponseRescan {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for ApplyPolicyBaselineResponseRescan {
+impl ::std::convert::TryFrom<::std::string::String>
+for ApplyPolicyBaselineResponseRescan {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -306,8 +319,8 @@ pub struct ApplyPolicyBaselineResponseSkippedItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
     /**The only reason a baseline policy is not created, and it is not an
-    error: the org already has one by that name.
-    */
+error: the org already has one by that name.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub reason: ::std::option::Option<ApplyPolicyBaselineResponseSkippedItemReason>,
 }
@@ -324,7 +337,7 @@ error: the org already has one by that name.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ApplyPolicyBaselineResponseSkippedItemReason {
     #[serde(rename = "duplicate_name")]
@@ -339,7 +352,9 @@ impl ::std::fmt::Display for ApplyPolicyBaselineResponseSkippedItemReason {
 }
 impl ::std::str::FromStr for ApplyPolicyBaselineResponseSkippedItemReason {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "duplicate_name" => Ok(Self::DuplicateName),
             _ => Err("invalid value".into()),
@@ -348,13 +363,14 @@ impl ::std::str::FromStr for ApplyPolicyBaselineResponseSkippedItemReason {
 }
 impl ::std::convert::TryFrom<&str> for ApplyPolicyBaselineResponseSkippedItemReason {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for ApplyPolicyBaselineResponseSkippedItemReason
-{
+for ApplyPolicyBaselineResponseSkippedItemReason {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -392,15 +408,15 @@ pub struct ArtefactDeleteResult {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub complete: ::std::option::Option<bool>,
     /**`policy_decisions` rows that now point at a row which is gone. Not a problem to fix —
-    the refusal ledger is append-only and its schema says it must outlive its subject — but
-    a number the operator should have seen. The console shows them as plain text afterwards.
-    */
+the refusal ledger is append-only and its schema says it must outlive its subject — but
+a number the operator should have seen. The console shows them as plain text afterwards.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub dangling_decisions: ::std::option::Option<i64>,
     /**Prose about what was left behind and why: a kept workspace block, a moved current-state
-    pointer, a broken lock, a kept module row, unresolved inbound dependencies, or the
-    reason the call was incomplete. Written to be read, not parsed.
-    */
+pointer, a broken lock, a kept module row, unresolved inbound dependencies, or the
+reason the call was incomplete. Written to be read, not parsed.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub notes: ::std::vec::Vec<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -411,12 +427,9 @@ pub struct ArtefactDeleteResult {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub row_total: ::std::option::Option<i64>,
     /**Rows removed per table; only non-zero tables appear. An empty object with
-    `complete: true` means the rows were already gone and only objects were reclaimed.
-    */
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
+`complete: true` means the rows were already gone and only objects were reclaimed.
+*/
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
     pub rows: ::std::collections::HashMap<::std::string::String, i64>,
 }
 ///`ArtefactDeleteResultObjects`
@@ -425,14 +438,14 @@ pub struct ArtefactDeleteResultObjects {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub deleted: ::std::option::Option<i64>,
     /**Per-key failures. A bulk delete that throws is retried one key at a time, so a
-    single bad key cannot make the other 999 look like failures.
-    */
+single bad key cannot make the other 999 look like failures.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub failed: ::std::vec::Vec<ArtefactDeleteResultObjectsFailedItem>,
     /**Object keys this call did not reach, or prefix pages it did not finish. Non-zero
-    implies `complete: false`. Also non-zero when no R2 binding is configured at all,
-    which is reported rather than counted as a successful zero.
-    */
+implies `complete: false`. Also non-zero when no R2 binding is configured at all,
+which is reported rather than counted as a successful zero.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remaining: ::std::option::Option<i64>,
 }
@@ -450,8 +463,8 @@ pub struct AsnLookup {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub asns: ::std::vec::Vec<AsnName>,
     /**`true` only when `asns` is empty because the mirror has never been populated. An empty
-    `asns` with `stale: false` is a genuine "no match".
-    */
+`asns` with `stale: false` is a genuine "no match".
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub stale: ::std::option::Option<bool>,
 }
@@ -477,10 +490,7 @@ pub struct AttestProviderPolicyBlockResponse {
     pub namespace: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub ok: ::std::option::Option<bool>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
@@ -506,7 +516,7 @@ pub struct AttestStatePolicyBlockResponse {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum AuditAction {
     #[serde(rename = "module.publish")]
@@ -618,7 +628,9 @@ impl ::std::fmt::Display for AuditAction {
             Self::ModuleDeprecate => f.write_str("module.deprecate"),
             Self::ModuleUndeprecate => f.write_str("module.undeprecate"),
             Self::ModuleServeOverride => f.write_str("module.serve_override"),
-            Self::ModuleVersionServeOverride => f.write_str("module.version_serve_override"),
+            Self::ModuleVersionServeOverride => {
+                f.write_str("module.version_serve_override")
+            }
             Self::MemberInvite => f.write_str("member.invite"),
             Self::MemberRemove => f.write_str("member.remove"),
             Self::MemberRoleChange => f.write_str("member.role_change"),
@@ -651,7 +663,9 @@ impl ::std::fmt::Display for AuditAction {
             Self::StateQuarantineAccept => f.write_str("state.quarantine.accept"),
             Self::StateQuarantineDiscard => f.write_str("state.quarantine.discard"),
             Self::ProviderBuildRequested => f.write_str("provider.build_requested"),
-            Self::ProviderAutoPatchRequested => f.write_str("provider.auto_patch_requested"),
+            Self::ProviderAutoPatchRequested => {
+                f.write_str("provider.auto_patch_requested")
+            }
             Self::ProviderBuildEntitled => f.write_str("provider.build_entitled"),
             Self::ProviderBuildOverride => f.write_str("provider.build_override"),
             Self::ProviderBuildYanked => f.write_str("provider.build_yanked"),
@@ -662,13 +676,17 @@ impl ::std::fmt::Display for AuditAction {
             Self::ProviderPolicyAttest => f.write_str("provider.policy.attest"),
             Self::ProviderPolicyDenied => f.write_str("provider.policy.denied"),
             Self::ProviderServeOverride => f.write_str("provider.serve_override"),
-            Self::ProviderVersionServeOverride => f.write_str("provider.version_serve_override"),
+            Self::ProviderVersionServeOverride => {
+                f.write_str("provider.version_serve_override")
+            }
         }
     }
 }
 impl ::std::str::FromStr for AuditAction {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "module.publish" => Ok(Self::ModulePublish),
             "module.delete" => Ok(Self::ModuleDelete),
@@ -726,7 +744,9 @@ impl ::std::str::FromStr for AuditAction {
 }
 impl ::std::convert::TryFrom<&str> for AuditAction {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -753,8 +773,8 @@ pub struct AuditEvent {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**A **JSON string**, not an object — stored verbatim as written. Shape varies by
-    `action`; parse it per action rather than treating it as a stable contract.
-    */
+`action`; parse it per action rather than treating it as a stable contract.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub metadata: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -769,10 +789,7 @@ pub struct AuditEvent {
 pub struct BacklogProviderRef {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<ProviderUpstream>,
@@ -794,7 +811,7 @@ patch remediation window; `onboarding` is the one-off onboarding and deployment 
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingAddonKey {
     #[serde(rename = "users")]
@@ -818,7 +835,9 @@ impl ::std::fmt::Display for BillingAddonKey {
 }
 impl ::std::str::FromStr for BillingAddonKey {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "users" => Ok(Self::Users),
             "outpost" => Ok(Self::Outpost),
@@ -830,7 +849,9 @@ impl ::std::str::FromStr for BillingAddonKey {
 }
 impl ::std::convert::TryFrom<&str> for BillingAddonKey {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -851,10 +872,10 @@ pub struct BillingAddonsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub addons: ::std::option::Option<BillingAddonsBodyAddons>,
     /**Buy the one-off onboarding package. It is **never** an item in the checkout:
-    the plan's trial covers the whole session, and a one-off must not trial. The request is
-    recorded, and once the subscription is active and out of its trial the Worker charges it
-    to the saved card (or invoices it, for an invoiced subscription).
-    */
+the plan's trial covers the whole session, and a one-off must not trial. The request is
+recorded, and once the subscription is active and out of its trial the Worker charges it
+to the saved card (or invoices it, for an invoiced subscription).
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub onboarding: ::std::option::Option<bool>,
 }
@@ -905,7 +926,9 @@ impl ::std::convert::From<BillingAddressCountry> for ::std::string::String {
 }
 impl ::std::str::FromStr for BillingAddressCountry {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 2usize {
             return Err("longer than 2 characters".into());
         }
@@ -917,7 +940,9 @@ impl ::std::str::FromStr for BillingAddressCountry {
 }
 impl ::std::convert::TryFrom<&str> for BillingAddressCountry {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -961,7 +986,7 @@ pub struct BillingConfig {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingConfigEnvironment {
     #[serde(rename = "test")]
@@ -979,7 +1004,9 @@ impl ::std::fmt::Display for BillingConfigEnvironment {
 }
 impl ::std::str::FromStr for BillingConfigEnvironment {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "test" => Ok(Self::Test),
             "live" => Ok(Self::Live),
@@ -989,7 +1016,9 @@ impl ::std::str::FromStr for BillingConfigEnvironment {
 }
 impl ::std::convert::TryFrom<&str> for BillingConfigEnvironment {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1023,7 +1052,7 @@ pub struct BillingContact {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingContactSource {
     #[serde(rename = "invoice")]
@@ -1047,7 +1076,9 @@ impl ::std::fmt::Display for BillingContactSource {
 }
 impl ::std::str::FromStr for BillingContactSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "invoice" => Ok(Self::Invoice),
             "payer" => Ok(Self::Payer),
@@ -1059,7 +1090,9 @@ impl ::std::str::FromStr for BillingContactSource {
 }
 impl ::std::convert::TryFrom<&str> for BillingContactSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1088,7 +1121,7 @@ pub struct BillingContacts {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingCycle {
     #[serde(rename = "month")]
@@ -1106,7 +1139,9 @@ impl ::std::fmt::Display for BillingCycle {
 }
 impl ::std::str::FromStr for BillingCycle {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "month" => Ok(Self::Month),
             "year" => Ok(Self::Year),
@@ -1116,7 +1151,9 @@ impl ::std::str::FromStr for BillingCycle {
 }
 impl ::std::convert::TryFrom<&str> for BillingCycle {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1178,7 +1215,9 @@ impl ::std::convert::From<BillingDetailsBodyBusinessName> for ::std::string::Str
 }
 impl ::std::str::FromStr for BillingDetailsBodyBusinessName {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 200usize {
             return Err("longer than 200 characters".into());
         }
@@ -1187,7 +1226,9 @@ impl ::std::str::FromStr for BillingDetailsBodyBusinessName {
 }
 impl ::std::convert::TryFrom<&str> for BillingDetailsBodyBusinessName {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1259,7 +1300,7 @@ pub struct BillingInvoice {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingInvoiceCollectionMethod {
     #[serde(rename = "card")]
@@ -1277,7 +1318,9 @@ impl ::std::fmt::Display for BillingInvoiceCollectionMethod {
 }
 impl ::std::str::FromStr for BillingInvoiceCollectionMethod {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "card" => Ok(Self::Card),
             "invoice" => Ok(Self::Invoice),
@@ -1287,7 +1330,9 @@ impl ::std::str::FromStr for BillingInvoiceCollectionMethod {
 }
 impl ::std::convert::TryFrom<&str> for BillingInvoiceCollectionMethod {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1310,7 +1355,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BillingInvoiceCollection
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingInvoiceKind {
     #[serde(rename = "payment")]
@@ -1328,7 +1373,9 @@ impl ::std::fmt::Display for BillingInvoiceKind {
 }
 impl ::std::str::FromStr for BillingInvoiceKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "payment" => Ok(Self::Payment),
             "invoice" => Ok(Self::Invoice),
@@ -1338,7 +1385,9 @@ impl ::std::str::FromStr for BillingInvoiceKind {
 }
 impl ::std::convert::TryFrom<&str> for BillingInvoiceKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1420,10 +1469,10 @@ pub struct BillingSeats {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub included: ::std::option::Option<i64>,
     /**Whether the estimate is actually being charged: true only while an `active` Dodo
-    subscription with an overage price backs the org, so a UI can show the count without
-    implying a charge. The charge itself is made in arrears by the daily seat-overage cron:
-    a one-click charge to the saved card, or an invoice for an invoiced subscription.
-    */
+subscription with an overage price backs the org, so a UI can show the count without
+implying a charge. The charge itself is made in arrears by the daily seat-overage cron:
+a one-click charge to the saved card, or an invoice for an invoiced subscription.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub metered: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -1463,8 +1512,8 @@ pub struct BillingState {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub limits: ::std::option::Option<TierFeatureFlags>,
     /**The one-off package: `requested` at checkout, then `charged` once the subscription is
-    active and out of its trial. `null` when not bought.
-    */
+active and out of its trial. `null` when not bought.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub onboarding_status: ::std::option::Option<BillingStateOnboardingStatus>,
     ///An operator-issued invoice whose subscription is not active yet (it activates when the invoice is paid). Always `null` for an org that bought by checkout.
@@ -1524,7 +1573,7 @@ active and out of its trial. `null` when not bought.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingStateOnboardingStatus {
     #[serde(rename = "requested")]
@@ -1542,7 +1591,9 @@ impl ::std::fmt::Display for BillingStateOnboardingStatus {
 }
 impl ::std::str::FromStr for BillingStateOnboardingStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "requested" => Ok(Self::Requested),
             "charged" => Ok(Self::Charged),
@@ -1552,7 +1603,9 @@ impl ::std::str::FromStr for BillingStateOnboardingStatus {
 }
 impl ::std::convert::TryFrom<&str> for BillingStateOnboardingStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1577,10 +1630,10 @@ pub struct BillingStateUsage {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct BillingSubscription {
     /**`card` renews against the saved card; `invoice` is billed by Dodo invoices the Worker
-    emails. An org cannot choose `invoice`: there is no self-serve pay-by-invoice, so it
-    appears only on a subscription an operator started with
-    `POST /api/platform/billing/tenants/{tenantId}/invoice`.
-    */
+emails. An org cannot choose `invoice`: there is no self-serve pay-by-invoice, so it
+appears only on a subscription an operator started with
+`POST /api/platform/billing/tenants/{tenantId}/invoice`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub collection_method: ::std::option::Option<BillingSubscriptionCollectionMethod>,
     ///Next renewal, epoch ms.
@@ -1595,16 +1648,16 @@ pub struct BillingSubscription {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub scheduled_cancel_at: ::std::option::Option<i64>,
     /**The end of the paid period a pause is scheduled for (`POST …/billing/pause`); `null` when
-    none. The org is unchanged until then. The pause itself reaches Dodo up to two hours
-    earlier, which loses nothing: Dodo gives unused paid time back on resume.
-    */
+none. The org is unchanged until then. The pause itself reaches Dodo up to two hours
+earlier, which loses nothing: Dodo gives unused paid time back on resume.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub scheduled_pause_at: ::std::option::Option<i64>,
     /**Dodo's status verbatim. `past_due` keeps the tier during Dodo's grace period; `on_hold`
-    (grace exhausted) and `paused` put the org on Solo until payment or resume. Ended
-    subscriptions (`cancelled`, `expired`, `failed`) are not reported here: `subscription`
-    is `null`. A trial is `active` with `trial_ends_at` set.
-    */
+(grace exhausted) and `paused` put the org on Solo until payment or resume. Ended
+subscriptions (`cancelled`, `expired`, `failed`) are not reported here: `subscription`
+is `null`. A trial is `active` with `trial_ends_at` set.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<BillingSubscriptionStatus>,
     ///What the product on the subscription means. Derived from the product id, never from metadata.
@@ -1629,7 +1682,7 @@ appears only on a subscription an operator started with
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingSubscriptionCollectionMethod {
     #[serde(rename = "card")]
@@ -1647,7 +1700,9 @@ impl ::std::fmt::Display for BillingSubscriptionCollectionMethod {
 }
 impl ::std::str::FromStr for BillingSubscriptionCollectionMethod {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "card" => Ok(Self::Card),
             "invoice" => Ok(Self::Invoice),
@@ -1657,11 +1712,14 @@ impl ::std::str::FromStr for BillingSubscriptionCollectionMethod {
 }
 impl ::std::convert::TryFrom<&str> for BillingSubscriptionCollectionMethod {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for BillingSubscriptionCollectionMethod {
+impl ::std::convert::TryFrom<::std::string::String>
+for BillingSubscriptionCollectionMethod {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -1684,7 +1742,7 @@ is `null`. A trial is `active` with `trial_ends_at` set.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingSubscriptionStatus {
     #[serde(rename = "active")]
@@ -1708,7 +1766,9 @@ impl ::std::fmt::Display for BillingSubscriptionStatus {
 }
 impl ::std::str::FromStr for BillingSubscriptionStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "active" => Ok(Self::Active),
             "past_due" => Ok(Self::PastDue),
@@ -1720,7 +1780,9 @@ impl ::std::str::FromStr for BillingSubscriptionStatus {
 }
 impl ::std::convert::TryFrom<&str> for BillingSubscriptionStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1743,7 +1805,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BillingSubscriptionStatu
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BillingSubscriptionTier {
     #[serde(rename = "team")]
@@ -1764,7 +1826,9 @@ impl ::std::fmt::Display for BillingSubscriptionTier {
 }
 impl ::std::str::FromStr for BillingSubscriptionTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "team" => Ok(Self::Team),
             "business" => Ok(Self::Business),
@@ -1775,7 +1839,9 @@ impl ::std::str::FromStr for BillingSubscriptionTier {
 }
 impl ::std::convert::TryFrom<&str> for BillingSubscriptionTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1791,9 +1857,9 @@ impl ::std::convert::TryFrom<::std::string::String> for BillingSubscriptionTier 
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct BuildCompleteBody {
     /**Which queue DELIVERY this workflow ran for (`0` = first). **The retry discriminator**: a
-    higher attempt than the stored row's re-opens a FAILED row; equal-or-lower is a
-    duplicate and is ignored. A completed row is never re-opened.
-    */
+higher attempt than the stored row's re-opens a FAILED row; equal-or-lower is a
+duplicate and is ignored. A completed row is never re-opened.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub attempt: ::std::option::Option<i64>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -1809,53 +1875,50 @@ pub struct BuildCompleteBody {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub platforms: ::std::vec::Vec<BuildPlatformResult>,
     /**The build's DSSE-signed SLSA provenance, byte-for-byte as published at
-    `provenance.intoto.jsonl`. Verified once, here (signature against
-    `PROVENANCE_PUBLIC_KEYS`, subjects against `platforms`, builder id), and recorded with
-    its outcome; the stored bytes are what the provenance routes then serve. An envelope
-    that fails is recorded as `invalid` and logged, and the build **still completes**:
-    the zips are gated and OpenPGP-signed already, so bad provenance is an alert, not an
-    unpublish. Absent when the build ran without the provenance key.
-    */
+`provenance.intoto.jsonl`. Verified once, here (signature against
+`PROVENANCE_PUBLIC_KEYS`, subjects against `platforms`, builder id), and recorded with
+its outcome; the stored bytes are what the provenance routes then serve. An envelope
+that fails is recorded as `invalid` and logged, and the build **still completes**:
+the zips are gated and OpenPGP-signed already, so bad provenance is an alert, not an
+unpublish. Absent when the build ran without the provenance key.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provenance_envelope: ::std::option::Option<::std::string::String>,
     /**The commit the pin step cloned, read before `.git` is dropped (security review E5).
-    Checked before anything is published: a plain build must match the commit the provider
-    scanner pinned for the base version's upstream tag, a patched build must match
-    `patch_provenance.fork_commit_sha`. A patched tree is never compared with the upstream
-    pin, because it is a fork commit on top of it. Recorded on the job either way. Absent
-    (an older template) or unpinned (a base never scanned) is accepted and logged as
-    unverified rather than refused, so a staggered rollout does not fail every build.
-    */
+Checked before anything is published: a plain build must match the commit the provider
+scanner pinned for the base version's upstream tag, a patched build must match
+`patch_provenance.fork_commit_sha`. A patched tree is never compared with the upstream
+pin, because it is a fork commit on top of it. Recorded on the job either way. Absent
+(an older template) or unpinned (a base never scanned) is accepted and logged as
+unverified rather than refused, so a staggered rollout does not fail every build.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_commit: ::std::option::Option<BuildCompleteBodySourceCommit>,
     ///The repository pin cloned: the upstream repo for a plain build, the fork for a patched one.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_repo_url: ::std::option::Option<::std::string::String>,
     /**Structural digest of the pinned source tree. The gate verdicts bind to this value —
-    it is what makes "the bytes scanned are the bytes built" checkable.
-    */
+it is what makes "the bytes scanned are the bytes built" checkable.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_tree_hash: ::std::option::Option<::std::string::String>,
     /**The registry lineage the artifacts were published under. **Required on success** and
-    must equal the job row's lineage — it is part of the object key, so a mismatch is
-    refused rather than published somewhere nothing will look.
-    */
+must equal the job row's lineage — it is part of the object key, so a mismatch is
+refused rather than published somewhere nothing will look.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_upstream: ::std::option::Option<UpstreamRegistry>,
     ///Present only from the failure reporter; absent means a successful publish.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     ///The revision being published (`<base>-0.0.<rev>`).
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
     /**`{{workflow.uid}}` of the Workflow sending the report. Must equal the uid the queue
-    supervisor recorded for the job; see the operation description for the rollout rule.
-    */
+supervisor recorded for the job; see the operation description for the rollout rule.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub workflow_uid: ::std::option::Option<::std::string::String>,
 }
@@ -1883,9 +1946,11 @@ impl ::std::convert::From<BuildCompleteBodySourceCommit> for ::std::string::Stri
 }
 impl ::std::str::FromStr for BuildCompleteBodySourceCommit {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
-            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^[0-9a-f]{40}$").unwrap());
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> = ::std::sync::LazyLock::new(||
+        { ::regress::Regex::new("^[0-9a-f]{40}$").unwrap() });
         if PATTERN.find(value).is_none() {
             return Err("doesn't match pattern \"^[0-9a-f]{40}$\"".into());
         }
@@ -1894,7 +1959,9 @@ impl ::std::str::FromStr for BuildCompleteBodySourceCommit {
 }
 impl ::std::convert::TryFrom<&str> for BuildCompleteBodySourceCommit {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1931,7 +1998,7 @@ high-severity tier of `G2`, overridable separately from the rest.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum BuildGate {
     G1,
@@ -1954,7 +2021,9 @@ impl ::std::fmt::Display for BuildGate {
 }
 impl ::std::str::FromStr for BuildGate {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "G1" => Ok(Self::G1),
             "G2" => Ok(Self::G2),
@@ -1967,7 +2036,9 @@ impl ::std::str::FromStr for BuildGate {
 }
 impl ::std::convert::TryFrom<&str> for BuildGate {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2071,20 +2142,20 @@ pub struct CliDiscoveryOidc {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub audience: ::std::option::Option<::std::string::String>,
     /**Confidential provider every bot token authenticates against, or `null` when the
-    deployment has not provisioned one.
+deployment has not provisioned one.
 
-    There is no per-bot client. A bot token created in the portal is an IdP service
-    account under this single provider, so the `client_credentials` grant sends
-    `client_id` = this value, `username` = the token's Client ID and `password` =
-    its Client Secret — not the client_id/client_secret pair the grant name suggests.
-    It is not the scanner's provider, because internal routes trust that identity.
-    Advertised here so the CLI does not compile in a deployment-specific name.
-    */
+There is no per-bot client. A bot token created in the portal is an IdP service
+account under this single provider, so the `client_credentials` grant sends
+`client_id` = this value, `username` = the token's Client ID and `password` =
+its Client Secret — not the client_id/client_secret pair the grant name suggests.
+It is not the scanner's provider, because internal routes trust that identity.
+Advertised here so the CLI does not compile in a deployment-specific name.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub bot_client_id: ::std::option::Option<::std::string::String>,
     /**Public client for the device-authorization flow, or `null` until provisioned — in
-    which case the CLI reports a clear error rather than attempting a login.
-    */
+which case the CLI reports a clear error rather than attempting a login.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub device_client_id: ::std::option::Option<::std::string::String>,
     ///RFC 8414 metadata URL; the CLI resolves the device + token endpoints from it.
@@ -2094,13 +2165,13 @@ pub struct CliDiscoveryOidc {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub issuer: ::std::option::Option<::std::string::String>,
     /**Space-separated scopes to request. `terramantle` is load-bearing: it stamps the
-    registry `aud` and the `roles` claim, and without it the Worker rejects the bearer.
-    */
+registry `aud` and the `roles` claim, and without it the Worker rejects the bearer.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub scopes: ::std::option::Option<::std::string::String>,
     /**Audience GitHub/GitLab CI must mint its OIDC token for. Falls back to `audience`
-    when no distinct VCS audience is configured.
-    */
+when no distinct VCS audience is configured.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vcs_audience: ::std::option::Option<::std::string::String>,
 }
@@ -2116,8 +2187,8 @@ pub struct ClosePlanBypassResponse {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ConsumptionBlock {
     /**Derived, not stored: true when all three are armed. There is no master flag in the
-    database — the UI's master switch reads this and writes `all`.
-    */
+database — the UI's master switch reads this and writes `all`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub all_blocked: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -2134,17 +2205,17 @@ pub struct ConsumptionBlockEntry {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub blocked: ::std::option::Option<bool>,
     /**Only meaningful while `blocked` is true. Once disarmed it is when the switch was turned
-     **off**, so do not render it as "armed at".
-     */
+**off**, so do not render it as "armed at".
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub changed_at: ::std::option::Option<Timestamp>,
     ///Email of the owner who last armed or disarmed it.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub changed_by: ::std::option::Option<::std::string::String>,
     /**The backing `policies` row, non-null once the switch has ever been armed for this
-    artefact. Disarming keeps the row so historical decision-ledger entries still resolve
-    to a policy; `null` means it has never been armed.
-    */
+artefact. Disarming keeps the row so historical decision-ledger entries still resolve
+to a policy; `null` means it has never been armed.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_id: ::std::option::Option<::std::string::String>,
 }
@@ -2152,13 +2223,13 @@ pub struct ConsumptionBlockEntry {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ConsumptionBlockUpdateResult {
     /**Derived, not stored: true when all three are armed. There is no master flag in the
-    database — the UI's master switch reads this and writes `all`.
-    */
+database — the UI's master switch reads this and writes `all`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub all_blocked: ::std::option::Option<bool>,
     /**The artefact types this request actually flipped. Empty ⇒ the request was a no-op:
-    nothing was written and nothing was audited.
-    */
+nothing was written and nothing was audited.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub changed: ::std::vec::Vec<ConsumptionBlockUpdateResultChangedItem>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -2179,7 +2250,7 @@ pub struct ConsumptionBlockUpdateResult {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ConsumptionBlockUpdateResultChangedItem {
     #[serde(rename = "module")]
@@ -2200,7 +2271,9 @@ impl ::std::fmt::Display for ConsumptionBlockUpdateResultChangedItem {
 }
 impl ::std::str::FromStr for ConsumptionBlockUpdateResultChangedItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "module" => Ok(Self::Module),
             "provider" => Ok(Self::Provider),
@@ -2211,11 +2284,14 @@ impl ::std::str::FromStr for ConsumptionBlockUpdateResultChangedItem {
 }
 impl ::std::convert::TryFrom<&str> for ConsumptionBlockUpdateResultChangedItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for ConsumptionBlockUpdateResultChangedItem {
+impl ::std::convert::TryFrom<::std::string::String>
+for ConsumptionBlockUpdateResultChangedItem {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -2269,7 +2345,9 @@ impl ::std::convert::From<CreateTokenRequestName> for ::std::string::String {
 }
 impl ::std::str::FromStr for CreateTokenRequestName {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() < 1usize {
             return Err("shorter than 1 characters".into());
         }
@@ -2278,7 +2356,9 @@ impl ::std::str::FromStr for CreateTokenRequestName {
 }
 impl ::std::convert::TryFrom<&str> for CreateTokenRequestName {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2321,7 +2401,7 @@ pub struct CreateTokenRequestStateGrantsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum CreateTokenRequestStateGrantsItemPermission {
     #[serde(rename = "read")]
@@ -2339,7 +2419,9 @@ impl ::std::fmt::Display for CreateTokenRequestStateGrantsItemPermission {
 }
 impl ::std::str::FromStr for CreateTokenRequestStateGrantsItemPermission {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "read" => Ok(Self::Read),
             "write" => Ok(Self::Write),
@@ -2349,13 +2431,14 @@ impl ::std::str::FromStr for CreateTokenRequestStateGrantsItemPermission {
 }
 impl ::std::convert::TryFrom<&str> for CreateTokenRequestStateGrantsItemPermission {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for CreateTokenRequestStateGrantsItemPermission
-{
+for CreateTokenRequestStateGrantsItemPermission {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -2377,7 +2460,9 @@ pub struct DeleteWorkspacePlanPolicyConfigResponse {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub config: ::std::option::Option<DeleteWorkspacePlanPolicyConfigResponseConfig>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub effective: ::std::option::Option<DeleteWorkspacePlanPolicyConfigResponseEffective>,
+    pub effective: ::std::option::Option<
+        DeleteWorkspacePlanPolicyConfigResponseEffective,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub ok: ::std::option::Option<bool>,
     ///Whether an override row existed.
@@ -2408,8 +2493,9 @@ pub struct DeleteWorkspacePlanPolicyConfigResponseEffective {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub allow_self_approval: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub approver_min_role:
-        ::std::option::Option<DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole>,
+    pub approver_min_role: ::std::option::Option<
+        DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -2434,7 +2520,7 @@ pub struct DeleteWorkspacePlanPolicyConfigResponseEffective {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     #[serde(rename = "admin")]
@@ -2444,7 +2530,8 @@ pub enum DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     #[serde(rename = "owner")]
     Owner,
 }
-impl ::std::fmt::Display for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+impl ::std::fmt::Display
+for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Admin => f.write_str("admin"),
@@ -2453,9 +2540,12 @@ impl ::std::fmt::Display for DeleteWorkspacePlanPolicyConfigResponseEffectiveApp
         }
     }
 }
-impl ::std::str::FromStr for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+impl ::std::str::FromStr
+for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "admin" => Ok(Self::Admin),
             "privileged_admin" => Ok(Self::PrivilegedAdmin),
@@ -2465,16 +2555,16 @@ impl ::std::str::FromStr for DeleteWorkspacePlanPolicyConfigResponseEffectiveApp
     }
 }
 impl ::std::convert::TryFrom<&str>
-    for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole
-{
+for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole
-{
+for DeleteWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -2539,7 +2629,7 @@ the finding is internal-only and is never surfaced in public API responses.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum FindingCategory {
     #[serde(rename = "secret")]
@@ -2566,7 +2656,9 @@ impl ::std::fmt::Display for FindingCategory {
 }
 impl ::std::str::FromStr for FindingCategory {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "secret" => Ok(Self::Secret),
             "misconfiguration" => Ok(Self::Misconfiguration),
@@ -2579,7 +2671,9 @@ impl ::std::str::FromStr for FindingCategory {
 }
 impl ::std::convert::TryFrom<&str> for FindingCategory {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2603,7 +2697,7 @@ impl ::std::convert::TryFrom<::std::string::String> for FindingCategory {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum FindingSeverity {
     #[serde(rename = "critical")]
@@ -2630,7 +2724,9 @@ impl ::std::fmt::Display for FindingSeverity {
 }
 impl ::std::str::FromStr for FindingSeverity {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "critical" => Ok(Self::Critical),
             "high" => Ok(Self::High),
@@ -2643,7 +2739,9 @@ impl ::std::str::FromStr for FindingSeverity {
 }
 impl ::std::convert::TryFrom<&str> for FindingSeverity {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2677,7 +2775,7 @@ permitted — it means "unspecified".
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum FormTier {
     Solo,
@@ -2700,7 +2798,9 @@ impl ::std::fmt::Display for FormTier {
 }
 impl ::std::str::FromStr for FormTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "Solo" => Ok(Self::Solo),
             "Team" => Ok(Self::Team),
@@ -2713,7 +2813,9 @@ impl ::std::str::FromStr for FormTier {
 }
 impl ::std::convert::TryFrom<&str> for FormTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2730,7 +2832,7 @@ impl ::std::convert::TryFrom<::std::string::String> for FormTier {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct GateConfig {
     /**Org-level only. May the person who pushed a plan approve it. Default `true`, which is the behaviour before this setting existed; defaulting it off would lock out every single-admin org. See `approvePlanVersion` for what "the person who pushed" can and cannot be determined for.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub allow_self_approval: ::std::option::Option<bool>,
     ///Org-level only. The least role that may approve a plan. Default `admin`.
@@ -2748,7 +2850,7 @@ pub struct GateConfig {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub require_approval: ::std::option::Option<bool>,
     /**ORG DEFAULT for "require a passing plan": refuse an apply unless the workspace's gate plan passed (or was approved) and was computed from the current state. Only present and only meaningful on the org-level config; a workspace overrides it with its own tri-state (see `WorkspaceGateConfig`).
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub require_passing_plan: ::std::option::Option<bool>,
     ///Org-level only. How many DISTINCT people must approve a plan before it counts as approved. Default 1. A workspace can set its own count.
@@ -2766,7 +2868,7 @@ pub struct GateConfig {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum GateConfigApproverMinRole {
     #[serde(rename = "admin")]
@@ -2787,7 +2889,9 @@ impl ::std::fmt::Display for GateConfigApproverMinRole {
 }
 impl ::std::str::FromStr for GateConfigApproverMinRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "admin" => Ok(Self::Admin),
             "privileged_admin" => Ok(Self::PrivilegedAdmin),
@@ -2798,7 +2902,9 @@ impl ::std::str::FromStr for GateConfigApproverMinRole {
 }
 impl ::std::convert::TryFrom<&str> for GateConfigApproverMinRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2814,7 +2920,9 @@ impl ::std::convert::TryFrom<::std::string::String> for GateConfigApproverMinRol
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct GateVerdictInput {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub findings: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub findings: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub gate: ::std::option::Option<BuildGate>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -2833,16 +2941,16 @@ impl ::std::ops::Deref for GetArtefactPolicyInputSchemaResponse {
     }
 }
 impl ::std::convert::From<GetArtefactPolicyInputSchemaResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: GetArtefactPolicyInputSchemaResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for GetArtefactPolicyInputSchemaResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for GetArtefactPolicyInputSchemaResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -2859,16 +2967,16 @@ impl ::std::ops::Deref for GetAsyncApiJsonResponse {
     }
 }
 impl ::std::convert::From<GetAsyncApiJsonResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: GetAsyncApiJsonResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for GetAsyncApiJsonResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for GetAsyncApiJsonResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -2909,16 +3017,16 @@ impl ::std::ops::Deref for GetOpenApiJsonResponse {
     }
 }
 impl ::std::convert::From<GetOpenApiJsonResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: GetOpenApiJsonResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for GetOpenApiJsonResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for GetOpenApiJsonResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -2943,7 +3051,9 @@ pub struct GetPlanPolicyConfigResponse {
 ///`GetPlanReplacementsByProviderResponse`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
-pub struct GetPlanReplacementsByProviderResponse(pub ::std::vec::Vec<ReplacementByProvider>);
+pub struct GetPlanReplacementsByProviderResponse(
+    pub ::std::vec::Vec<ReplacementByProvider>,
+);
 impl ::std::ops::Deref for GetPlanReplacementsByProviderResponse {
     type Target = ::std::vec::Vec<ReplacementByProvider>;
     fn deref(&self) -> &::std::vec::Vec<ReplacementByProvider> {
@@ -2951,15 +3061,13 @@ impl ::std::ops::Deref for GetPlanReplacementsByProviderResponse {
     }
 }
 impl ::std::convert::From<GetPlanReplacementsByProviderResponse>
-    for ::std::vec::Vec<ReplacementByProvider>
-{
+for ::std::vec::Vec<ReplacementByProvider> {
     fn from(value: GetPlanReplacementsByProviderResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::std::vec::Vec<ReplacementByProvider>>
-    for GetPlanReplacementsByProviderResponse
-{
+for GetPlanReplacementsByProviderResponse {
     fn from(value: ::std::vec::Vec<ReplacementByProvider>) -> Self {
         Self(value)
     }
@@ -2980,13 +3088,15 @@ pub struct GetPlanVersionResponse {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub indicators: ::std::option::Option<::std::vec::Vec<PlanIndicator>>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub outputs: ::std::option::Option<::std::vec::Vec<GetPlanVersionResponseOutputsItem>>,
+    pub outputs: ::std::option::Option<
+        ::std::vec::Vec<GetPlanVersionResponseOutputsItem>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub risk: ::std::option::Option<PlanRisk>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub run: ::std::option::Option<PlanRun>,
     /**How the plan related to the workspace's state WHEN IT WAS PUSHED (`input.plan.state`). `stale` here is as of the push; whether the plan can be applied now is `listPlanVersionApprovals`' `stale`. `null` for a version pushed before it was computed.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub state: ::std::option::Option<GetPlanVersionResponseState>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -3015,7 +3125,7 @@ pub struct GetPlanVersionResponseOutputsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum GetPlanVersionResponseOutputsItemAction {
     #[serde(rename = "create")]
@@ -3036,7 +3146,9 @@ impl ::std::fmt::Display for GetPlanVersionResponseOutputsItemAction {
 }
 impl ::std::str::FromStr for GetPlanVersionResponseOutputsItemAction {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "create" => Ok(Self::Create),
             "update" => Ok(Self::Update),
@@ -3047,11 +3159,14 @@ impl ::std::str::FromStr for GetPlanVersionResponseOutputsItemAction {
 }
 impl ::std::convert::TryFrom<&str> for GetPlanVersionResponseOutputsItemAction {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for GetPlanVersionResponseOutputsItemAction {
+impl ::std::convert::TryFrom<::std::string::String>
+for GetPlanVersionResponseOutputsItemAction {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -3083,7 +3198,7 @@ pub struct GetPlanVersionResponseState {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum GetPlanVersionResponseStateLineageSource {
     #[serde(rename = "tfplan")]
@@ -3104,7 +3219,9 @@ impl ::std::fmt::Display for GetPlanVersionResponseStateLineageSource {
 }
 impl ::std::str::FromStr for GetPlanVersionResponseStateLineageSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "tfplan" => Ok(Self::Tfplan),
             "header" => Ok(Self::Header),
@@ -3115,11 +3232,14 @@ impl ::std::str::FromStr for GetPlanVersionResponseStateLineageSource {
 }
 impl ::std::convert::TryFrom<&str> for GetPlanVersionResponseStateLineageSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for GetPlanVersionResponseStateLineageSource {
+impl ::std::convert::TryFrom<::std::string::String>
+for GetPlanVersionResponseStateLineageSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -3140,16 +3260,16 @@ impl ::std::ops::Deref for GetPolicyInputSchemaResponse {
     }
 }
 impl ::std::convert::From<GetPolicyInputSchemaResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: GetPolicyInputSchemaResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for GetPolicyInputSchemaResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for GetPolicyInputSchemaResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -3195,7 +3315,9 @@ pub struct GetStateLockResponse {
 ///A Terraform state file, returned verbatim.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
-pub struct GetStateResponse(pub ::serde_json::Map<::std::string::String, ::serde_json::Value>);
+pub struct GetStateResponse(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
 impl ::std::ops::Deref for GetStateResponse {
     type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
     fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
@@ -3203,16 +3325,16 @@ impl ::std::ops::Deref for GetStateResponse {
     }
 }
 impl ::std::convert::From<GetStateResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: GetStateResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for GetStateResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for GetStateResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -3232,19 +3354,19 @@ pub struct InspectorAttribute {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub after_absent: ::std::option::Option<bool>,
     /**PLAN inspector only. The value before the change, sanitised exactly as `value` is.
-    Present only on an attribute of a resource that survives the change, whose `change`
-    is `changed`, and only when BOTH sides can be shown:
+Present only on an attribute of a resource that survives the change, whose `change`
+is `changed`, and only when BOTH sides can be shown:
 
-    - if either side is redacted, neither `value` nor `before` is returned. One half of
-      a changed secret is a statement about the other half.
-    - if the after side is `unknown`, or the change drops the attribute (`after_absent`),
-      `before` is withheld and only `before_type` is given. Terraform derives its
-      sensitivity marks at plan time; with no after side there is nothing for it to have
-      judged the pair against, and a computed attribute that echoes a sensitive input
-      sits in `before` with no mark at all (`terraform_data.output` does exactly this).
+- if either side is redacted, neither `value` nor `before` is returned. One half of
+  a changed secret is a statement about the other half.
+- if the after side is `unknown`, or the change drops the attribute (`after_absent`),
+  `before` is withheld and only `before_type` is given. Terraform derives its
+  sensitivity marks at plan time; with no after side there is nothing for it to have
+  judged the pair against, and a computed attribute that echoes a sensitive input
+  sits in `before` with no mark at all (`terraform_data.output` does exactly this).
 
-    A created or destroyed resource has one side only, which is `value`.
-    */
+A created or destroyed resource has one side only, which is `value`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub before: ::std::option::Option<::serde_json::Value>,
     ///PLAN inspector only. The attribute did not exist before the change.
@@ -3284,7 +3406,7 @@ pub struct InspectorAttribute {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InspectorAttributeBeforeType {
     #[serde(rename = "string")]
@@ -3314,7 +3436,9 @@ impl ::std::fmt::Display for InspectorAttributeBeforeType {
 }
 impl ::std::str::FromStr for InspectorAttributeBeforeType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "string" => Ok(Self::String),
             "number" => Ok(Self::Number),
@@ -3328,7 +3452,9 @@ impl ::std::str::FromStr for InspectorAttributeBeforeType {
 }
 impl ::std::convert::TryFrom<&str> for InspectorAttributeBeforeType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3351,7 +3477,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InspectorAttributeBefore
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InspectorAttributeReason {
     #[serde(rename = "sensitive")]
@@ -3369,7 +3495,9 @@ impl ::std::fmt::Display for InspectorAttributeReason {
 }
 impl ::std::str::FromStr for InspectorAttributeReason {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "sensitive" => Ok(Self::Sensitive),
             "heuristic" => Ok(Self::Heuristic),
@@ -3379,7 +3507,9 @@ impl ::std::str::FromStr for InspectorAttributeReason {
 }
 impl ::std::convert::TryFrom<&str> for InspectorAttributeReason {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3402,7 +3532,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InspectorAttributeReason
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InspectorAttributeValueType {
     #[serde(rename = "string")]
@@ -3432,7 +3562,9 @@ impl ::std::fmt::Display for InspectorAttributeValueType {
 }
 impl ::std::str::FromStr for InspectorAttributeValueType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "string" => Ok(Self::String),
             "number" => Ok(Self::Number),
@@ -3446,7 +3578,9 @@ impl ::std::str::FromStr for InspectorAttributeValueType {
 }
 impl ::std::convert::TryFrom<&str> for InspectorAttributeValueType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3469,7 +3603,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InspectorAttributeValueT
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InspectorChange {
     #[serde(rename = "added")]
@@ -3493,7 +3627,9 @@ impl ::std::fmt::Display for InspectorChange {
 }
 impl ::std::str::FromStr for InspectorChange {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "added" => Ok(Self::Added),
             "removed" => Ok(Self::Removed),
@@ -3505,7 +3641,9 @@ impl ::std::str::FromStr for InspectorChange {
 }
 impl ::std::convert::TryFrom<&str> for InspectorChange {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3576,7 +3714,7 @@ pub struct InspectorOutput {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InspectorOutputReason {
     #[serde(rename = "sensitive")]
@@ -3594,7 +3732,9 @@ impl ::std::fmt::Display for InspectorOutputReason {
 }
 impl ::std::str::FromStr for InspectorOutputReason {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "sensitive" => Ok(Self::Sensitive),
             "heuristic" => Ok(Self::Heuristic),
@@ -3604,7 +3744,9 @@ impl ::std::str::FromStr for InspectorOutputReason {
 }
 impl ::std::convert::TryFrom<&str> for InspectorOutputReason {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3641,10 +3783,7 @@ pub struct InspectorResource {
     pub name: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provider: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
 }
 ///`InspectorResourceMode`
@@ -3658,7 +3797,7 @@ pub struct InspectorResource {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InspectorResourceMode {
     #[serde(rename = "managed")]
@@ -3676,7 +3815,9 @@ impl ::std::fmt::Display for InspectorResourceMode {
 }
 impl ::std::str::FromStr for InspectorResourceMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "managed" => Ok(Self::Managed),
             "data" => Ok(Self::Data),
@@ -3686,7 +3827,9 @@ impl ::std::str::FromStr for InspectorResourceMode {
 }
 impl ::std::convert::TryFrom<&str> for InspectorResourceMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3703,9 +3846,9 @@ impl ::std::convert::TryFrom<::std::string::String> for InspectorResourceMode {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct InternalModuleFindingInput {
     /**Tool-agnostic category. Optional during rollout — the worker will
-    derive it from the tool and rule_id if absent. Once all scanners
-    populate this field it will become required.
-    */
+derive it from the tool and rule_id if absent. Once all scanners
+populate this field it will become required.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub category: ::std::option::Option<FindingCategory>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -3717,7 +3860,9 @@ pub struct InternalModuleFindingInput {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub line_start: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -3743,7 +3888,7 @@ pub struct InternalModuleFindingInput {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InternalModuleFindingInputTool {
     #[serde(rename = "trivy")]
@@ -3767,7 +3912,9 @@ impl ::std::fmt::Display for InternalModuleFindingInputTool {
 }
 impl ::std::str::FromStr for InternalModuleFindingInputTool {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "trivy" => Ok(Self::Trivy),
             "kics" => Ok(Self::Kics),
@@ -3779,7 +3926,9 @@ impl ::std::str::FromStr for InternalModuleFindingInputTool {
 }
 impl ::std::convert::TryFrom<&str> for InternalModuleFindingInputTool {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3796,17 +3945,19 @@ impl ::std::convert::TryFrom<::std::string::String> for InternalModuleFindingInp
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct InternalStateFindingInput {
     /**Tool-agnostic category. Optional during rollout — the worker derives
-    it from the tool and rule_id if absent.
-    */
+it from the tool and rule_id if absent.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub category: ::std::option::Option<FindingCategory>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
     /**Free-form metadata. For exposure findings, meta carries a `subtype`
-    discriminator string ('endpoint' | 'port').
-    */
+discriminator string ('endpoint' | 'port').
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -3832,7 +3983,7 @@ pub struct InternalStateFindingInput {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum InternalStateFindingInputTool {
     #[serde(rename = "trufflehog")]
@@ -3859,7 +4010,9 @@ impl ::std::fmt::Display for InternalStateFindingInputTool {
 }
 impl ::std::str::FromStr for InternalStateFindingInputTool {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "trufflehog" => Ok(Self::Trufflehog),
             "checkov" => Ok(Self::Checkov),
@@ -3872,7 +4025,9 @@ impl ::std::str::FromStr for InternalStateFindingInputTool {
 }
 impl ::std::convert::TryFrom<&str> for InternalStateFindingInputTool {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -3991,7 +4146,9 @@ pub struct ListPlanVersionApprovalsResponse {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub approved: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub approver_min_role: ::std::option::Option<ListPlanVersionApprovalsResponseApproverMinRole>,
+    pub approver_min_role: ::std::option::Option<
+        ListPlanVersionApprovalsResponseApproverMinRole,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub required: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -4024,7 +4181,7 @@ pub struct ListPlanVersionApprovalsResponseApprovalsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ListPlanVersionApprovalsResponseApproverMinRole {
     #[serde(rename = "admin")]
@@ -4045,7 +4202,9 @@ impl ::std::fmt::Display for ListPlanVersionApprovalsResponseApproverMinRole {
 }
 impl ::std::str::FromStr for ListPlanVersionApprovalsResponseApproverMinRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "admin" => Ok(Self::Admin),
             "privileged_admin" => Ok(Self::PrivilegedAdmin),
@@ -4056,13 +4215,14 @@ impl ::std::str::FromStr for ListPlanVersionApprovalsResponseApproverMinRole {
 }
 impl ::std::convert::TryFrom<&str> for ListPlanVersionApprovalsResponseApproverMinRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for ListPlanVersionApprovalsResponseApproverMinRole
-{
+for ListPlanVersionApprovalsResponseApproverMinRole {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -4119,15 +4279,17 @@ pub struct ListStateFindingsResponseFindingsItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**Free-form metadata. For exposure findings, meta carries a `subtype`
-    discriminator string with one of the following values:
-      - 'endpoint' — an exposed HTTP/HTTPS endpoint
-      - 'port'     — an exposed network port
+discriminator string with one of the following values:
+  - 'endpoint' — an exposed HTTP/HTTPS endpoint
+  - 'port'     — an exposed network port
 
-    All other fields in meta are tool-specific and should not be relied
-    upon as stable contract.
-    */
+All other fields in meta are tool-specific and should not be relied
+upon as stable contract.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Suggested remediation text.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
@@ -4197,9 +4359,9 @@ pub struct MachineTokenSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
     /**The IdP service-account username. This is the identity the API authorizes: every
-    bot token shares one provider and so one `azp`, and this value is the token's `sub`.
-    Sent as `username` in the `client_credentials` grant.
-    */
+bot token shares one provider and so one `azp`, and this value is the token's `sub`.
+Sent as `username` in the `client_credentials` grant.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub oidc_client_id: ::std::option::Option<::std::string::String>,
     ///`null` for a global token.
@@ -4223,7 +4385,9 @@ impl ::std::convert::From<MachineTokenSummaryIsGlobal> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for MachineTokenSummaryIsGlobal {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -4237,7 +4401,7 @@ impl<'de> ::serde::Deserialize<'de> for MachineTokenSummaryIsGlobal {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`MachineTokenWithSecret`
@@ -4272,9 +4436,9 @@ pub struct MachineTokenWithSecret {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
     /**The IdP service-account username. This is the identity the API authorizes: every
-    bot token shares one provider and so one `azp`, and this value is the token's `sub`.
-    Sent as `username` in the `client_credentials` grant.
-    */
+bot token shares one provider and so one `azp`, and this value is the token's `sub`.
+Sent as `username` in the `client_credentials` grant.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub oidc_client_id: ::std::option::Option<::std::string::String>,
     ///`null` for a global token.
@@ -4298,7 +4462,9 @@ impl ::std::convert::From<MachineTokenWithSecretIsGlobal> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for MachineTokenWithSecretIsGlobal {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -4312,7 +4478,7 @@ impl<'de> ::serde::Deserialize<'de> for MachineTokenWithSecretIsGlobal {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///One module-to-module dependency edge parsed from the source.
@@ -4403,8 +4569,8 @@ pub struct ModulePublishSettled {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub manually_blocked: ::std::option::Option<bool>,
     /**The module instance's id. This is the `instance_key` for a per-instance policy
-    override, which is why it is exposed rather than kept internal.
-    */
+override, which is why it is exposed rather than kept internal.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub module_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -4468,9 +4634,9 @@ pub struct ModuleScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_results: ::std::option::Option<::std::vec::Vec<ScanPolicyResultInput>>,
     /**Raw markdown, stored as-is apart from two bounds: control characters other than tab and
-    newline are dropped, and anything past 256 KiB is cut. The registry API serves it raw,
-    so a renderer must sanitise it; the portal does.
-    */
+newline are dropped, and anything past 256 KiB is cut. The registry API serves it raw,
+so a renderer must sanitise it; the portal does.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub readme: ::std::option::Option<::std::string::String>,
     ///Drives provider discovery. Additive — an older scanner omits it.
@@ -4497,7 +4663,7 @@ pub struct ModuleScanResultsBody {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ModuleScanResultsBodyStatus {
     #[serde(rename = "published")]
@@ -4515,7 +4681,9 @@ impl ::std::fmt::Display for ModuleScanResultsBodyStatus {
 }
 impl ::std::str::FromStr for ModuleScanResultsBodyStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "published" => Ok(Self::Published),
             "failed" => Ok(Self::Failed),
@@ -4525,7 +4693,9 @@ impl ::std::str::FromStr for ModuleScanResultsBodyStatus {
 }
 impl ::std::convert::TryFrom<&str> for ModuleScanResultsBodyStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -4550,7 +4720,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModuleScanResultsBodySta
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ModuleScanStatus {
     #[serde(rename = "pending")]
@@ -4574,7 +4744,9 @@ impl ::std::fmt::Display for ModuleScanStatus {
 }
 impl ::std::str::FromStr for ModuleScanStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "processing" => Ok(Self::Processing),
@@ -4586,7 +4758,9 @@ impl ::std::str::FromStr for ModuleScanStatus {
 }
 impl ::std::convert::TryFrom<&str> for ModuleScanStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -4737,8 +4911,8 @@ pub struct ModuleVersionDetail {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub manually_blocked: ::std::option::Option<bool>,
     /**The module instance's id. This is the `instance_key` for a per-instance policy
-    override, which is why it is exposed rather than kept internal.
-    */
+override, which is why it is exposed rather than kept internal.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub module_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -4841,7 +5015,7 @@ pub struct ModuleVersionsResponseModulesItemVersionsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum NotificationCadence {
     #[serde(rename = "none")]
@@ -4865,7 +5039,9 @@ impl ::std::fmt::Display for NotificationCadence {
 }
 impl ::std::str::FromStr for NotificationCadence {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "none" => Ok(Self::None),
             "daily" => Ok(Self::Daily),
@@ -4877,7 +5053,9 @@ impl ::std::str::FromStr for NotificationCadence {
 }
 impl ::std::convert::TryFrom<&str> for NotificationCadence {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -4925,7 +5103,7 @@ The highest-consequence field in the policy settings.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum OnMissingSignal {
     #[serde(rename = "ignore")]
@@ -4943,7 +5121,9 @@ impl ::std::fmt::Display for OnMissingSignal {
 }
 impl ::std::str::FromStr for OnMissingSignal {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ignore" => Ok(Self::Ignore),
             "hard_fail" => Ok(Self::HardFail),
@@ -4953,7 +5133,9 @@ impl ::std::str::FromStr for OnMissingSignal {
 }
 impl ::std::convert::TryFrom<&str> for OnMissingSignal {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5005,79 +5187,79 @@ graph for a value nothing renders. The hash set is on the workspace's Providers 
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct OrgGraphEdge {
     /**The declared version constraint, where one was recorded. `null` carries meaning and
-    differs by relation: on `requires` it is a `required_providers` block with no
-    `version`, i.e. **any version**; on `locks` it is a lock file that recorded no
-    constraint. Neither is a missing value, and the portal words them differently.
-    */
+differs by relation: on `requires` it is a `required_providers` block with no
+`version`, i.e. **any version**; on `locks` it is a lock file that recorded no
+constraint. Neither is a missing value, and the portal words them differently.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub constraint: ::std::option::Option<::std::string::String>,
     /**`depends` and `requires`. The version of the CONSUMER module whose source declares
-    this relationship. On the org graph that is always the module's latest published
-    version, since module-sourced edges are scoped to it; on the version-scoped module
-    graph it is the version in the path.
-    */
+this relationship. On the org graph that is always the module's latest published
+version, since module-sourced edges are scoped to it; on the version-scoped module
+graph it is the version in the path.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub declared_in_version: ::std::option::Option<::std::string::String>,
     ///Node id of the consumer. Edges point consumer → dependency.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub from: ::std::option::Option<::std::string::String>,
     /**`depends` only. The dependency resolves inside this Terramantle registry rather than
-    an external source. Recorded at scan time from the source address.
-    */
+an external source. Recorded at scan time from the source address.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_terramantle: ::std::option::Option<bool>,
     ///`locks` only. When an upstream lookup last failed.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_lookup_error_at: ::std::option::Option<i64>,
     /**`locks` only. Newest version satisfying `constraint`. `null` is ambiguous on its own
-    and must be read with the two timestamps below: it means "nothing newer satisfies the
-    constraint" only when `latest_version_checked_at` is set.
-    */
+and must be read with the two timestamps below: it means "nothing newer satisfies the
+constraint" only when `latest_version_checked_at` is set.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_matching: ::std::option::Option<::std::string::String>,
     /**`locks` only. Newest version upstream, IGNORING the constraint. A different question
-    from `latest_matching`, and presenting the two as one is how a pin that is correctly
-    held back by its own constraint gets reported as stale.
-    */
+from `latest_matching`, and presenting the two as one is how a pin that is correctly
+held back by its own constraint gets reported as stale.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version: ::std::option::Option<::std::string::String>,
     /**`locks` only. When the version checker last SUCCEEDED for this pin. `null` with
-    `latest_lookup_error_at` set means the pin has never been compared against the
-    registry, which is a different state from "up to date" and is rendered as such.
-    */
+`latest_lookup_error_at` set means the pin has never been compared against the
+registry, which is a different state from "up to date" and is rendered as such.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version_checked_at: ::std::option::Option<i64>,
     ///`locks` only. When the pin was recorded.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub locked_at: ::std::option::Option<i64>,
     /**`locks` only. The version the lock file actually pins — the fact the graph exists to
-    surface. Compare against `latest_matching` for staleness; the node-level `outdated`
-    flag is an OR across every workspace pinning the provider and so cannot say which
-    pin is behind.
-    */
+surface. Compare against `latest_matching` for staleness; the node-level `outdated`
+flag is an OR across every workspace pinning the provider and so cannot say which
+pin is behind.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub locked_version: ::std::option::Option<::std::string::String>,
     /**`locks` only. The literal address in the lock file, e.g.
-    `registry.terraform.io/hashicorp/aws`. Also what distinguishes two parallel edges
-    when one workspace pins the same provider from both registries.
-    */
+`registry.terraform.io/hashicorp/aws`. Also what distinguishes two parallel edges
+when one workspace pins the same provider from both registries.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provider_address: ::std::option::Option<::std::string::String>,
     /**`depends` module → module, `requires` module → provider (`required_providers`),
-    `locks` state → provider (a lock-file pin). Module-sourced edges are scoped to the
-    module's latest published version, so a dependency dropped in a later release stops
-    being drawn.
-    */
+`locks` state → provider (a lock-file pin). Module-sourced edges are scoped to the
+module's latest published version, so a dependency dropped in a later release stops
+being drawn.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub rel: ::std::option::Option<OrgGraphEdgeRel>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub to: ::std::option::Option<::std::string::String>,
     /**`requires` and `locks`. Which registry the relationship names. This is the only place
-    a registry appears, because provider NODES deliberately collapse the two — an org may
-    hold `hashicorp/local` from both, while `module_provider_refs.upstream` is nullable
-    and so a module ref cannot always be attributed to one. `null` on a `requires` edge
-    therefore means "not recorded", not "neither".
-    */
+a registry appears, because provider NODES deliberately collapse the two — an org may
+hold `hashicorp/local` from both, while `module_provider_refs.upstream` is nullable
+and so a module ref cannot always be attributed to one. `null` on a `requires` edge
+therefore means "not recorded", not "neither".
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<OrgGraphEdgeUpstream>,
 }
@@ -5096,7 +5278,7 @@ being drawn.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum OrgGraphEdgeRel {
     #[serde(rename = "depends")]
@@ -5117,7 +5299,9 @@ impl ::std::fmt::Display for OrgGraphEdgeRel {
 }
 impl ::std::str::FromStr for OrgGraphEdgeRel {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "depends" => Ok(Self::Depends),
             "requires" => Ok(Self::Requires),
@@ -5128,7 +5312,9 @@ impl ::std::str::FromStr for OrgGraphEdgeRel {
 }
 impl ::std::convert::TryFrom<&str> for OrgGraphEdgeRel {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5156,7 +5342,7 @@ therefore means "not recorded", not "neither".
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum OrgGraphEdgeUpstream {
     #[serde(rename = "terraform.io")]
@@ -5174,7 +5360,9 @@ impl ::std::fmt::Display for OrgGraphEdgeUpstream {
 }
 impl ::std::str::FromStr for OrgGraphEdgeUpstream {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "terraform.io" => Ok(Self::TerraformIo),
             "opentofu.org" => Ok(Self::OpentofuOrg),
@@ -5184,7 +5372,9 @@ impl ::std::str::FromStr for OrgGraphEdgeUpstream {
 }
 impl ::std::convert::TryFrom<&str> for OrgGraphEdgeUpstream {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5215,37 +5405,39 @@ pub struct OrgGraphNode {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub deprecated_message: ::std::option::Option<::std::string::String>,
     /**Provider nodes only. `true` when the provider was surfaced by discovery — a lock file
-    or a module's `required_providers` — rather than added by an admin. A referenced
-    provider we hold no artefact row for defaults to `true`: being referenced is the
-    discovery.
-    */
+or a module's `required_providers` — rather than added by an admin. A referenced
+provider we hold no artefact row for defaults to `true`: being referenced is the
+discovery.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub discovered: ::std::option::Option<bool>,
     /**Outside this org, so visible but ungovernable from here. Computed server-side
-    because the client previously inferred it three different ways and disagreed with
-    itself about whether to offer governance actions.
-    */
+because the client previously inferred it three different ways and disagreed with
+itself about whether to offer governance actions.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub external: ::std::option::Option<bool>,
     /**State nodes only. `false` means Terramantle cannot see this workspace's provider
-    pins, so it cannot warn about CVEs or stale versions for it — the portal offers an
-    upload prompt on these nodes rather than leaving them as unexplained orphans.
-    */
+pins, so it cannot warn about CVEs or stale versions for it — the portal offers an
+upload prompt on these nodes rather than leaving them as unexplained orphans.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub has_lock_file: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub high_count: ::std::option::Option<i64>,
     /**`ws:<workspace_id>`, `mod:<namespace>/<name>/<provider>` or `prov:<namespace>/<type>`.
-    The prefix is part of the id, so ids are unique across kinds.
-    */
+The prefix is part of the id, so ids are unique across kinds.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub infrastructure_repo_provider: ::std::option::Option<OrgGraphNodeInfrastructureRepoProvider>,
+    pub infrastructure_repo_provider: ::std::option::Option<
+        OrgGraphNodeInfrastructureRepoProvider,
+    >,
     /**The user's own Terraform repository, recorded from a header at upload time. Not
-    allowlist-checked server-side, unlike `vcs_commit_url`, so the portal must render it
-    through its safe-URL guard.
-    */
+allowlist-checked server-side, unlike `vcs_commit_url`, so the portal must render it
+through its safe-URL guard.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub infrastructure_repo_url: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5254,22 +5446,22 @@ pub struct OrgGraphNode {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub label: ::std::option::Option<::std::string::String>,
     /**Newest PUBLISHED version by publish time, not a lexicographic max — `v10` sorts above
-    `v9`. `null` when a module has no published version, which includes one still being
-    scanned and one whose scan failed.
-    */
+`v9`. `null` when a module has no published version, which includes one still being
+scanned and one whose scan failed.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version: ::std::option::Option<::std::string::String>,
     /**State nodes only. When the workspace's `.terraform.lock.hcl` was last uploaded.
-    Every `locks` edge leaving this node states the estate as of this moment, so the
-    portal renders it as the as-of line rather than as a decorative timestamp. Lives on
-    the node and not on the edges because it is one fact per workspace, not one per pin.
-    */
+Every `locks` edge leaving this node states the estate as of this moment, so the
+portal renders it as the as-of line rather than as a decorative timestamp. Lives on
+the node and not on the edges because it is one fact per workspace, not one per pin.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub lock_file_uploaded_at: ::std::option::Option<i64>,
     /**The uploader's email where the recorded value was a user id, otherwise the raw OIDC
-    client id — a lock file is routinely pushed by CI, so the client id is the honest
-    answer rather than a missing one.
-    */
+client id — a lock file is routinely pushed by CI, so the client id is the honest
+answer rather than a missing one.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub lock_file_uploaded_by: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5291,10 +5483,10 @@ pub struct OrgGraphNode {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub serial: ::std::option::Option<i64>,
     /**Pre-built commit link, `https` on an allowlisted host only. Built server-side on
-    purpose: a forged VCS claim must not be able to steer a link the portal renders.
-    `null` whenever provenance is absent — which is the common case, since it is recorded
-    only for pushes authenticated by VCS OIDC, not for human or bot-token pushes.
-    */
+purpose: a forged VCS claim must not be able to steer a link the portal renders.
+`null` whenever provenance is absent — which is the common case, since it is recorded
+only for pushes authenticated by VCS OIDC, not for human or bot-token pushes.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vcs_commit_url: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5324,7 +5516,7 @@ pub struct OrgGraphNode {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum OrgGraphNodeInfrastructureRepoProvider {
     #[serde(rename = "github")]
@@ -5342,7 +5534,9 @@ impl ::std::fmt::Display for OrgGraphNodeInfrastructureRepoProvider {
 }
 impl ::std::str::FromStr for OrgGraphNodeInfrastructureRepoProvider {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "github" => Ok(Self::Github),
             "gitlab" => Ok(Self::Gitlab),
@@ -5352,11 +5546,14 @@ impl ::std::str::FromStr for OrgGraphNodeInfrastructureRepoProvider {
 }
 impl ::std::convert::TryFrom<&str> for OrgGraphNodeInfrastructureRepoProvider {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for OrgGraphNodeInfrastructureRepoProvider {
+impl ::std::convert::TryFrom<::std::string::String>
+for OrgGraphNodeInfrastructureRepoProvider {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -5375,7 +5572,7 @@ impl ::std::convert::TryFrom<::std::string::String> for OrgGraphNodeInfrastructu
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum OrgGraphNodeKind {
     #[serde(rename = "state")]
@@ -5396,7 +5593,9 @@ impl ::std::fmt::Display for OrgGraphNodeKind {
 }
 impl ::std::str::FromStr for OrgGraphNodeKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "state" => Ok(Self::State),
             "module" => Ok(Self::Module),
@@ -5407,7 +5606,9 @@ impl ::std::str::FromStr for OrgGraphNodeKind {
 }
 impl ::std::convert::TryFrom<&str> for OrgGraphNodeKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5430,7 +5631,7 @@ impl ::std::convert::TryFrom<::std::string::String> for OrgGraphNodeKind {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum OrgGraphNodeVcsProvider {
     #[serde(rename = "github")]
@@ -5448,7 +5649,9 @@ impl ::std::fmt::Display for OrgGraphNodeVcsProvider {
 }
 impl ::std::str::FromStr for OrgGraphNodeVcsProvider {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "github" => Ok(Self::Github),
             "gitlab" => Ok(Self::Gitlab),
@@ -5458,7 +5661,9 @@ impl ::std::str::FromStr for OrgGraphNodeVcsProvider {
 }
 impl ::std::convert::TryFrom<&str> for OrgGraphNodeVcsProvider {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5519,9 +5724,9 @@ pub struct OrgMachineToken {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
     /**The IdP service-account username. This is the identity the API authorizes: every
-    bot token shares one provider and so one `azp`, and this value is the token's `sub`.
-    Sent as `username` in the `client_credentials` grant.
-    */
+bot token shares one provider and so one `azp`, and this value is the token's `sub`.
+Sent as `username` in the `client_credentials` grant.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub oidc_client_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5549,7 +5754,9 @@ impl ::std::convert::From<OrgMachineTokenIsGlobal> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for OrgMachineTokenIsGlobal {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -5563,7 +5770,7 @@ impl<'de> ::serde::Deserialize<'de> for OrgMachineTokenIsGlobal {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`OrgMember`
@@ -5577,19 +5784,19 @@ pub struct OrgMember {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_billing_admin: ::std::option::Option<OrgMemberIsBillingAdmin>,
     /**Last authenticated request by this user, anywhere on the platform — not a login
-    event. The auth middleware writes it at most once per five minutes per identity
-    (same throttle as `MachineTokenSummary.last_used_at`), so read it as "recently
-    seen", and note that a still-valid session or a CLI call counts as activity
-    without anyone signing in again.
+event. The auth middleware writes it at most once per five minutes per identity
+(same throttle as `MachineTokenSummary.last_used_at`), so read it as "recently
+seen", and note that a still-valid session or a CLI call counts as activity
+without anyone signing in again.
 
-    `null` means never seen — for an invited member that means they have not been
-    back since the login that created their user record, because
-    `POST /api/orgs/{orgId}/members` can only invite someone who has logged in at
-    least once.
+`null` means never seen — for an invited member that means they have not been
+back since the login that created their user record, because
+`POST /api/orgs/{orgId}/members` can only invite someone who has logged in at
+least once.
 
-    Informational only: it exists so an owner can tell a live seat from a dormant
-    one. No authorization decision reads it, and it is not scoped to this org.
-    */
+Informational only: it exists so an owner can tell a live seat from a dormant
+one. No authorization decision reads it, and it is not scoped to this org.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub last_seen_at: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5614,7 +5821,9 @@ impl ::std::convert::From<OrgMemberIsBillingAdmin> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for OrgMemberIsBillingAdmin {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -5628,7 +5837,7 @@ impl<'de> ::serde::Deserialize<'de> for OrgMemberIsBillingAdmin {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`OrgSummary`
@@ -5648,18 +5857,18 @@ pub struct OrgSummary {
     pub is_personal: ::std::option::Option<OrgSummaryIsPersonal>,
     pub name: ::std::string::String,
     /**Non-null when **this caller** is locked out of the org by the Solo plan (see `PlanLock`),
-    so the portal can show the modal before any call answers `402`.
-    */
+so the portal can show the modal before any call answers `402`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_lock: ::std::option::Option<PlanLock>,
     pub role: Role,
     /**URL-safe identity. Accepted anywhere `orgId` appears, and it is the `namespace` segment
-    for this org's modules.
-    */
+for this org's modules.
+*/
     pub slug: ::std::string::String,
     /**A Solo org whose Dodo subscription ended (as against one that never had one),
-    so the owner's portal can say "resubscribe" and explain why colleagues are locked out.
-    */
+so the owner's portal can say "resubscribe" and explain why colleagues are locked out.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub subscription_ended: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5682,7 +5891,9 @@ impl ::std::convert::From<OrgSummaryIsDemo> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for OrgSummaryIsDemo {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -5696,7 +5907,7 @@ impl<'de> ::serde::Deserialize<'de> for OrgSummaryIsDemo {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///A personal org is the user's own account. Always reports `starter`.
@@ -5716,7 +5927,9 @@ impl ::std::convert::From<OrgSummaryIsPersonal> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for OrgSummaryIsPersonal {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -5730,7 +5943,7 @@ impl<'de> ::serde::Deserialize<'de> for OrgSummaryIsPersonal {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 /**On success, the git provenance of a patched build. On a failure report, the stage and
@@ -5793,7 +6006,9 @@ pub struct PlanFindingInput {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -5819,7 +6034,7 @@ pub struct PlanFindingInput {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanFindingSeverity {
     #[serde(rename = "critical")]
@@ -5846,7 +6061,9 @@ impl ::std::fmt::Display for PlanFindingSeverity {
 }
 impl ::std::str::FromStr for PlanFindingSeverity {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "critical" => Ok(Self::Critical),
             "high" => Ok(Self::High),
@@ -5859,7 +6076,9 @@ impl ::std::str::FromStr for PlanFindingSeverity {
 }
 impl ::std::convert::TryFrom<&str> for PlanFindingSeverity {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5880,7 +6099,7 @@ pub struct PlanImpact {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub dependents: ::std::option::Option<PlanImpactDependents>,
     /**`unavailable` when the plan removes something and the render carried no prior state to read dependency edges from. The `dependents` counts are then null.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub graph: ::std::option::Option<PlanImpactGraph>,
 }
@@ -5919,7 +6138,7 @@ pub struct PlanImpactDependents {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanImpactGraph {
     #[serde(rename = "ok")]
@@ -5937,7 +6156,9 @@ impl ::std::fmt::Display for PlanImpactGraph {
 }
 impl ::std::str::FromStr for PlanImpactGraph {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "unavailable" => Ok(Self::Unavailable),
@@ -5947,7 +6168,9 @@ impl ::std::str::FromStr for PlanImpactGraph {
 }
 impl ::std::convert::TryFrom<&str> for PlanImpactGraph {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -5991,7 +6214,7 @@ pub struct PlanIndicator {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanIndicatorMode {
     #[serde(rename = "enforce")]
@@ -6012,7 +6235,9 @@ impl ::std::fmt::Display for PlanIndicatorMode {
 }
 impl ::std::str::FromStr for PlanIndicatorMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "enforce" => Ok(Self::Enforce),
             "warn" => Ok(Self::Warn),
@@ -6023,7 +6248,9 @@ impl ::std::str::FromStr for PlanIndicatorMode {
 }
 impl ::std::convert::TryFrom<&str> for PlanIndicatorMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6046,7 +6273,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanIndicatorMode {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanIndicatorStatus {
     #[serde(rename = "ok")]
@@ -6070,7 +6297,9 @@ impl ::std::fmt::Display for PlanIndicatorStatus {
 }
 impl ::std::str::FromStr for PlanIndicatorStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "warn" => Ok(Self::Warn),
@@ -6082,7 +6311,9 @@ impl ::std::str::FromStr for PlanIndicatorStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlanIndicatorStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6098,24 +6329,29 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanIndicatorStatus {
 */
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
-pub struct PlanLimits(pub ::std::collections::HashMap<::std::string::String, PlanLimitsValue>);
+pub struct PlanLimits(
+    pub ::std::collections::HashMap<::std::string::String, PlanLimitsValue>,
+);
 impl ::std::ops::Deref for PlanLimits {
     type Target = ::std::collections::HashMap<::std::string::String, PlanLimitsValue>;
-    fn deref(&self) -> &::std::collections::HashMap<::std::string::String, PlanLimitsValue> {
+    fn deref(
+        &self,
+    ) -> &::std::collections::HashMap<::std::string::String, PlanLimitsValue> {
         &self.0
     }
 }
 impl ::std::convert::From<PlanLimits>
-    for ::std::collections::HashMap<::std::string::String, PlanLimitsValue>
-{
+for ::std::collections::HashMap<::std::string::String, PlanLimitsValue> {
     fn from(value: PlanLimits) -> Self {
         value.0
     }
 }
-impl ::std::convert::From<::std::collections::HashMap<::std::string::String, PlanLimitsValue>>
-    for PlanLimits
-{
-    fn from(value: ::std::collections::HashMap<::std::string::String, PlanLimitsValue>) -> Self {
+impl ::std::convert::From<
+    ::std::collections::HashMap<::std::string::String, PlanLimitsValue>,
+> for PlanLimits {
+    fn from(
+        value: ::std::collections::HashMap<::std::string::String, PlanLimitsValue>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -6139,7 +6375,7 @@ pub struct PlanLimitsValue {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanLimitsValueMode {
     #[serde(rename = "enforce")]
@@ -6157,7 +6393,9 @@ impl ::std::fmt::Display for PlanLimitsValueMode {
 }
 impl ::std::str::FromStr for PlanLimitsValueMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "enforce" => Ok(Self::Enforce),
             "warn" => Ok(Self::Warn),
@@ -6167,7 +6405,9 @@ impl ::std::str::FromStr for PlanLimitsValueMode {
 }
 impl ::std::convert::TryFrom<&str> for PlanLimitsValueMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6189,9 +6429,9 @@ state file (module version pruning skips any org that has ever had a subscriptio
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlanLock {
     /**This caller may pay (an owner who is not the oldest one, or a billing admin), so the
-    portal sends them to Billing, which the lock does not block for them, instead of only
-    telling them to ask the owner.
-    */
+portal sends them to Billing, which the lock does not block for them, instead of only
+telling them to ask the owner.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub can_restore: ::std::option::Option<bool>,
     ///Who to ask.
@@ -6203,7 +6443,7 @@ pub struct PlanLock {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlanPolicyResult {
     /**Does a failure of THIS ROW block? `true` for `builtin-plan-gate` and `custom-rego-gate`; `false` for the two `-advisory` rows and for every per-policy row from the scanner, which evaluates all enabled policies whatever their level and gates nothing. A row with `passed: false, enforcing: false` is a warning, not a failed gate.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub enforcing: ::std::option::Option<bool>,
     ///Epoch milliseconds.
@@ -6249,7 +6489,7 @@ pub struct PlanPolicyResultInput {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanPolicyResultSource {
     #[serde(rename = "builtin")]
@@ -6267,7 +6507,9 @@ impl ::std::fmt::Display for PlanPolicyResultSource {
 }
 impl ::std::str::FromStr for PlanPolicyResultSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "builtin" => Ok(Self::Builtin),
             "opa" => Ok(Self::Opa),
@@ -6277,7 +6519,9 @@ impl ::std::str::FromStr for PlanPolicyResultSource {
 }
 impl ::std::convert::TryFrom<&str> for PlanPolicyResultSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6347,7 +6591,7 @@ pub struct PlanProvenance {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanProvenanceProvider {
     #[serde(rename = "github")]
@@ -6365,7 +6609,9 @@ impl ::std::fmt::Display for PlanProvenanceProvider {
 }
 impl ::std::str::FromStr for PlanProvenanceProvider {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "github" => Ok(Self::Github),
             "gitlab" => Ok(Self::Gitlab),
@@ -6375,7 +6621,9 @@ impl ::std::str::FromStr for PlanProvenanceProvider {
 }
 impl ::std::convert::TryFrom<&str> for PlanProvenanceProvider {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6398,7 +6646,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanProvenanceProvider {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanProvenanceSource {
     #[serde(rename = "ci")]
@@ -6419,7 +6667,9 @@ impl ::std::fmt::Display for PlanProvenanceSource {
 }
 impl ::std::str::FromStr for PlanProvenanceSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ci" => Ok(Self::Ci),
             "machine" => Ok(Self::Machine),
@@ -6430,7 +6680,9 @@ impl ::std::str::FromStr for PlanProvenanceSource {
 }
 impl ::std::convert::TryFrom<&str> for PlanProvenanceSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6496,7 +6748,7 @@ pub struct PlanPushResult {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanPushResultLineageSource {
     #[serde(rename = "tfplan")]
@@ -6517,7 +6769,9 @@ impl ::std::fmt::Display for PlanPushResultLineageSource {
 }
 impl ::std::str::FromStr for PlanPushResultLineageSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "tfplan" => Ok(Self::Tfplan),
             "header" => Ok(Self::Header),
@@ -6528,7 +6782,9 @@ impl ::std::str::FromStr for PlanPushResultLineageSource {
 }
 impl ::std::convert::TryFrom<&str> for PlanPushResultLineageSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6551,7 +6807,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanPushResultLineageSou
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanPushResultRiskLevel {
     #[serde(rename = "low")]
@@ -6575,7 +6831,9 @@ impl ::std::fmt::Display for PlanPushResultRiskLevel {
 }
 impl ::std::str::FromStr for PlanPushResultRiskLevel {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "low" => Ok(Self::Low),
             "medium" => Ok(Self::Medium),
@@ -6587,7 +6845,9 @@ impl ::std::str::FromStr for PlanPushResultRiskLevel {
 }
 impl ::std::convert::TryFrom<&str> for PlanPushResultRiskLevel {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6627,10 +6887,7 @@ pub struct PlanResourceTree {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlanRisk {
     ///Per-class counts, keyed by class name.
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
     pub classes: ::std::collections::HashMap<::std::string::String, ClassCounts>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub destructive: ::std::option::Option<PlanRiskDestructive>,
@@ -6690,7 +6947,7 @@ pub struct PlanRiskFactorsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanRiskLevel {
     #[serde(rename = "low")]
@@ -6714,7 +6971,9 @@ impl ::std::fmt::Display for PlanRiskLevel {
 }
 impl ::std::str::FromStr for PlanRiskLevel {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "low" => Ok(Self::Low),
             "medium" => Ok(Self::Medium),
@@ -6726,7 +6985,9 @@ impl ::std::str::FromStr for PlanRiskLevel {
 }
 impl ::std::convert::TryFrom<&str> for PlanRiskLevel {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6781,7 +7042,7 @@ pub struct PlanRun {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanRunMode {
     #[serde(rename = "normal")]
@@ -6802,7 +7063,9 @@ impl ::std::fmt::Display for PlanRunMode {
 }
 impl ::std::str::FromStr for PlanRunMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "normal" => Ok(Self::Normal),
             "destroy" => Ok(Self::Destroy),
@@ -6813,7 +7076,9 @@ impl ::std::str::FromStr for PlanRunMode {
 }
 impl ::std::convert::TryFrom<&str> for PlanRunMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6850,7 +7115,7 @@ pub struct PlanScanResultsBody {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanScanResultsBodyStatus {
     #[serde(rename = "published")]
@@ -6868,7 +7133,9 @@ impl ::std::fmt::Display for PlanScanResultsBodyStatus {
 }
 impl ::std::str::FromStr for PlanScanResultsBodyStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "published" => Ok(Self::Published),
             "failed" => Ok(Self::Failed),
@@ -6878,7 +7145,9 @@ impl ::std::str::FromStr for PlanScanResultsBodyStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlanScanResultsBodyStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6901,7 +7170,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanScanResultsBodyStatu
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanScanStatus {
     #[serde(rename = "pending")]
@@ -6925,7 +7194,9 @@ impl ::std::fmt::Display for PlanScanStatus {
 }
 impl ::std::str::FromStr for PlanScanStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "processing" => Ok(Self::Processing),
@@ -6937,7 +7208,9 @@ impl ::std::str::FromStr for PlanScanStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlanScanStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -6958,7 +7231,7 @@ pub struct PlanSupplyChain {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers: ::std::option::Option<PlanSupplyChainProviders>,
     /**Where the versions came from. `tfplan` = the lock file inside the pushed binary: the exact versions the plan was made with. `workspace_lockfile` = the lock file last uploaded for the workspace. `render` = none; every provider is then unverified.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source: ::std::option::Option<PlanSupplyChainSource>,
 }
@@ -7019,7 +7292,7 @@ pub struct PlanSupplyChainModulesListItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanSupplyChainModulesListItemOrigin {
     #[serde(rename = "local")]
@@ -7046,7 +7319,9 @@ impl ::std::fmt::Display for PlanSupplyChainModulesListItemOrigin {
 }
 impl ::std::str::FromStr for PlanSupplyChainModulesListItemOrigin {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "local" => Ok(Self::Local),
             "terramantle" => Ok(Self::Terramantle),
@@ -7059,11 +7334,14 @@ impl ::std::str::FromStr for PlanSupplyChainModulesListItemOrigin {
 }
 impl ::std::convert::TryFrom<&str> for PlanSupplyChainModulesListItemOrigin {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlanSupplyChainModulesListItemOrigin {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlanSupplyChainModulesListItemOrigin {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -7135,7 +7413,7 @@ pub struct PlanSupplyChainProvidersListItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanSupplyChainSource {
     #[serde(rename = "tfplan")]
@@ -7156,7 +7434,9 @@ impl ::std::fmt::Display for PlanSupplyChainSource {
 }
 impl ::std::str::FromStr for PlanSupplyChainSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "tfplan" => Ok(Self::Tfplan),
             "workspace_lockfile" => Ok(Self::WorkspaceLockfile),
@@ -7167,7 +7447,9 @@ impl ::std::str::FromStr for PlanSupplyChainSource {
 }
 impl ::std::convert::TryFrom<&str> for PlanSupplyChainSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7190,7 +7472,7 @@ pub struct PlanVerdict {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub sources: ::std::vec::Vec<PlanVerdictSourcesItem>,
     /**Things that fired and do NOT block: an indicator limit set to `warn` that the plan exceeded, then denials from ADVISORY custom-Rego policies. For display; they never set `blocked` and never appear in `reasons`. Empty when nothing of the kind fired. Absent from a response produced before migration 150 - treat absent as empty.
-     */
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub warnings: ::std::vec::Vec<::std::string::String>,
 }
@@ -7205,7 +7487,7 @@ pub struct PlanVerdict {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanVerdictSourcesItem {
     #[serde(rename = "builtin")]
@@ -7223,7 +7505,9 @@ impl ::std::fmt::Display for PlanVerdictSourcesItem {
 }
 impl ::std::str::FromStr for PlanVerdictSourcesItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "builtin" => Ok(Self::Builtin),
             "opa" => Ok(Self::Opa),
@@ -7233,7 +7517,9 @@ impl ::std::str::FromStr for PlanVerdictSourcesItem {
 }
 impl ::std::convert::TryFrom<&str> for PlanVerdictSourcesItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7281,7 +7567,7 @@ pub struct PlanVersionSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_errored: ::std::option::Option<PlanVersionSummaryPlanErrored>,
     /**How the plan was run, read from the BINARY: an ordinary plan, `-destroy`, or `-refresh-only`. `null` means NOT KNOWN - a render-only push (`show -json` has no field for it) or a version from before migration 150 - and must not be read as `normal`.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_mode: ::std::option::Option<PlanVersionSummaryPlanMode>,
     ///PR/branch/SHA discriminator; null = default/mainline.
@@ -7330,7 +7616,7 @@ pub struct PlanVersionSummary {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanVersionSummaryActorType {
     #[serde(rename = "vcs")]
@@ -7351,7 +7637,9 @@ impl ::std::fmt::Display for PlanVersionSummaryActorType {
 }
 impl ::std::str::FromStr for PlanVersionSummaryActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "vcs" => Ok(Self::Vcs),
             "bot_token" => Ok(Self::BotToken),
@@ -7362,7 +7650,9 @@ impl ::std::str::FromStr for PlanVersionSummaryActorType {
 }
 impl ::std::convert::TryFrom<&str> for PlanVersionSummaryActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7385,7 +7675,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanVersionSummaryActorT
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanVersionSummaryLineageSource {
     #[serde(rename = "tfplan")]
@@ -7406,7 +7696,9 @@ impl ::std::fmt::Display for PlanVersionSummaryLineageSource {
 }
 impl ::std::str::FromStr for PlanVersionSummaryLineageSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "tfplan" => Ok(Self::Tfplan),
             "header" => Ok(Self::Header),
@@ -7417,7 +7709,9 @@ impl ::std::str::FromStr for PlanVersionSummaryLineageSource {
 }
 impl ::std::convert::TryFrom<&str> for PlanVersionSummaryLineageSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7446,7 +7740,9 @@ impl ::std::convert::From<PlanVersionSummaryPlanErrored> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PlanVersionSummaryPlanErrored {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -7460,7 +7756,7 @@ impl<'de> ::serde::Deserialize<'de> for PlanVersionSummaryPlanErrored {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 /**How the plan was run, read from the BINARY: an ordinary plan, `-destroy`, or `-refresh-only`. `null` means NOT KNOWN - a render-only push (`show -json` has no field for it) or a version from before migration 150 - and must not be read as `normal`.
@@ -7475,7 +7771,7 @@ impl<'de> ::serde::Deserialize<'de> for PlanVersionSummaryPlanErrored {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanVersionSummaryPlanMode {
     #[serde(rename = "normal")]
@@ -7496,7 +7792,9 @@ impl ::std::fmt::Display for PlanVersionSummaryPlanMode {
 }
 impl ::std::str::FromStr for PlanVersionSummaryPlanMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "normal" => Ok(Self::Normal),
             "destroy" => Ok(Self::Destroy),
@@ -7507,7 +7805,9 @@ impl ::std::str::FromStr for PlanVersionSummaryPlanMode {
 }
 impl ::std::convert::TryFrom<&str> for PlanVersionSummaryPlanMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7536,7 +7836,9 @@ impl ::std::convert::From<PlanVersionSummaryPlanTargeted> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PlanVersionSummaryPlanTargeted {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -7550,7 +7852,7 @@ impl<'de> ::serde::Deserialize<'de> for PlanVersionSummaryPlanTargeted {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`full` since migration 145; `redacted` for a legacy version, whose inspector answers 409.
@@ -7564,7 +7866,7 @@ impl<'de> ::serde::Deserialize<'de> for PlanVersionSummaryPlanTargeted {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanVersionSummaryRenderKind {
     #[serde(rename = "redacted")]
@@ -7582,7 +7884,9 @@ impl ::std::fmt::Display for PlanVersionSummaryRenderKind {
 }
 impl ::std::str::FromStr for PlanVersionSummaryRenderKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "redacted" => Ok(Self::Redacted),
             "full" => Ok(Self::Full),
@@ -7592,7 +7896,9 @@ impl ::std::str::FromStr for PlanVersionSummaryRenderKind {
 }
 impl ::std::convert::TryFrom<&str> for PlanVersionSummaryRenderKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7615,7 +7921,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanVersionSummaryRender
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlanVersionSummaryRiskLevel {
     #[serde(rename = "low")]
@@ -7639,7 +7945,9 @@ impl ::std::fmt::Display for PlanVersionSummaryRiskLevel {
 }
 impl ::std::str::FromStr for PlanVersionSummaryRiskLevel {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "low" => Ok(Self::Low),
             "medium" => Ok(Self::Medium),
@@ -7651,7 +7959,9 @@ impl ::std::str::FromStr for PlanVersionSummaryRiskLevel {
 }
 impl ::std::convert::TryFrom<&str> for PlanVersionSummaryRiskLevel {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -7747,7 +8057,7 @@ pub struct PlatformAuditOperatorEventPageLast24h {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformAuditOperatorEventResult {
     #[serde(rename = "ok")]
@@ -7771,7 +8081,9 @@ impl ::std::fmt::Display for PlatformAuditOperatorEventResult {
 }
 impl ::std::str::FromStr for PlatformAuditOperatorEventResult {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "denied" => Ok(Self::Denied),
@@ -7783,11 +8095,14 @@ impl ::std::str::FromStr for PlatformAuditOperatorEventResult {
 }
 impl ::std::convert::TryFrom<&str> for PlatformAuditOperatorEventResult {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformAuditOperatorEventResult {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformAuditOperatorEventResult {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -7849,7 +8164,7 @@ pub struct PlatformAuditTenantEventPage {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformAuditTenantEventTenantTier {
     #[serde(rename = "starter")]
@@ -7873,7 +8188,9 @@ impl ::std::fmt::Display for PlatformAuditTenantEventTenantTier {
 }
 impl ::std::str::FromStr for PlatformAuditTenantEventTenantTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "starter" => Ok(Self::Starter),
             "team" => Ok(Self::Team),
@@ -7885,11 +8202,14 @@ impl ::std::str::FromStr for PlatformAuditTenantEventTenantTier {
 }
 impl ::std::convert::TryFrom<&str> for PlatformAuditTenantEventTenantTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformAuditTenantEventTenantTier {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformAuditTenantEventTenantTier {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -7901,8 +8221,8 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformAuditTenantEvent
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformBacklogSubmission {
     /**`return` does all the same work and hands the queue message back instead of sending it,
-    for a runner that executes the job itself.
-    */
+for a runner that executes the job itself.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub dispatch: ::std::option::Option<PlatformBacklogSubmissionDispatch>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -7914,17 +8234,14 @@ pub struct PlatformBacklogSubmission {
     pub org_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub repatch: ::std::option::Option<bool>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     ///Picks the lineage when an org holds both. Omitted, it is resolved the way the drain resolves it.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<PlatformBacklogSubmissionUpstream>,
     /**For `build` and `reopen-build`, the upstream BASE (`X.Y.Z`). For `rescan`, either a base
-    or a `<base>-0.0.N` revision of ours.
-    */
+or a `<base>-0.0.N` revision of ours.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
 }
@@ -7941,7 +8258,7 @@ for a runner that executes the job itself.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBacklogSubmissionDispatch {
     #[serde(rename = "queue")]
@@ -7959,7 +8276,9 @@ impl ::std::fmt::Display for PlatformBacklogSubmissionDispatch {
 }
 impl ::std::str::FromStr for PlatformBacklogSubmissionDispatch {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "queue" => Ok(Self::Queue),
             "return" => Ok(Self::Return),
@@ -7969,11 +8288,14 @@ impl ::std::str::FromStr for PlatformBacklogSubmissionDispatch {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBacklogSubmissionDispatch {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformBacklogSubmissionDispatch {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformBacklogSubmissionDispatch {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -7992,7 +8314,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformBacklogSubmissio
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBacklogSubmissionUpstream {
     #[serde(rename = "terraform.io")]
@@ -8010,7 +8332,9 @@ impl ::std::fmt::Display for PlatformBacklogSubmissionUpstream {
 }
 impl ::std::str::FromStr for PlatformBacklogSubmissionUpstream {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "terraform.io" => Ok(Self::TerraformIo),
             "opentofu.org" => Ok(Self::OpentofuOrg),
@@ -8020,11 +8344,14 @@ impl ::std::str::FromStr for PlatformBacklogSubmissionUpstream {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBacklogSubmissionUpstream {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformBacklogSubmissionUpstream {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformBacklogSubmissionUpstream {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -8097,7 +8424,7 @@ pub struct PlatformBillingSeatCharge {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBillingSeatChargeMethod {
     #[serde(rename = "one_click")]
@@ -8118,7 +8445,9 @@ impl ::std::fmt::Display for PlatformBillingSeatChargeMethod {
 }
 impl ::std::str::FromStr for PlatformBillingSeatChargeMethod {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "one_click" => Ok(Self::OneClick),
             "invoice" => Ok(Self::Invoice),
@@ -8129,7 +8458,9 @@ impl ::std::str::FromStr for PlatformBillingSeatChargeMethod {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBillingSeatChargeMethod {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8152,7 +8483,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformBillingSeatCharg
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBillingSeatChargeStatus {
     #[serde(rename = "open")]
@@ -8185,7 +8516,9 @@ impl ::std::fmt::Display for PlatformBillingSeatChargeStatus {
 }
 impl ::std::str::FromStr for PlatformBillingSeatChargeStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "open" => Ok(Self::Open),
             "none" => Ok(Self::None),
@@ -8200,7 +8533,9 @@ impl ::std::str::FromStr for PlatformBillingSeatChargeStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBillingSeatChargeStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8223,7 +8558,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformBillingSeatCharg
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBillingSeatChargeTier {
     #[serde(rename = "team")]
@@ -8241,7 +8576,9 @@ impl ::std::fmt::Display for PlatformBillingSeatChargeTier {
 }
 impl ::std::str::FromStr for PlatformBillingSeatChargeTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "team" => Ok(Self::Team),
             "business" => Ok(Self::Business),
@@ -8251,7 +8588,9 @@ impl ::std::str::FromStr for PlatformBillingSeatChargeTier {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBillingSeatChargeTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8269,7 +8608,9 @@ pub struct PlatformBillingSubscription {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub business_name: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub collection_method: ::std::option::Option<PlatformBillingSubscriptionCollectionMethod>,
+    pub collection_method: ::std::option::Option<
+        PlatformBillingSubscriptionCollectionMethod,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub current_period_end: ::std::option::Option<i64>,
     ///The Dodo customer (`cus_…`)
@@ -8316,7 +8657,7 @@ pub struct PlatformBillingSubscription {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBillingSubscriptionCollectionMethod {
     #[serde(rename = "card")]
@@ -8334,7 +8675,9 @@ impl ::std::fmt::Display for PlatformBillingSubscriptionCollectionMethod {
 }
 impl ::std::str::FromStr for PlatformBillingSubscriptionCollectionMethod {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "card" => Ok(Self::Card),
             "invoice" => Ok(Self::Invoice),
@@ -8344,13 +8687,14 @@ impl ::std::str::FromStr for PlatformBillingSubscriptionCollectionMethod {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBillingSubscriptionCollectionMethod {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformBillingSubscriptionCollectionMethod
-{
+for PlatformBillingSubscriptionCollectionMethod {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -8400,7 +8744,7 @@ pub struct PlatformBillingWebhookEvent {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformBillingWebhookEventStatus {
     #[serde(rename = "pending")]
@@ -8424,7 +8768,9 @@ impl ::std::fmt::Display for PlatformBillingWebhookEventStatus {
 }
 impl ::std::str::FromStr for PlatformBillingWebhookEventStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "processed" => Ok(Self::Processed),
@@ -8436,11 +8782,14 @@ impl ::std::str::FromStr for PlatformBillingWebhookEventStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformBillingWebhookEventStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformBillingWebhookEventStatus {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformBillingWebhookEventStatus {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -8456,7 +8805,9 @@ pub struct PlatformCronRun {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub ms: ::std::option::Option<i64>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub queued: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub queued: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub queued_artefacts: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -8475,10 +8826,7 @@ pub struct PlatformEntitlementRequest {
     ///Required. Recorded in the audit event.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub reason: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
 }
 ///`PlatformEntitlementResult`
@@ -8497,10 +8845,7 @@ pub struct PlatformEntitlementResult {
     ///True when a row was removed (DELETE only).
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub revoked: ::std::option::Option<bool>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
 }
 ///`PlatformFlag`
@@ -8518,24 +8863,21 @@ pub struct PlatformFlag {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub env_value: ::std::option::Option<::std::string::String>,
     /**A `brake` is something to pull in an incident; a `feature` is a capability switch. The
-    distinction is for the operator's eye, not the resolver.
-    */
+distinction is for the operator's eye, not the resolver.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub kind: ::std::option::Option<PlatformFlagKind>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "override",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "override", skip_serializing_if = "::std::option::Option::is_none")]
     pub override_: ::std::option::Option<PlatformFlagOverride>,
     ///The string in force, from whichever layer won.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub raw: ::std::option::Option<::std::string::String>,
     /**Which rule the call site was written with. `on_when_1`: enabled only when the value is
-    exactly "1". `off_when_0`: enabled unless the value is exactly "0". Null for a `number`
-    flag, which has its own parser.
-    */
+exactly "1". `off_when_0`: enabled unless the value is exactly "0". Null for a `number`
+flag, which has its own parser.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub semantics: ::std::option::Option<PlatformFlagSemantics>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -8560,7 +8902,9 @@ impl ::std::fmt::Display for PlatformFlagEffective {
 }
 impl ::std::str::FromStr for PlatformFlagEffective {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if let Ok(v) = value.parse() {
             Ok(Self::Boolean(v))
         } else if let Ok(v) = value.parse() {
@@ -8572,7 +8916,9 @@ impl ::std::str::FromStr for PlatformFlagEffective {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFlagEffective {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8607,7 +8953,7 @@ distinction is for the operator's eye, not the resolver.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFlagKind {
     #[serde(rename = "brake")]
@@ -8625,7 +8971,9 @@ impl ::std::fmt::Display for PlatformFlagKind {
 }
 impl ::std::str::FromStr for PlatformFlagKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "brake" => Ok(Self::Brake),
             "feature" => Ok(Self::Feature),
@@ -8635,7 +8983,9 @@ impl ::std::str::FromStr for PlatformFlagKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFlagKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8674,7 +9024,7 @@ flag, which has its own parser.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFlagSemantics {
     #[serde(rename = "on_when_1")]
@@ -8692,7 +9042,9 @@ impl ::std::fmt::Display for PlatformFlagSemantics {
 }
 impl ::std::str::FromStr for PlatformFlagSemantics {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "on_when_1" => Ok(Self::OnWhen1),
             "off_when_0" => Ok(Self::OffWhen0),
@@ -8702,7 +9054,9 @@ impl ::std::str::FromStr for PlatformFlagSemantics {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFlagSemantics {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8725,7 +9079,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagSemantics {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFlagShape {
     #[serde(rename = "enabled")]
@@ -8743,7 +9097,9 @@ impl ::std::fmt::Display for PlatformFlagShape {
 }
 impl ::std::str::FromStr for PlatformFlagShape {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "enabled" => Ok(Self::Enabled),
             "number" => Ok(Self::Number),
@@ -8753,7 +9109,9 @@ impl ::std::str::FromStr for PlatformFlagShape {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFlagShape {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8776,7 +9134,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformFlagShape {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFlagSource {
     #[serde(rename = "override")]
@@ -8797,7 +9155,9 @@ impl ::std::fmt::Display for PlatformFlagSource {
 }
 impl ::std::str::FromStr for PlatformFlagSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "override" => Ok(Self::Override),
             "env" => Ok(Self::Env),
@@ -8808,7 +9168,9 @@ impl ::std::str::FromStr for PlatformFlagSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFlagSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8847,7 +9209,7 @@ pub struct PlatformFleetDeadLetter {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetDeadLetterKind {
     #[serde(rename = "build")]
@@ -8865,7 +9227,9 @@ impl ::std::fmt::Display for PlatformFleetDeadLetterKind {
 }
 impl ::std::str::FromStr for PlatformFleetDeadLetterKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "build" => Ok(Self::Build),
             "scan" => Ok(Self::Scan),
@@ -8875,7 +9239,9 @@ impl ::std::str::FromStr for PlatformFleetDeadLetterKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetDeadLetterKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -8916,7 +9282,7 @@ pub struct PlatformFleetFlow {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetFlowKind {
     #[serde(rename = "build")]
@@ -8934,7 +9300,9 @@ impl ::std::fmt::Display for PlatformFleetFlowKind {
 }
 impl ::std::str::FromStr for PlatformFleetFlowKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "build" => Ok(Self::Build),
             "scan" => Ok(Self::Scan),
@@ -8944,7 +9312,9 @@ impl ::std::str::FromStr for PlatformFleetFlowKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetFlowKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -9000,7 +9370,7 @@ pub struct PlatformFleetFlowState {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetFlowStatePhase {
     #[serde(rename = "none")]
@@ -9036,7 +9406,9 @@ impl ::std::fmt::Display for PlatformFleetFlowStatePhase {
 }
 impl ::std::str::FromStr for PlatformFleetFlowStatePhase {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "none" => Ok(Self::None),
             "queued" => Ok(Self::Queued),
@@ -9052,7 +9424,9 @@ impl ::std::str::FromStr for PlatformFleetFlowStatePhase {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetFlowStatePhase {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -9075,7 +9449,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetFlowStatePh
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetFlowStateSource {
     #[serde(rename = "d1")]
@@ -9102,7 +9476,9 @@ impl ::std::fmt::Display for PlatformFleetFlowStateSource {
 }
 impl ::std::str::FromStr for PlatformFleetFlowStateSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "d1" => Ok(Self::D1),
             "argo_live" => Ok(Self::ArgoLive),
@@ -9115,7 +9491,9 @@ impl ::std::str::FromStr for PlatformFleetFlowStateSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetFlowStateSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -9154,7 +9532,7 @@ pub struct PlatformFleetFlowStateStepsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetFlowStateStepsItemOutcome {
     #[serde(rename = "ok")]
@@ -9181,7 +9559,9 @@ impl ::std::fmt::Display for PlatformFleetFlowStateStepsItemOutcome {
 }
 impl ::std::str::FromStr for PlatformFleetFlowStateStepsItemOutcome {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "skipped" => Ok(Self::Skipped),
@@ -9194,11 +9574,14 @@ impl ::std::str::FromStr for PlatformFleetFlowStateStepsItemOutcome {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetFlowStateStepsItemOutcome {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetFlowStateStepsItemOutcome {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformFleetFlowStateStepsItemOutcome {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9245,7 +9628,7 @@ index; `module_version`, `state_version` and `plan_version` are the version scan
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetStuckArm {
     #[serde(rename = "build_inflight")]
@@ -9290,7 +9673,9 @@ impl ::std::fmt::Display for PlatformFleetStuckArm {
 }
 impl ::std::str::FromStr for PlatformFleetStuckArm {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "build_inflight" => Ok(Self::BuildInflight),
             "build_pending" => Ok(Self::BuildPending),
@@ -9309,7 +9694,9 @@ impl ::std::str::FromStr for PlatformFleetStuckArm {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetStuckArm {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -9357,9 +9744,9 @@ pub struct PlatformFleetSummary {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub heartbeats: ::std::vec::Vec<PlatformFleetHeartbeat>,
     /**Non-terminal rows per table and status. provider_version_scans splits `pending` into
-    `pending (awaiting drain)` (no `queued_at`: backlog the drain has not dispatched) and
-    `pending (dispatched)`.
-    */
+`pending (awaiting drain)` (no `queued_at`: backlog the drain has not dispatched) and
+`pending (dispatched)`.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub in_flight: ::std::vec::Vec<PlatformFleetSummaryInFlightItem>,
     ///provider_build_jobs and provider_scan_jobs TRIGGERED in the last 24 hours, by status.
@@ -9370,10 +9757,7 @@ pub struct PlatformFleetSummary {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub stuck: ::std::vec::Vec<PlatformFleetSummaryStuckItem>,
     ///The reaper and observer constants the figures were computed with, in ms.
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
     pub thresholds: ::std::collections::HashMap<::std::string::String, i64>,
 }
 ///`PlatformFleetSummaryDeadLettersItem`
@@ -9399,7 +9783,7 @@ pub struct PlatformFleetSummaryDeadLettersItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetSummaryDeadLettersItemKind {
     #[serde(rename = "build")]
@@ -9417,7 +9801,9 @@ impl ::std::fmt::Display for PlatformFleetSummaryDeadLettersItemKind {
 }
 impl ::std::str::FromStr for PlatformFleetSummaryDeadLettersItemKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "build" => Ok(Self::Build),
             "scan" => Ok(Self::Scan),
@@ -9427,11 +9813,14 @@ impl ::std::str::FromStr for PlatformFleetSummaryDeadLettersItemKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryDeadLettersItemKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformFleetSummaryDeadLettersItemKind {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformFleetSummaryDeadLettersItemKind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9472,7 +9861,7 @@ pub struct PlatformFleetSummaryFlowsPhaseCountsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetSummaryFlowsPhaseCountsItemKind {
     #[serde(rename = "build")]
@@ -9490,7 +9879,9 @@ impl ::std::fmt::Display for PlatformFleetSummaryFlowsPhaseCountsItemKind {
 }
 impl ::std::str::FromStr for PlatformFleetSummaryFlowsPhaseCountsItemKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "build" => Ok(Self::Build),
             "scan" => Ok(Self::Scan),
@@ -9500,13 +9891,14 @@ impl ::std::str::FromStr for PlatformFleetSummaryFlowsPhaseCountsItemKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryFlowsPhaseCountsItemKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformFleetSummaryFlowsPhaseCountsItemKind
-{
+for PlatformFleetSummaryFlowsPhaseCountsItemKind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9547,7 +9939,7 @@ pub struct PlatformFleetSummaryProviderJobs24hItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetSummaryProviderJobs24hItemSource {
     #[serde(rename = "provider_build_jobs")]
@@ -9565,7 +9957,9 @@ impl ::std::fmt::Display for PlatformFleetSummaryProviderJobs24hItemSource {
 }
 impl ::std::str::FromStr for PlatformFleetSummaryProviderJobs24hItemSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "provider_build_jobs" => Ok(Self::ProviderBuildJobs),
             "provider_scan_jobs" => Ok(Self::ProviderScanJobs),
@@ -9575,13 +9969,14 @@ impl ::std::str::FromStr for PlatformFleetSummaryProviderJobs24hItemSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryProviderJobs24hItemSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformFleetSummaryProviderJobs24hItemSource
-{
+for PlatformFleetSummaryProviderJobs24hItemSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9594,7 +9989,9 @@ impl ::std::convert::TryFrom<::std::string::String>
 pub struct PlatformFleetSummaryScanAttempts24h {
     ///Failed, abandoned and not_queued attempts by `error_class` (top 50). A null class is an attempt that failed without one.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub error_classes: ::std::vec::Vec<PlatformFleetSummaryScanAttempts24hErrorClassesItem>,
+    pub error_classes: ::std::vec::Vec<
+        PlatformFleetSummaryScanAttempts24hErrorClassesItem,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub groups: ::std::vec::Vec<PlatformFleetSummaryScanAttempts24hGroupsItem>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -9616,12 +10013,15 @@ pub struct PlatformFleetSummaryScanAttempts24hErrorClassesItem {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformFleetSummaryScanAttempts24hGroupsItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub artefact_kind:
-        ::std::option::Option<PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind>,
+    pub artefact_kind: ::std::option::Option<
+        PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub status: ::std::option::Option<PlatformFleetSummaryScanAttempts24hGroupsItemStatus>,
+    pub status: ::std::option::Option<
+        PlatformFleetSummaryScanAttempts24hGroupsItemStatus,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub trigger: ::std::option::Option<::std::string::String>,
 }
@@ -9636,7 +10036,7 @@ pub struct PlatformFleetSummaryScanAttempts24hGroupsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
     #[serde(rename = "module")]
@@ -9657,7 +10057,9 @@ impl ::std::fmt::Display for PlatformFleetSummaryScanAttempts24hGroupsItemArtefa
 }
 impl ::std::str::FromStr for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "module" => Ok(Self::Module),
             "state" => Ok(Self::State),
@@ -9666,15 +10068,17 @@ impl ::std::str::FromStr for PlatformFleetSummaryScanAttempts24hGroupsItemArtefa
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
+impl ::std::convert::TryFrom<&str>
+for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind
-{
+for PlatformFleetSummaryScanAttempts24hGroupsItemArtefactKind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9693,7 +10097,7 @@ impl ::std::convert::TryFrom<::std::string::String>
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
     #[serde(rename = "queued")]
@@ -9726,7 +10130,9 @@ impl ::std::fmt::Display for PlatformFleetSummaryScanAttempts24hGroupsItemStatus
 }
 impl ::std::str::FromStr for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "queued" => Ok(Self::Queued),
             "running" => Ok(Self::Running),
@@ -9739,15 +10145,17 @@ impl ::std::str::FromStr for PlatformFleetSummaryScanAttempts24hGroupsItemStatus
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
+impl ::std::convert::TryFrom<&str>
+for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformFleetSummaryScanAttempts24hGroupsItemStatus
-{
+for PlatformFleetSummaryScanAttempts24hGroupsItemStatus {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9772,8 +10180,8 @@ pub struct PlatformGlobalTokenCreateRequest {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
     /**Shown in both consoles and used to derive the IdP service-account username, so make it
-    say what holds the token. Trimmed; blank is a `400`. Not unique — the id is.
-    */
+say what holds the token. Trimmed; blank is a `400`. Not unique — the id is.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
 }
@@ -9836,7 +10244,9 @@ impl ::std::convert::From<PlatformGlobalTokenCreatedIsGlobal> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PlatformGlobalTokenCreatedIsGlobal {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -9850,7 +10260,7 @@ impl<'de> ::serde::Deserialize<'de> for PlatformGlobalTokenCreatedIsGlobal {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`PlatformIdentityMachineClient`
@@ -9896,7 +10306,7 @@ pub struct PlatformIdentityMachineClient {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIdentityMachineClientIssuesItem {
     #[serde(rename = "missing_app_id")]
@@ -9917,7 +10327,9 @@ impl ::std::fmt::Display for PlatformIdentityMachineClientIssuesItem {
 }
 impl ::std::str::FromStr for PlatformIdentityMachineClientIssuesItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "missing_app_id" => Ok(Self::MissingAppId),
             "tenant_deleted" => Ok(Self::TenantDeleted),
@@ -9928,11 +10340,14 @@ impl ::std::str::FromStr for PlatformIdentityMachineClientIssuesItem {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIdentityMachineClientIssuesItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformIdentityMachineClientIssuesItem {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformIdentityMachineClientIssuesItem {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -9968,7 +10383,7 @@ pub struct PlatformIdentityMembership {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIdentityMembershipRole {
     #[serde(rename = "owner")]
@@ -9992,7 +10407,9 @@ impl ::std::fmt::Display for PlatformIdentityMembershipRole {
 }
 impl ::std::str::FromStr for PlatformIdentityMembershipRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "owner" => Ok(Self::Owner),
             "admin" => Ok(Self::Admin),
@@ -10004,7 +10421,9 @@ impl ::std::str::FromStr for PlatformIdentityMembershipRole {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIdentityMembershipRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10072,7 +10491,7 @@ pub struct PlatformIdentityToken {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIdentityTokenScope {
     #[serde(rename = "global")]
@@ -10093,7 +10512,9 @@ impl ::std::fmt::Display for PlatformIdentityTokenScope {
 }
 impl ::std::str::FromStr for PlatformIdentityTokenScope {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "global" => Ok(Self::Global),
             "org" => Ok(Self::Org),
@@ -10104,7 +10525,9 @@ impl ::std::str::FromStr for PlatformIdentityTokenScope {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIdentityTokenScope {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10169,7 +10592,7 @@ pub struct PlatformIdentityVcsTrust {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIdentityVcsTrustProvider {
     #[serde(rename = "github")]
@@ -10187,7 +10610,9 @@ impl ::std::fmt::Display for PlatformIdentityVcsTrustProvider {
 }
 impl ::std::str::FromStr for PlatformIdentityVcsTrustProvider {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "github" => Ok(Self::Github),
             "gitlab" => Ok(Self::Gitlab),
@@ -10197,11 +10622,14 @@ impl ::std::str::FromStr for PlatformIdentityVcsTrustProvider {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIdentityVcsTrustProvider {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformIdentityVcsTrustProvider {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformIdentityVcsTrustProvider {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -10219,8 +10647,9 @@ pub struct PlatformInboundForm {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub metadata:
-        ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub metadata: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -10309,7 +10738,7 @@ pub struct PlatformIntegrityCheck {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIntegrityCheckSeverity {
     #[serde(rename = "error")]
@@ -10327,7 +10756,9 @@ impl ::std::fmt::Display for PlatformIntegrityCheckSeverity {
 }
 impl ::std::str::FromStr for PlatformIntegrityCheckSeverity {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "error" => Ok(Self::Error),
             "warn" => Ok(Self::Warn),
@@ -10337,7 +10768,9 @@ impl ::std::str::FromStr for PlatformIntegrityCheckSeverity {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIntegrityCheckSeverity {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10374,14 +10807,16 @@ pub struct PlatformIntegrityResult {
     pub name: ::std::option::Option<::std::string::String>,
     ///The first rows returned, as the query's columns. Columns differ per check.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub rows: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub rows: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///`error`: a finding is a live defect that breaks serving, scanning or access. `warn`: worth a look, not urgent.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub severity: ::std::option::Option<PlatformIntegrityResultSeverity>,
     /**`pass`: no rows. `findings`: one or more rows (read `severity` for how bad).
-    `error`: the query failed, so the check says nothing either way. `skipped`: the
-    run's time budget ran out before this check started.
-    */
+`error`: the query failed, so the check says nothing either way. `skipped`: the
+run's time budget ran out before this check started.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<PlatformIntegrityResultStatus>,
 }
@@ -10396,7 +10831,7 @@ pub struct PlatformIntegrityResult {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIntegrityResultSeverity {
     #[serde(rename = "error")]
@@ -10414,7 +10849,9 @@ impl ::std::fmt::Display for PlatformIntegrityResultSeverity {
 }
 impl ::std::str::FromStr for PlatformIntegrityResultSeverity {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "error" => Ok(Self::Error),
             "warn" => Ok(Self::Warn),
@@ -10424,7 +10861,9 @@ impl ::std::str::FromStr for PlatformIntegrityResultSeverity {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIntegrityResultSeverity {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10450,7 +10889,7 @@ run's time budget ran out before this check started.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformIntegrityResultStatus {
     #[serde(rename = "pass")]
@@ -10474,7 +10913,9 @@ impl ::std::fmt::Display for PlatformIntegrityResultStatus {
 }
 impl ::std::str::FromStr for PlatformIntegrityResultStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pass" => Ok(Self::Pass),
             "findings" => Ok(Self::Findings),
@@ -10486,7 +10927,9 @@ impl ::std::str::FromStr for PlatformIntegrityResultStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformIntegrityResultStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10558,8 +11001,8 @@ pub struct PlatformModuleDetailModule {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**Other modules whose `source` block names this one. Those rows SURVIVE a delete, so
-    this is a warning about the dependency graph rather than something the delete tidies.
-    */
+this is a warning about the dependency graph rather than something the delete tidies.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub inbound_dependencies: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -10588,7 +11031,7 @@ pub struct PlatformModuleDetailModule {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformModuleDetailModuleServeOverride {
     #[serde(rename = "block")]
@@ -10606,7 +11049,9 @@ impl ::std::fmt::Display for PlatformModuleDetailModuleServeOverride {
 }
 impl ::std::str::FromStr for PlatformModuleDetailModuleServeOverride {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "allow" => Ok(Self::Allow),
@@ -10616,11 +11061,14 @@ impl ::std::str::FromStr for PlatformModuleDetailModuleServeOverride {
 }
 impl ::std::convert::TryFrom<&str> for PlatformModuleDetailModuleServeOverride {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformModuleDetailModuleServeOverride {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformModuleDetailModuleServeOverride {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -10689,7 +11137,7 @@ pub struct PlatformModuleListItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformModuleListItemServeOverride {
     #[serde(rename = "block")]
@@ -10707,7 +11155,9 @@ impl ::std::fmt::Display for PlatformModuleListItemServeOverride {
 }
 impl ::std::str::FromStr for PlatformModuleListItemServeOverride {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "allow" => Ok(Self::Allow),
@@ -10717,11 +11167,14 @@ impl ::std::str::FromStr for PlatformModuleListItemServeOverride {
 }
 impl ::std::convert::TryFrom<&str> for PlatformModuleListItemServeOverride {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformModuleListItemServeOverride {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformModuleListItemServeOverride {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -10758,8 +11211,8 @@ pub struct PlatformModuleVersion {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**The version a bare constraint resolves to. Deleting it needs `force`, because it changes
-    what every consumer's `init` picks.
-    */
+what every consumer's `init` picks.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_latest: ::std::option::Option<bool>,
     ///The admin kill switch
@@ -10789,7 +11242,7 @@ pub struct PlatformModuleVersion {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformModuleVersionStatus {
     #[serde(rename = "pending")]
@@ -10813,7 +11266,9 @@ impl ::std::fmt::Display for PlatformModuleVersionStatus {
 }
 impl ::std::str::FromStr for PlatformModuleVersionStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "processing" => Ok(Self::Processing),
@@ -10825,7 +11280,9 @@ impl ::std::str::FromStr for PlatformModuleVersionStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformModuleVersionStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10848,8 +11305,8 @@ pub struct PlatformOperation {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub created_at: ::std::option::Option<i64>,
     /**The environment the plan was made against. An apply in a different one is refused, so a
-    staging plan can never be applied in production.
-    */
+staging plan can never be applied in production.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub env: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -10873,22 +11330,22 @@ pub struct PlatformOperation {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub requested_by: ::std::option::Option<::std::string::String>,
     /**What the run did and what it left. For a wipe: the per-phase tally, any prefix still
-    populated, leftover object failures, rows remaining, the kept-table counts, and the fork
-    repositories and shared bundles it deliberately left alone. For a purge: the tally and
-    the exit-check verdicts.
-    */
+populated, leftover object failures, rows remaining, the kept-table counts, and the fork
+repositories and shared bundles it deliberately left alone. For a purge: the tally and
+the exit-check verdicts.
+*/
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub result: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub started_at: ::std::option::Option<i64>,
     /**`incomplete` is not a failure: the deletes ran and the re-inventory still found
-    something. It is resumable, and `result` says what was left.
-    */
+something. It is resumable, and `result` says what was left.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<PlatformOperationStatus>,
     /**`<namespace>/<type>` for a provider wipe, `*` for a provider purge, and the org's SLUG
-    for an org purge (the id is in the plan; the slug is what a human can retype).
-    */
+for an org purge (the id is in the plan; the slug is what a human can retype).
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub target: ::std::option::Option<::std::string::String>,
 }
@@ -10903,7 +11360,7 @@ pub struct PlatformOperation {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformOperationKind {
     #[serde(rename = "provider_wipe")]
@@ -10924,7 +11381,9 @@ impl ::std::fmt::Display for PlatformOperationKind {
 }
 impl ::std::str::FromStr for PlatformOperationKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "provider_wipe" => Ok(Self::ProviderWipe),
             "provider_purge" => Ok(Self::ProviderPurge),
@@ -10935,7 +11394,9 @@ impl ::std::str::FromStr for PlatformOperationKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformOperationKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -10960,7 +11421,7 @@ something. It is resumable, and `result` says what was left.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformOperationStatus {
     #[serde(rename = "planned")]
@@ -10996,7 +11457,9 @@ impl ::std::fmt::Display for PlatformOperationStatus {
 }
 impl ::std::str::FromStr for PlatformOperationStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "planned" => Ok(Self::Planned),
             "queued" => Ok(Self::Queued),
@@ -11012,7 +11475,9 @@ impl ::std::str::FromStr for PlatformOperationStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformOperationStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -11183,8 +11648,9 @@ pub struct PlatformPolicyDownloadsTenantPolicyBundle {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformPolicyDownloadsTenantPolicyPoliciesItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub artefact_type:
-        ::std::option::Option<PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType>,
+    pub artefact_type: ::std::option::Option<
+        PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub created_by: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -11203,7 +11669,9 @@ pub struct PlatformPolicyDownloadsTenantPolicyPoliciesItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub rego_bytes: ::std::option::Option<i64>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub snapshots: ::std::vec::Vec<PlatformPolicyDownloadsTenantPolicyPoliciesItemSnapshotsItem>,
+    pub snapshots: ::std::vec::Vec<
+        PlatformPolicyDownloadsTenantPolicyPoliciesItemSnapshotsItem,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub updated_at: ::std::option::Option<i64>,
 }
@@ -11218,7 +11686,7 @@ pub struct PlatformPolicyDownloadsTenantPolicyPoliciesItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
     #[serde(rename = "module")]
@@ -11230,7 +11698,8 @@ pub enum PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
     #[serde(rename = "plan")]
     Plan,
 }
-impl ::std::fmt::Display for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+impl ::std::fmt::Display
+for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Module => f.write_str("module"),
@@ -11240,9 +11709,12 @@ impl ::std::fmt::Display for PlatformPolicyDownloadsTenantPolicyPoliciesItemArte
         }
     }
 }
-impl ::std::str::FromStr for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+impl ::std::str::FromStr
+for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "module" => Ok(Self::Module),
             "state" => Ok(Self::State),
@@ -11252,15 +11724,17 @@ impl ::std::str::FromStr for PlatformPolicyDownloadsTenantPolicyPoliciesItemArte
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
+impl ::std::convert::TryFrom<&str>
+for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType
-{
+for PlatformPolicyDownloadsTenantPolicyPoliciesItemArtefactType {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -11432,7 +11906,7 @@ pub struct PlatformPolicyOrgBundle {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformPolicyOrgBundleStatus {
     #[serde(rename = "behind")]
@@ -11453,7 +11927,9 @@ impl ::std::fmt::Display for PlatformPolicyOrgBundleStatus {
 }
 impl ::std::str::FromStr for PlatformPolicyOrgBundleStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "behind" => Ok(Self::Behind),
             "missing" => Ok(Self::Missing),
@@ -11464,7 +11940,9 @@ impl ::std::str::FromStr for PlatformPolicyOrgBundleStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformPolicyOrgBundleStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -11487,7 +11965,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformPolicyOrgBundleS
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformPolicyOrgBundleTier {
     #[serde(rename = "starter")]
@@ -11511,7 +11989,9 @@ impl ::std::fmt::Display for PlatformPolicyOrgBundleTier {
 }
 impl ::std::str::FromStr for PlatformPolicyOrgBundleTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "starter" => Ok(Self::Starter),
             "team" => Ok(Self::Team),
@@ -11523,7 +12003,9 @@ impl ::std::str::FromStr for PlatformPolicyOrgBundleTier {
 }
 impl ::std::convert::TryFrom<&str> for PlatformPolicyOrgBundleTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -11579,7 +12061,7 @@ pub struct PlatformProvidersArgoRead {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersArgoReadSource {
     #[serde(rename = "live")]
@@ -11597,7 +12079,9 @@ impl ::std::fmt::Display for PlatformProvidersArgoReadSource {
 }
 impl ::std::str::FromStr for PlatformProvidersArgoReadSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "live" => Ok(Self::Live),
             "archive" => Ok(Self::Archive),
@@ -11607,7 +12091,9 @@ impl ::std::str::FromStr for PlatformProvidersArgoReadSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersArgoReadSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -11703,7 +12189,7 @@ pub struct PlatformProvidersBacklogProvidersItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersBacklogState {
     #[serde(rename = "never-scanned")]
@@ -11754,7 +12240,9 @@ impl ::std::fmt::Display for PlatformProvidersBacklogState {
 }
 impl ::std::str::FromStr for PlatformProvidersBacklogState {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "never-scanned" => Ok(Self::NeverScanned),
             "scan-failed" => Ok(Self::ScanFailed),
@@ -11775,7 +12263,9 @@ impl ::std::str::FromStr for PlatformProvidersBacklogState {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersBacklogState {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -11800,10 +12290,7 @@ pub struct PlatformProvidersBacklogThresholdsMs {
 ///`PlatformProvidersBacklogTotals`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformProvidersBacklogTotals {
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
     pub build: ::std::collections::HashMap<::std::string::String, i64>,
     ///Versions with actionable work (scan backlog, build-due or build-failed).
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -11811,10 +12298,7 @@ pub struct PlatformProvidersBacklogTotals {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers: ::std::option::Option<i64>,
     ///Count per scan state, every state present.
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
     pub scan: ::std::collections::HashMap<::std::string::String, i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub versions: ::std::option::Option<i64>,
@@ -11848,10 +12332,7 @@ pub struct PlatformProvidersBuild {
     pub status: ::std::option::Option<PlatformProvidersBuildStatus>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub triggered_at: ::std::option::Option<i64>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<::std::string::String>,
@@ -11876,16 +12357,19 @@ pub struct PlatformProvidersBuildDetail {
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub job: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub overrides: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub overrides: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///patched_provider_versions rows whose build_job_id is this job.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub patched_revisions:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub patched_revisions: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     /**The SLSA provenance this build recorded at completion, verified once then (see
-    `ProviderVersionProvenance`). `null` when the build recorded none: no provenance key
-    mounted, or the build predates provenance. Operators see every tier's, including
-    `status_reason` for an `invalid` one; the envelope bytes are not in this payload.
-    */
+`ProviderVersionProvenance`). `null` when the build recorded none: no provenance key
+mounted, or the build predates provenance. Operators see every tier's, including
+`status_reason` for an `invalid` one; the envelope bytes are not in this payload.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provenance: ::std::option::Option<PlatformProvidersBuildDetailProvenance>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -11942,7 +12426,7 @@ pub struct PlatformProvidersBuildDetailProvenance {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersBuildDetailProvenanceStatus {
     #[serde(rename = "verified")]
@@ -11960,7 +12444,9 @@ impl ::std::fmt::Display for PlatformProvidersBuildDetailProvenanceStatus {
 }
 impl ::std::str::FromStr for PlatformProvidersBuildDetailProvenanceStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "verified" => Ok(Self::Verified),
             "invalid" => Ok(Self::Invalid),
@@ -11970,13 +12456,14 @@ impl ::std::str::FromStr for PlatformProvidersBuildDetailProvenanceStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersBuildDetailProvenanceStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformProvidersBuildDetailProvenanceStatus
-{
+for PlatformProvidersBuildDetailProvenanceStatus {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -11995,7 +12482,7 @@ impl ::std::convert::TryFrom<::std::string::String>
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersBuildStatus {
     #[serde(rename = "pending")]
@@ -12025,7 +12512,9 @@ impl ::std::fmt::Display for PlatformProvidersBuildStatus {
 }
 impl ::std::str::FromStr for PlatformProvidersBuildStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "building" => Ok(Self::Building),
@@ -12039,7 +12528,9 @@ impl ::std::str::FromStr for PlatformProvidersBuildStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersBuildStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -12087,7 +12578,7 @@ pub struct PlatformProvidersFlowState {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersFlowStatePhase {
     #[serde(rename = "none")]
@@ -12123,7 +12614,9 @@ impl ::std::fmt::Display for PlatformProvidersFlowStatePhase {
 }
 impl ::std::str::FromStr for PlatformProvidersFlowStatePhase {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "none" => Ok(Self::None),
             "queued" => Ok(Self::Queued),
@@ -12139,7 +12632,9 @@ impl ::std::str::FromStr for PlatformProvidersFlowStatePhase {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersFlowStatePhase {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -12162,7 +12657,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersFlowSta
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersFlowStateSource {
     #[serde(rename = "d1")]
@@ -12189,7 +12684,9 @@ impl ::std::fmt::Display for PlatformProvidersFlowStateSource {
 }
 impl ::std::str::FromStr for PlatformProvidersFlowStateSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "d1" => Ok(Self::D1),
             "argo_live" => Ok(Self::ArgoLive),
@@ -12202,11 +12699,14 @@ impl ::std::str::FromStr for PlatformProvidersFlowStateSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersFlowStateSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersFlowStateSource {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformProvidersFlowStateSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -12235,7 +12735,7 @@ pub struct PlatformProvidersFlowStateStepsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersFlowStateStepsItemOutcome {
     #[serde(rename = "ok")]
@@ -12262,7 +12762,9 @@ impl ::std::fmt::Display for PlatformProvidersFlowStateStepsItemOutcome {
 }
 impl ::std::str::FromStr for PlatformProvidersFlowStateStepsItemOutcome {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "skipped" => Ok(Self::Skipped),
@@ -12275,11 +12777,14 @@ impl ::std::str::FromStr for PlatformProvidersFlowStateStepsItemOutcome {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersFlowStateStepsItemOutcome {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersFlowStateStepsItemOutcome {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformProvidersFlowStateStepsItemOutcome {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -12304,27 +12809,30 @@ pub struct PlatformProvidersRows(
     pub ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
 );
 impl ::std::ops::Deref for PlatformProvidersRows {
-    type Target = ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>;
+    type Target = ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >;
     fn deref(
         &self,
-    ) -> &::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>> {
+    ) -> &::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    > {
         &self.0
     }
 }
 impl ::std::convert::From<PlatformProvidersRows>
-    for ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-{
+for ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>> {
     fn from(value: PlatformProvidersRows) -> Self {
         value.0
     }
 }
-impl
-    ::std::convert::From<
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
-    > for PlatformProvidersRows
-{
+impl ::std::convert::From<
+    ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+> for PlatformProvidersRows {
     fn from(
-        value: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+        value: ::std::vec::Vec<
+            ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+        >,
     ) -> Self {
         Self(value)
     }
@@ -12359,10 +12867,7 @@ pub struct PlatformProvidersScan {
     pub status: ::std::option::Option<PlatformProvidersScanStatus>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub triggered_at: ::std::option::Option<i64>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<::std::string::String>,
@@ -12422,7 +12927,7 @@ pub struct PlatformProvidersScanDetailResultsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersScanScanKind {
     #[serde(rename = "full")]
@@ -12440,7 +12945,9 @@ impl ::std::fmt::Display for PlatformProvidersScanScanKind {
 }
 impl ::std::str::FromStr for PlatformProvidersScanScanKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "full" => Ok(Self::Full),
             "cve_refresh" => Ok(Self::CveRefresh),
@@ -12450,7 +12957,9 @@ impl ::std::str::FromStr for PlatformProvidersScanScanKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersScanScanKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -12473,7 +12982,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformProvidersScanSca
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformProvidersScanStatus {
     #[serde(rename = "pending")]
@@ -12500,7 +13009,9 @@ impl ::std::fmt::Display for PlatformProvidersScanStatus {
 }
 impl ::std::str::FromStr for PlatformProvidersScanStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "processing" => Ok(Self::Processing),
@@ -12513,7 +13024,9 @@ impl ::std::str::FromStr for PlatformProvidersScanStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformProvidersScanStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -12539,11 +13052,11 @@ pub struct PlatformProvidersStatus {
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub build_timing: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     ///Section name -> query error. Empty when every section loaded.
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
-    pub errors: ::std::collections::HashMap<::std::string::String, ::std::string::String>,
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
+    pub errors: ::std::collections::HashMap<
+        ::std::string::String,
+        ::std::string::String,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub generated_at: ::std::option::Option<i64>,
     ///D1 scan and build jobs not yet terminal.
@@ -12573,17 +13086,19 @@ pub struct PlatformProvidersStatusArgo {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub live_workflows: ::std::option::Option<i64>,
     /**In-flight D1 jobs with no live Workflow (first 50). A pending scan job waits for the
-    drain, so only processing/building rows here are suspicious.
-    */
+drain, so only processing/building rows here are suspicious.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub missing_workflow:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub missing_workflow: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub ok: ::std::option::Option<bool>,
     ///Running/Pending provider Workflows whose D1 job is already terminal (first 50).
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub orphan_running:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub orphan_running: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub reason: ::std::option::Option<::std::string::String>,
 }
@@ -12701,7 +13216,7 @@ pub struct PlatformTelemetryJourneyExplore {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryJourneyKind {
     #[serde(rename = "build")]
@@ -12722,7 +13237,9 @@ impl ::std::fmt::Display for PlatformTelemetryJourneyKind {
 }
 impl ::std::str::FromStr for PlatformTelemetryJourneyKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "build" => Ok(Self::Build),
             "scan" => Ok(Self::Scan),
@@ -12733,7 +13250,9 @@ impl ::std::str::FromStr for PlatformTelemetryJourneyKind {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -12767,7 +13286,7 @@ pub struct PlatformTelemetryJourneyPart {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryJourneyPartStatus {
     #[serde(rename = "ok")]
@@ -12791,7 +13310,9 @@ impl ::std::fmt::Display for PlatformTelemetryJourneyPartStatus {
 }
 impl ::std::str::FromStr for PlatformTelemetryJourneyPartStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "outside_retention" => Ok(Self::OutsideRetention),
@@ -12803,11 +13324,14 @@ impl ::std::str::FromStr for PlatformTelemetryJourneyPartStatus {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyPartStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyPartStatus {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryJourneyPartStatus {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -12819,9 +13343,9 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourney
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformTelemetryJourneyQueries {
     /**Pins `namespace` as well as the journey id. `tm.*` attributes arrive as structured
-    metadata, not labels, so filtering on the id alone would read every stream in Loki
-    first — and would not satisfy the stream-selector guard.
-    */
+metadata, not labels, so filtering on the id alone would read every stream in Loki
+first — and would not satisfy the stream-selector guard.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub logql: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -12846,7 +13370,7 @@ pub struct PlatformTelemetryJourneyRetention {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryJourneyRetentionLoki {
     #[serde(rename = "in_retention")]
@@ -12864,7 +13388,9 @@ impl ::std::fmt::Display for PlatformTelemetryJourneyRetentionLoki {
 }
 impl ::std::str::FromStr for PlatformTelemetryJourneyRetentionLoki {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "in_retention" => Ok(Self::InRetention),
             "outside_retention" => Ok(Self::OutsideRetention),
@@ -12874,11 +13400,14 @@ impl ::std::str::FromStr for PlatformTelemetryJourneyRetentionLoki {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyRetentionLoki {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyRetentionLoki {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryJourneyRetentionLoki {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -12897,7 +13426,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourney
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryJourneyRetentionTempo {
     #[serde(rename = "in_retention")]
@@ -12915,7 +13444,9 @@ impl ::std::fmt::Display for PlatformTelemetryJourneyRetentionTempo {
 }
 impl ::std::str::FromStr for PlatformTelemetryJourneyRetentionTempo {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "in_retention" => Ok(Self::InRetention),
             "outside_retention" => Ok(Self::OutsideRetention),
@@ -12925,11 +13456,14 @@ impl ::std::str::FromStr for PlatformTelemetryJourneyRetentionTempo {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryJourneyRetentionTempo {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryJourneyRetentionTempo {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryJourneyRetentionTempo {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -12985,7 +13519,7 @@ impl ::std::default::Default for PlatformTelemetryLogsRequest {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryLogsRequestDirection {
     #[serde(rename = "backward")]
@@ -13003,7 +13537,9 @@ impl ::std::fmt::Display for PlatformTelemetryLogsRequestDirection {
 }
 impl ::std::str::FromStr for PlatformTelemetryLogsRequestDirection {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "backward" => Ok(Self::Backward),
             "forward" => Ok(Self::Forward),
@@ -13013,11 +13549,14 @@ impl ::std::str::FromStr for PlatformTelemetryLogsRequestDirection {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryLogsRequestDirection {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryLogsRequestDirection {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryLogsRequestDirection {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13047,7 +13586,9 @@ impl ::std::convert::From<PlatformTelemetryLogsRequestExpr> for ::std::string::S
 }
 impl ::std::str::FromStr for PlatformTelemetryLogsRequestExpr {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 4096usize {
             return Err("longer than 4096 characters".into());
         }
@@ -13056,11 +13597,14 @@ impl ::std::str::FromStr for PlatformTelemetryLogsRequestExpr {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryLogsRequestExpr {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryLogsRequestExpr {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryLogsRequestExpr {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13109,7 +13653,7 @@ pub struct PlatformTelemetryLogsResponse {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryLogsResponseSource {
     #[serde(rename = "loki")]
@@ -13124,7 +13668,9 @@ impl ::std::fmt::Display for PlatformTelemetryLogsResponseSource {
 }
 impl ::std::str::FromStr for PlatformTelemetryLogsResponseSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "loki" => Ok(Self::Loki),
             _ => Err("invalid value".into()),
@@ -13133,11 +13679,14 @@ impl ::std::str::FromStr for PlatformTelemetryLogsResponseSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryLogsResponseSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryLogsResponseSource {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryLogsResponseSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13171,14 +13720,17 @@ impl ::std::ops::Deref for PlatformTelemetryMetricsRequestExpr {
         &self.0
     }
 }
-impl ::std::convert::From<PlatformTelemetryMetricsRequestExpr> for ::std::string::String {
+impl ::std::convert::From<PlatformTelemetryMetricsRequestExpr>
+for ::std::string::String {
     fn from(value: PlatformTelemetryMetricsRequestExpr) -> Self {
         value.0
     }
 }
 impl ::std::str::FromStr for PlatformTelemetryMetricsRequestExpr {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 4096usize {
             return Err("longer than 4096 characters".into());
         }
@@ -13187,11 +13739,14 @@ impl ::std::str::FromStr for PlatformTelemetryMetricsRequestExpr {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryMetricsRequestExpr {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryMetricsRequestExpr {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryMetricsRequestExpr {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13248,7 +13803,7 @@ pub struct PlatformTelemetryMetricsResponse {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryMetricsResponseSource {
     #[serde(rename = "mimir")]
@@ -13263,7 +13818,9 @@ impl ::std::fmt::Display for PlatformTelemetryMetricsResponseSource {
 }
 impl ::std::str::FromStr for PlatformTelemetryMetricsResponseSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "mimir" => Ok(Self::Mimir),
             _ => Err("invalid value".into()),
@@ -13272,11 +13829,14 @@ impl ::std::str::FromStr for PlatformTelemetryMetricsResponseSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryMetricsResponseSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryMetricsResponseSource {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryMetricsResponseSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13288,8 +13848,8 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryMetrics
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformTelemetryRange {
     /**True when the requested range was wider than the cap. The window is narrowed by moving
-    `from` forward, keeping the most recent part.
-    */
+`from` forward, keeping the most recent part.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub capped: ::std::option::Option<bool>,
     ///Epoch ms, inclusive — the window actually queried.
@@ -13313,7 +13873,7 @@ says so instead of quietly querying something else.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetrySource {
     #[serde(rename = "loki")]
@@ -13334,7 +13894,9 @@ impl ::std::fmt::Display for PlatformTelemetrySource {
 }
 impl ::std::str::FromStr for PlatformTelemetrySource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "loki" => Ok(Self::Loki),
             "mimir" => Ok(Self::Mimir),
@@ -13345,7 +13907,9 @@ impl ::std::str::FromStr for PlatformTelemetrySource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetrySource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -13388,10 +13952,7 @@ pub struct PlatformTelemetryStatusSourcesItem {
     pub name: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source: ::std::option::Option<PlatformTelemetrySource>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub uid: ::std::option::Option<::std::string::String>,
@@ -13419,14 +13980,17 @@ impl ::std::ops::Deref for PlatformTelemetryTraceSearchRequestExpr {
         &self.0
     }
 }
-impl ::std::convert::From<PlatformTelemetryTraceSearchRequestExpr> for ::std::string::String {
+impl ::std::convert::From<PlatformTelemetryTraceSearchRequestExpr>
+for ::std::string::String {
     fn from(value: PlatformTelemetryTraceSearchRequestExpr) -> Self {
         value.0
     }
 }
 impl ::std::str::FromStr for PlatformTelemetryTraceSearchRequestExpr {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 4096usize {
             return Err("longer than 4096 characters".into());
         }
@@ -13435,11 +13999,14 @@ impl ::std::str::FromStr for PlatformTelemetryTraceSearchRequestExpr {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryTraceSearchRequestExpr {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryTraceSearchRequestExpr {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryTraceSearchRequestExpr {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13487,7 +14054,7 @@ pub struct PlatformTelemetryTraceSearchResponse {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTelemetryTraceSearchResponseSource {
     #[serde(rename = "tempo")]
@@ -13502,7 +14069,9 @@ impl ::std::fmt::Display for PlatformTelemetryTraceSearchResponseSource {
 }
 impl ::std::str::FromStr for PlatformTelemetryTraceSearchResponseSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "tempo" => Ok(Self::Tempo),
             _ => Err("invalid value".into()),
@@ -13511,11 +14080,14 @@ impl ::std::str::FromStr for PlatformTelemetryTraceSearchResponseSource {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTelemetryTraceSearchResponseSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTelemetryTraceSearchResponseSource {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTelemetryTraceSearchResponseSource {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13580,8 +14152,8 @@ pub struct PlatformTenantsDetailStorage {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plans: ::std::option::Option<PlatformTenantsStorageDomain>,
     /**Self-built, unyanked provider bytes this org is entitled to. Shared, not owned:
-    every entitled org counts the same bytes, so never sum this across tenants.
-    */
+every entitled org counts the same bytes, so never sum this across tenants.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers_entitled: ::std::option::Option<PlatformTenantsStorageDomain>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -13624,7 +14196,9 @@ pub struct PlatformTenantsDetailTenant {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub purge_due_at: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub r2_jurisdiction: ::std::option::Option<PlatformTenantsDetailTenantR2Jurisdiction>,
+    pub r2_jurisdiction: ::std::option::Option<
+        PlatformTenantsDetailTenantR2Jurisdiction,
+    >,
     ///The stored column, which can differ from `tier` on a personal tenant.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub raw_tier: ::std::option::Option<PlatformTenantsDetailTenantRawTier>,
@@ -13654,7 +14228,7 @@ pub struct PlatformTenantsDetailTenant {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsDetailTenantBillingCycle {
     #[serde(rename = "month")]
@@ -13672,7 +14246,9 @@ impl ::std::fmt::Display for PlatformTenantsDetailTenantBillingCycle {
 }
 impl ::std::str::FromStr for PlatformTenantsDetailTenantBillingCycle {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "month" => Ok(Self::Month),
             "year" => Ok(Self::Year),
@@ -13682,11 +14258,14 @@ impl ::std::str::FromStr for PlatformTenantsDetailTenantBillingCycle {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantBillingCycle {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTenantBillingCycle {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTenantsDetailTenantBillingCycle {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13705,7 +14284,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTen
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsDetailTenantR2Jurisdiction {
     #[serde(rename = "default")]
@@ -13723,7 +14302,9 @@ impl ::std::fmt::Display for PlatformTenantsDetailTenantR2Jurisdiction {
 }
 impl ::std::str::FromStr for PlatformTenantsDetailTenantR2Jurisdiction {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "default" => Ok(Self::Default),
             "eu" => Ok(Self::Eu),
@@ -13733,11 +14314,14 @@ impl ::std::str::FromStr for PlatformTenantsDetailTenantR2Jurisdiction {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantR2Jurisdiction {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTenantR2Jurisdiction {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTenantsDetailTenantR2Jurisdiction {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13756,7 +14340,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTen
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsDetailTenantRawTier {
     #[serde(rename = "starter")]
@@ -13780,7 +14364,9 @@ impl ::std::fmt::Display for PlatformTenantsDetailTenantRawTier {
 }
 impl ::std::str::FromStr for PlatformTenantsDetailTenantRawTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "starter" => Ok(Self::Starter),
             "team" => Ok(Self::Team),
@@ -13792,11 +14378,14 @@ impl ::std::str::FromStr for PlatformTenantsDetailTenantRawTier {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantRawTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTenantRawTier {
+impl ::std::convert::TryFrom<::std::string::String>
+for PlatformTenantsDetailTenantRawTier {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -13815,7 +14404,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PlatformTenantsDetailTen
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsDetailTenantTier {
     #[serde(rename = "starter")]
@@ -13839,7 +14428,9 @@ impl ::std::fmt::Display for PlatformTenantsDetailTenantTier {
 }
 impl ::std::str::FromStr for PlatformTenantsDetailTenantTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "starter" => Ok(Self::Starter),
             "team" => Ok(Self::Team),
@@ -13851,7 +14442,9 @@ impl ::std::str::FromStr for PlatformTenantsDetailTenantTier {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTenantsDetailTenantTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -13938,7 +14531,7 @@ pub struct PlatformTenantsItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsItemTier {
     #[serde(rename = "starter")]
@@ -13962,7 +14555,9 @@ impl ::std::fmt::Display for PlatformTenantsItemTier {
 }
 impl ::std::str::FromStr for PlatformTenantsItemTier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "starter" => Ok(Self::Starter),
             "team" => Ok(Self::Team),
@@ -13974,7 +14569,9 @@ impl ::std::str::FromStr for PlatformTenantsItemTier {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTenantsItemTier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -14026,7 +14623,7 @@ pub struct PlatformTenantsMember {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsMemberRole {
     #[serde(rename = "owner")]
@@ -14050,7 +14647,9 @@ impl ::std::fmt::Display for PlatformTenantsMemberRole {
 }
 impl ::std::str::FromStr for PlatformTenantsMemberRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "owner" => Ok(Self::Owner),
             "admin" => Ok(Self::Admin),
@@ -14062,7 +14661,9 @@ impl ::std::str::FromStr for PlatformTenantsMemberRole {
 }
 impl ::std::convert::TryFrom<&str> for PlatformTenantsMemberRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -14157,15 +14758,17 @@ pub struct PlatformTenantsUsageTenant {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub daily_breakdown: ::std::option::Option<PlatformTenantsUsageTenantDailyBreakdown>,
     /**Module downloads split by who made them. No user-agent or country is recorded on
-    download events, so the actor kind is the only client dimension there is.
-    */
+download events, so the actor kind is the only client dimension there is.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub module_downloads_by_actor:
-        ::std::vec::Vec<PlatformTenantsUsageTenantModuleDownloadsByActorItem>,
+    pub module_downloads_by_actor: ::std::vec::Vec<
+        PlatformTenantsUsageTenantModuleDownloadsByActorItem,
+    >,
     ///At most 10 os/arch pairs requested. Both are `null` on rows recorded before the platform was captured.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub provider_downloads_by_platform:
-        ::std::vec::Vec<PlatformTenantsUsageTenantProviderDownloadsByPlatformItem>,
+    pub provider_downloads_by_platform: ::std::vec::Vec<
+        PlatformTenantsUsageTenantProviderDownloadsByPlatformItem,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub series: ::std::option::Option<PlatformTenantsUsageSeries>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -14191,11 +14794,13 @@ axis flattens the module line; the console charts each on its own axis instead.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformTenantsUsageTenantDailyBreakdown {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub module_downloads_by_actor:
-        ::std::vec::Vec<PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem>,
+    pub module_downloads_by_actor: ::std::vec::Vec<
+        PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub provider_downloads_by_os:
-        ::std::vec::Vec<PlatformTenantsUsageTenantDailyBreakdownProviderDownloadsByOsItem>,
+    pub provider_downloads_by_os: ::std::vec::Vec<
+        PlatformTenantsUsageTenantDailyBreakdownProviderDownloadsByOsItem,
+    >,
 }
 ///`PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -14220,7 +14825,7 @@ pub struct PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType {
     #[serde(rename = "user")]
@@ -14229,8 +14834,7 @@ pub enum PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActor
     Machine,
 }
 impl ::std::fmt::Display
-    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
-{
+for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::User => f.write_str("user"),
@@ -14239,10 +14843,11 @@ impl ::std::fmt::Display
     }
 }
 impl ::std::str::FromStr
-    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
-{
+for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "user" => Ok(Self::User),
             "machine" => Ok(Self::Machine),
@@ -14251,16 +14856,16 @@ impl ::std::str::FromStr
     }
 }
 impl ::std::convert::TryFrom<&str>
-    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
-{
+for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType
-{
+for PlatformTenantsUsageTenantDailyBreakdownModuleDownloadsByActorItemActorType {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -14283,8 +14888,9 @@ pub struct PlatformTenantsUsageTenantDailyBreakdownProviderDownloadsByOsItem {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PlatformTenantsUsageTenantModuleDownloadsByActorItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub actor_type:
-        ::std::option::Option<PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType>,
+    pub actor_type: ::std::option::Option<
+        PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub downloads: ::std::option::Option<i64>,
 }
@@ -14299,7 +14905,7 @@ pub struct PlatformTenantsUsageTenantModuleDownloadsByActorItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
     #[serde(rename = "user")]
@@ -14307,7 +14913,8 @@ pub enum PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
     #[serde(rename = "machine")]
     Machine,
 }
-impl ::std::fmt::Display for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
+impl ::std::fmt::Display
+for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::User => f.write_str("user"),
@@ -14315,9 +14922,12 @@ impl ::std::fmt::Display for PlatformTenantsUsageTenantModuleDownloadsByActorIte
         }
     }
 }
-impl ::std::str::FromStr for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
+impl ::std::str::FromStr
+for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "user" => Ok(Self::User),
             "machine" => Ok(Self::Machine),
@@ -14326,16 +14936,16 @@ impl ::std::str::FromStr for PlatformTenantsUsageTenantModuleDownloadsByActorIte
     }
 }
 impl ::std::convert::TryFrom<&str>
-    for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType
-{
+for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType
-{
+for PlatformTenantsUsageTenantModuleDownloadsByActorItemActorType {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -14384,10 +14994,7 @@ pub struct PlatformTenantsUsageTenantTopProvidersItem {
     pub downloads: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
 }
 ///Sum of each series over the window.
@@ -14436,7 +15043,9 @@ impl ::std::convert::From<PlatformTenantsUsageWindowDays> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PlatformTenantsUsageWindowDays {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![30_i64, 90_i64, 365_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -14450,7 +15059,7 @@ impl<'de> ::serde::Deserialize<'de> for PlatformTenantsUsageWindowDays {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 /**Fields that moved between plan and apply WITHOUT withdrawing consent — download counts, row
@@ -14466,12 +15075,14 @@ impl ::std::ops::Deref for PlatformVolatileDiff {
         &self.0
     }
 }
-impl ::std::convert::From<PlatformVolatileDiff> for ::std::vec::Vec<PlatformVolatileDiffItem> {
+impl ::std::convert::From<PlatformVolatileDiff>
+for ::std::vec::Vec<PlatformVolatileDiffItem> {
     fn from(value: PlatformVolatileDiff) -> Self {
         value.0
     }
 }
-impl ::std::convert::From<::std::vec::Vec<PlatformVolatileDiffItem>> for PlatformVolatileDiff {
+impl ::std::convert::From<::std::vec::Vec<PlatformVolatileDiffItem>>
+for PlatformVolatileDiff {
     fn from(value: ::std::vec::Vec<PlatformVolatileDiffItem>) -> Self {
         Self(value)
     }
@@ -14502,10 +15113,10 @@ pub struct PlatformWipePlan {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub expires_at: ::std::option::Option<i64>,
     /**Row counts per table, the kept-table counts, the cached versions, in-flight work, fork
-    repositories, the vcs-stats rows owned versus shared, the owned versus shared source
-    bundles, the explicitly referenced object keys, and the object prefixes. Prefixes always
-    end in `/` so `aws/` cannot match `aws-x/`.
-    */
+repositories, the vcs-stats rows owned versus shared, the owned versus shared source
+bundles, the explicitly referenced object keys, and the object prefixes. Prefixes always
+end in `/` so `aws/` cannot match `aws-x/`.
+*/
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub inventory: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     ///What survives the wipe, counted.
@@ -14528,8 +15139,8 @@ pub struct Policy {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
     /**Evaluated versions that fail this policy. Present on an artefact-scoped list read;
-    absent on an unscoped one.
-    */
+absent on an unscoped one.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub eval_failing: ::std::option::Option<i64>,
     ///Comma-joined distinct names of the non-compliant artefacts, for a hover list.
@@ -14541,18 +15152,18 @@ pub struct Policy {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**`null` ⇒ an org baseline, applying to every artefact of this kind and inheritable.
-    Set ⇒ identity-custom, attached to exactly one artefact identity.
-    */
+Set ⇒ identity-custom, attached to exactly one artefact identity.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub instance_key: ::std::option::Option<::std::string::String>,
     /**`1` ⇒ this row **is** the organisation's Danger-zone consumption kill switch for its
-    `artefact_type`, not an authored rule. Read it, do not write it: the generic update,
-    delete, toggle, override and force-inheritance operations all answer `409`
-    `block_all_policy`, and `PATCH /policies/consumption-block` is the only way to change
-    it. Its `rego` is stored for display and is never evaluated — enforcement happens on
-    the serve path — so `eval_total` and `eval_failing` are always `0` for it while its
-    block count in `/policies/coverage` is not.
-    */
+`artefact_type`, not an authored rule. Read it, do not write it: the generic update,
+delete, toggle, override and force-inheritance operations all answer `409`
+`block_all_policy`, and `PATCH /policies/consumption-block` is the only way to change
+it. Its `rego` is stored for display and is never evaluated — enforcement happens on
+the serve path — so `eval_total` and `eval_failing` are always `0` for it while its
+block count in `/policies/coverage` is not.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_block_all: ::std::option::Option<PolicyIsBlockAll>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -14581,7 +15192,7 @@ pub struct Policy {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyArtefactType {
     #[serde(rename = "module")]
@@ -14605,7 +15216,9 @@ impl ::std::fmt::Display for PolicyArtefactType {
 }
 impl ::std::str::FromStr for PolicyArtefactType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "module" => Ok(Self::Module),
             "state" => Ok(Self::State),
@@ -14617,7 +15230,9 @@ impl ::std::str::FromStr for PolicyArtefactType {
 }
 impl ::std::convert::TryFrom<&str> for PolicyArtefactType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -14665,7 +15280,7 @@ pub struct PolicyCoverage {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyCoverageArtefactType {
     #[serde(rename = "module")]
@@ -14689,7 +15304,9 @@ impl ::std::fmt::Display for PolicyCoverageArtefactType {
 }
 impl ::std::str::FromStr for PolicyCoverageArtefactType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "module" => Ok(Self::Module),
             "state" => Ok(Self::State),
@@ -14701,7 +15318,9 @@ impl ::std::str::FromStr for PolicyCoverageArtefactType {
 }
 impl ::std::convert::TryFrom<&str> for PolicyCoverageArtefactType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -14730,7 +15349,9 @@ impl ::std::convert::From<PolicyCoverageIsEnabled> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PolicyCoverageIsEnabled {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -14744,7 +15365,7 @@ impl<'de> ::serde::Deserialize<'de> for PolicyCoverageIsEnabled {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`PolicyCoverageIsEnforcing`
@@ -14764,7 +15385,9 @@ impl ::std::convert::From<PolicyCoverageIsEnforcing> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PolicyCoverageIsEnforcing {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -14778,7 +15401,7 @@ impl<'de> ::serde::Deserialize<'de> for PolicyCoverageIsEnforcing {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`PolicyCoverageList`
@@ -14809,8 +15432,8 @@ pub struct PolicyDecision {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_version_id: ::std::option::Option<::std::string::String>,
     /**Null for the builtin gate and for a manual block, neither of which has a policies row.
-    Not a foreign key, so deleting a policy does not erase its history.
-    */
+Not a foreign key, so deleting a policy does not erase its history.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_id: ::std::option::Option<::std::string::String>,
     ///Denormalised
@@ -14825,32 +15448,32 @@ pub struct PolicyDecision {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub run_id: ::std::option::Option<::std::string::String>,
     /**Which engine or authority decided — `builtin` the synchronous threshold/denylist plan
-    gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
-    `manual` an explicit admin block or approval, `serve_override` a tri-state force.
-    */
+gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
+`manual` an explicit admin block or approval, `serve_override` a tri-state force.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source: ::std::option::Option<PolicyDecisionSource>,
     /**The subject's row id where one resolved. No foreign key: the subject is polymorphic
-    across five tables, and the ledger must outlive the row it refers to.
-    */
+across five tables, and the ledger must outlive the row it refers to.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub subject_id: ::std::option::Option<::std::string::String>,
     /**Machine coordinates for the subject, so a client can build a link to it (migration
-    128). One of `workspace:<name>`, `state:<workspace>/<versionId>`,
-    `plan:<workspace>/<planVersionId>`,
-    `module:<namespace>/<name>/<provider>@<version>`, or
-    `provider:<registry>/<namespace>/<type>@<version>`.
+128). One of `workspace:<name>`, `state:<workspace>/<versionId>`,
+`plan:<workspace>/<planVersionId>`,
+`module:<namespace>/<name>/<provider>@<version>`, or
+`provider:<registry>/<namespace>/<type>@<version>`.
 
-    The provider form carries the resolved registry lineage (`terraform.io` /
-    `opentofu.org`), never the raw upstream — the provider policy gate is self-built only,
-    so a key built from the upstream would read `provider:self_built/…` on every policy
-    refusal and route nowhere.
+The provider form carries the resolved registry lineage (`terraform.io` /
+`opentofu.org`), never the raw upstream — the provider policy gate is self-built only,
+so a key built from the upstream would read `provider:self_built/…` on every policy
+refusal and route nowhere.
 
-    `null` on a row written before migration 128, and on any row whose coordinates did not
-    fully resolve. It is NOT derivable from `subject_label`, which is lossy display text (a
-    module label carries no provider segment). Clients must render the label unlinked when
-    this is null rather than guessing a route.
-    */
+`null` on a row written before migration 128, and on any row whose coordinates did not
+fully resolve. It is NOT derivable from `subject_label`, which is lossy display text (a
+module label carries no provider segment). Clients must render the label unlinked when
+this is null rather than guessing a route.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub subject_key: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -14867,8 +15490,8 @@ pub struct PolicyDecision {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub trace_id: ::std::option::Option<::std::string::String>,
     /**`block` the interaction was refused; `override` a human lifted or imposed a refusal;
-    `warn` evaluated and failed, but the policy was not enforcing.
-    */
+`warn` evaluated and failed, but the policy was not enforcing.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub verdict: ::std::option::Option<PolicyDecisionVerdict>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -14885,7 +15508,7 @@ pub struct PolicyDecision {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyDecisionActorType {
     #[serde(rename = "human")]
@@ -14912,7 +15535,9 @@ impl ::std::fmt::Display for PolicyDecisionActorType {
 }
 impl ::std::str::FromStr for PolicyDecisionActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "human" => Ok(Self::Human),
             "bot" => Ok(Self::Bot),
@@ -14925,7 +15550,9 @@ impl ::std::str::FromStr for PolicyDecisionActorType {
 }
 impl ::std::convert::TryFrom<&str> for PolicyDecisionActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -14986,7 +15613,7 @@ pub struct PolicyDecisionFacetsVerdictItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyDecisionFacetsVerdictItemKey {
     #[serde(rename = "block")]
@@ -15007,7 +15634,9 @@ impl ::std::fmt::Display for PolicyDecisionFacetsVerdictItemKey {
 }
 impl ::std::str::FromStr for PolicyDecisionFacetsVerdictItemKey {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "override" => Ok(Self::Override),
@@ -15018,11 +15647,14 @@ impl ::std::str::FromStr for PolicyDecisionFacetsVerdictItemKey {
 }
 impl ::std::convert::TryFrom<&str> for PolicyDecisionFacetsVerdictItemKey {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionFacetsVerdictItemKey {
+impl ::std::convert::TryFrom<::std::string::String>
+for PolicyDecisionFacetsVerdictItemKey {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -15034,16 +15666,16 @@ impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionFacetsVerd
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PolicyDecisionFeed {
     /**Refusals (`verdict = 'block'`) per UTC day over `window_days`, oldest first. SPARSE: a
-    day with no refusal is omitted and the client zero-fills, so a dip to the axis is a
-    real gap. Bucketed with `strftime(…, 'unixepoch')`, so the domain the client fills must
-    be UTC too — a locale domain drops or duplicates a day for every viewer west of UTC.
+day with no refusal is omitted and the client zero-fills, so a dip to the axis is a
+real gap. Bucketed with `strftime(…, 'unixepoch')`, so the domain the client fills must
+be UTC too — a locale domain drops or duplicates a day for every viewer west of UTC.
 
-    Honours `policy_id` and `q` so the series agrees with the rows, and ignores `verdict`
-    and `interaction` (it is a refusal series by definition).
+Honours `policy_id` and `q` so the series agrees with the rows, and ignores `verdict`
+and `interaction` (it is a refusal series by definition).
 
-    **Present only on the first page (`offset = 0`)** and omitted otherwise: paging cannot
-    change the series, so recomputing it per page would be pure cost.
-    */
+**Present only on the first page (`offset = 0`)** and omitted otherwise: paging cannot
+change the series, so recomputing it per page would be pure cost.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub daily: ::std::vec::Vec<PolicyDecisionFeedDailyItem>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -15051,9 +15683,9 @@ pub struct PolicyDecisionFeed {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub facets: ::std::option::Option<PolicyDecisionFacets>,
     /**Whether rows remain beyond this page. Exact, because it is derived from `facets.total`
-    rather than guessed from the page size — so a client never issues a speculative request
-    that comes back empty.
-    */
+rather than guessed from the page size — so a client never issues a speculative request
+that comes back empty.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub has_more: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -15086,7 +15718,7 @@ gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyDecisionSource {
     #[serde(rename = "builtin")]
@@ -15113,7 +15745,9 @@ impl ::std::fmt::Display for PolicyDecisionSource {
 }
 impl ::std::str::FromStr for PolicyDecisionSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "builtin" => Ok(Self::Builtin),
             "opa" => Ok(Self::Opa),
@@ -15126,7 +15760,9 @@ impl ::std::str::FromStr for PolicyDecisionSource {
 }
 impl ::std::convert::TryFrom<&str> for PolicyDecisionSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -15149,7 +15785,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionSource {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyDecisionSubjectKind {
     #[serde(rename = "state_workspace")]
@@ -15176,7 +15812,9 @@ impl ::std::fmt::Display for PolicyDecisionSubjectKind {
 }
 impl ::std::str::FromStr for PolicyDecisionSubjectKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "state_workspace" => Ok(Self::StateWorkspace),
             "state_version" => Ok(Self::StateVersion),
@@ -15189,7 +15827,9 @@ impl ::std::str::FromStr for PolicyDecisionSubjectKind {
 }
 impl ::std::convert::TryFrom<&str> for PolicyDecisionSubjectKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -15214,7 +15854,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PolicyDecisionSubjectKin
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyDecisionVerdict {
     #[serde(rename = "block")]
@@ -15235,7 +15875,9 @@ impl ::std::fmt::Display for PolicyDecisionVerdict {
 }
 impl ::std::str::FromStr for PolicyDecisionVerdict {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "override" => Ok(Self::Override),
@@ -15246,7 +15888,9 @@ impl ::std::str::FromStr for PolicyDecisionVerdict {
 }
 impl ::std::convert::TryFrom<&str> for PolicyDecisionVerdict {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -15272,12 +15916,9 @@ pub struct PolicyEnablement {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub on_missing_signal: ::std::option::Option<OnMissingSignal>,
     /**Whether the org's tier includes custom policies. Read-only here — it comes from
-    billing, not from this endpoint.
-    */
-    #[serde(
-        rename = "opaTier",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+billing, not from this endpoint.
+*/
+    #[serde(rename = "opaTier", skip_serializing_if = "::std::option::Option::is_none")]
     pub opa_tier: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers: ::std::option::Option<bool>,
@@ -15309,7 +15950,7 @@ write; both are `override`s.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum PolicyInteraction {
     #[serde(rename = "state.lock")]
@@ -15360,7 +16001,9 @@ impl ::std::fmt::Display for PolicyInteraction {
 }
 impl ::std::str::FromStr for PolicyInteraction {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "state.lock" => Ok(Self::StateLock),
             "state.write" => Ok(Self::StateWrite),
@@ -15381,7 +16024,9 @@ impl ::std::str::FromStr for PolicyInteraction {
 }
 impl ::std::convert::TryFrom<&str> for PolicyInteraction {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -15417,7 +16062,9 @@ impl ::std::convert::From<PolicyIsBlockAll> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PolicyIsBlockAll {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -15431,7 +16078,7 @@ impl<'de> ::serde::Deserialize<'de> for PolicyIsBlockAll {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`PolicyIsEnabled`
@@ -15451,7 +16098,9 @@ impl ::std::convert::From<PolicyIsEnabled> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PolicyIsEnabled {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -15465,7 +16114,7 @@ impl<'de> ::serde::Deserialize<'de> for PolicyIsEnabled {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`1` ⇒ a failing verdict blocks. `0` ⇒ it is recorded and reported only.
@@ -15485,7 +16134,9 @@ impl ::std::convert::From<PolicyIsEnforcing> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for PolicyIsEnforcing {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -15499,7 +16150,7 @@ impl<'de> ::serde::Deserialize<'de> for PolicyIsEnforcing {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 /**The policy after the change, plus the re-evaluation that change required. Changing a policy
@@ -15534,12 +16185,9 @@ pub struct PolicySettings {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub on_missing_signal: ::std::option::Option<OnMissingSignal>,
     /**Whether the org's tier includes custom policies. Read-only here — it comes from
-    billing, not from this endpoint.
-    */
-    #[serde(
-        rename = "opaTier",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+billing, not from this endpoint.
+*/
+    #[serde(rename = "opaTier", skip_serializing_if = "::std::option::Option::is_none")]
     pub opa_tier: ::std::option::Option<bool>,
     ///Workspaces whose PLAN block is set - the last gating plan pushed for them failed the plan gate. Counted apart from `state_blocked_count`; a workspace can be in both. Absent from a Worker older than the plan gate - treat absent as unknown, not zero.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -15562,8 +16210,8 @@ pub struct PolicySettings {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct PolicySettingsUpdateResult {
     /**`false` ⇒ the request changed nothing: no recompute, no rescan, no audit entry,
-    and the rate limit was not consumed.
-    */
+and the rate limit was not consumed.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub changed: ::std::option::Option<bool>,
     ///Master switch. Off ⇒ nothing is enforced for any artefact kind.
@@ -15583,12 +16231,9 @@ pub struct PolicySettingsUpdateResult {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub on_missing_signal: ::std::option::Option<OnMissingSignal>,
     /**Whether the org's tier includes custom policies. Read-only here — it comes from
-    billing, not from this endpoint.
-    */
-    #[serde(
-        rename = "opaTier",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+billing, not from this endpoint.
+*/
+    #[serde(rename = "opaTier", skip_serializing_if = "::std::option::Option::is_none")]
     pub opa_tier: ::std::option::Option<bool>,
     ///Workspaces whose PLAN block is set - the last gating plan pushed for them failed the plan gate. Counted apart from `state_blocked_count`; a workspace can be in both. Absent from a Worker older than the plan gate - treat absent as unknown, not zero.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -15659,14 +16304,11 @@ pub struct ProviderArtefactCreated {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub namespace: ::std::option::Option<::std::string::String>,
     /**`off` when the org's tier does not include provider serving — the add succeeds and the
-    configuration is kept, nothing is advertised.
-    */
+configuration is kept, nothing is advertised.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub serve_mode: ::std::option::Option<ServeMode>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<UpstreamRegistry>,
@@ -15688,18 +16330,16 @@ pub struct ProviderArtefactDetail {
     pub namespace: ::std::option::Option<::std::string::String>,
     ///Modules declaring this provider, with the constraint each one asks for.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub referenced_by:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub referenced_by: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub referenced_module_count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub serve_mode: ::std::option::Option<ServeMode>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_url: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub updated_at: ::std::option::Option<Timestamp>,
@@ -15729,10 +16369,12 @@ pub struct ProviderArtefactDetailDownloads {
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub patched: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     /**Per-version daily series for the chart, server-capped to the top six versions
-    plus an `other` bucket.
-    */
+plus an `other` bucket.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub series_90d: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub series_90d: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub total: ::std::option::Option<i64>,
 }
@@ -15761,27 +16403,27 @@ pub struct ProviderArtefactSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_build_version: ::std::option::Option<::std::string::String>,
     /**Newest of `version_count` by semver. `null` when none are visible. Computed by semver
-    rather than `released_at` or SQL ordering, both of which mis-rank (`'1.9.0' > '1.10.0'`
-    lexically).
-    */
+rather than `released_at` or SQL ordering, both of which mis-rank (`'1.9.0' > '1.10.0'`
+lexically).
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version: ::std::option::Option<::std::string::String>,
     /**Worst CVSS base score among `latest_version`'s **critical and high** findings. Same
-    latest-only scope as `vuln_count`. `null` when none of them carries a score, or the
-    version is unscanned.
-    */
+latest-only scope as `vuln_count`. `null` when none of them carries a score, or the
+version is unscanned.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_cvss: ::std::option::Option<f64>,
     /**Highest EPSS probability (0–1) among **all** of `latest_version`'s vulnerability
-    findings — not only critical and high, because a medium that is likely to be exploited
-    is exactly what EPSS is there to surface. Paired with `max_cvss` it answers "how bad"
-    and "how likely" side by side. Same latest-only scope as `vuln_count`.
+findings — not only critical and high, because a medium that is likely to be exploited
+is exactly what EPSS is there to surface. Paired with `max_cvss` it answers "how bad"
+and "how likely" side by side. Same latest-only scope as `vuln_count`.
 
-    `null` is not "unknown". The EPSS mirror stores only scores at or above **0.04**
-    (about FIRST's 90th percentile), so `null` means every finding scored below that (or
-    is not CVE-keyed and has no CVE alias), or the version is unscanned. Per-finding detail is on the detail route's
-    `versions[].findings` (`ProviderVersionFinding`).
-    */
+`null` is not "unknown". The EPSS mirror stores only scores at or above **0.04**
+(about FIRST's 90th percentile), so `null` means every finding scored below that (or
+is not CVE-keyed and has no CVE alias), or the version is unscanned. Per-finding detail is on the detail route's
+`versions[].findings` (`ProviderVersionFinding`).
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_epss: ::std::option::Option<f64>,
     ///Of those versions, how many are mirrored upstream artefacts.
@@ -15789,18 +16431,18 @@ pub struct ProviderArtefactSummary {
     pub mirrored_count: ::std::option::Option<i64>,
     pub namespace: ::std::string::String,
     /**At least one workspace locks a version behind its `latest_matching`. `false` also when
-    the usage enrichment was unavailable.
-    */
+the usage enrichment was unavailable.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub outdated: ::std::option::Option<bool>,
     /**Builds that carried CVE fixes. A remediation claim, so tier-gated — reads `0` below the
-    tier that includes patched builds even where such builds exist.
-    */
+tier that includes patched builds even where such builds exist.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub patched_count: ::std::option::Option<i64>,
     /**Of those versions, how many this org publishes — including ones served by substitution
-    from a platform build that wrote no row into this org's catalog.
-    */
+from a platform build that wrote no row into this org's catalog.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub published_count: ::std::option::Option<i64>,
     ///This org's modules that declare it in `required_providers`.
@@ -15809,8 +16451,8 @@ pub struct ProviderArtefactSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub serve_mode: ::std::option::Option<ServeMode>,
     /**Effective source repository: the global row for this registry and provider, else the
-    per-org lock-file hint.
-    */
+per-org lock-file hint.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_url: ::std::option::Option<::std::string::String>,
     #[serde(rename = "type")]
@@ -15818,10 +16460,10 @@ pub struct ProviderArtefactSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<ProviderUpstream>,
     /**The registry's newest release, floored at the newest version we demonstrably hold —
-    the catalog is legitimately ahead of the cached pointer between refresh ticks, so a
-    pointer below it is wrong rather than stale. `null` until something resolves it, which
-    clients should render as "not resolved yet" rather than as a version.
-    */
+the catalog is legitimately ahead of the cached pointer between refresh ticks, so a
+pointer below it is wrong rather than stale. `null` until something resolves it, which
+clients should render as "not resolved yet" rather than as a version.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream_latest_version: ::std::option::Option<::std::string::String>,
     ///Workspaces whose lock file pins this provider — its blast radius.
@@ -15833,19 +16475,19 @@ pub struct ProviderArtefactSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version_constraint: ::std::option::Option<::std::string::String>,
     /**Versions the detail view would list — scanned, or locked by a workspace, or matched by
-    a module constraint. The same visibility predicate the detail applies, so the list
-    never advertises more versions than the detail shows.
-    */
+a module constraint. The same visibility predicate the detail applies, so the list
+never advertises more versions than the detail shows.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub version_count: ::std::option::Option<i64>,
     /**Findings on **`latest_version` only** — never an older version's, even where the older
-    one has findings and the latest does not.
+one has findings and the latest does not.
 
-    A `0` is therefore not proof of safety: it means the latest version is clean **or**
-    has not been scanned, and this payload cannot distinguish them. Per-version counts
-    with an explicit `scanned` flag are on the detail route's `versions[]`
-    (`ProviderVersionRow`), which is where an absence can be asserted from.
-    */
+A `0` is therefore not proof of safety: it means the latest version is clean **or**
+has not been scanned, and this payload cannot distinguish them. Per-version counts
+with an explicit `scanned` flag are on the detail route's `versions[]`
+(`ProviderVersionRow`), which is where an absence can be asserted from.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub vuln_count: ::std::option::Option<i64>,
 }
@@ -15881,7 +16523,7 @@ pub struct ProviderAutoPatchOutcome {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderAutoPatchOutcomeStatus {
     #[serde(rename = "queued")]
@@ -15917,7 +16559,9 @@ impl ::std::fmt::Display for ProviderAutoPatchOutcomeStatus {
 }
 impl ::std::str::FromStr for ProviderAutoPatchOutcomeStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "queued" => Ok(Self::Queued),
             "already_active" => Ok(Self::AlreadyActive),
@@ -15933,7 +16577,9 @@ impl ::std::str::FromStr for ProviderAutoPatchOutcomeStatus {
 }
 impl ::std::convert::TryFrom<&str> for ProviderAutoPatchOutcomeStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -15990,10 +16636,7 @@ pub struct ProviderBuildOutcome {
     pub rev: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<ProviderBuildOutcomeStatus>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<::std::string::String>,
@@ -16012,7 +16655,7 @@ pub struct ProviderBuildOutcome {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderBuildOutcomeStatus {
     #[serde(rename = "pending")]
@@ -16033,7 +16676,9 @@ impl ::std::fmt::Display for ProviderBuildOutcomeStatus {
 }
 impl ::std::str::FromStr for ProviderBuildOutcomeStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "entitled" => Ok(Self::Entitled),
@@ -16044,7 +16689,9 @@ impl ::std::str::FromStr for ProviderBuildOutcomeStatus {
 }
 impl ::std::convert::TryFrom<&str> for ProviderBuildOutcomeStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -16067,8 +16714,8 @@ pub struct ProviderConsumeInstructions {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub required_providers_hcl: ::std::option::Option<::std::string::String>,
     /**Whether following these instructions will work right now. `false` ⇒ warn rather than
-    hand them over.
-    */
+hand them over.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub servable: ::std::option::Option<bool>,
     ///The `source` value for the `required_providers` block.
@@ -16077,10 +16724,7 @@ pub struct ProviderConsumeInstructions {
     ///Ordered commands, each with why it matters.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub steps: ::std::vec::Vec<ProviderConsumeInstructionsStepsItem>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<ProviderUpstream>,
@@ -16130,7 +16774,9 @@ pub struct ProviderDownloadPayload {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct ProviderDownloadPayloadSigningKeys {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub gpg_public_keys: ::std::vec::Vec<ProviderDownloadPayloadSigningKeysGpgPublicKeysItem>,
+    pub gpg_public_keys: ::std::vec::Vec<
+        ProviderDownloadPayloadSigningKeysGpgPublicKeysItem,
+    >,
 }
 ///`ProviderDownloadPayloadSigningKeysGpgPublicKeysItem`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -16153,7 +16799,9 @@ pub struct ProviderFindingInput {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub line_start: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub resource: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -16184,7 +16832,9 @@ pub struct ProviderFlowState {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source: ::std::option::Option<ProviderFlowStateSource>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub steps: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub steps: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub updated_at: ::std::option::Option<i64>,
 }
@@ -16199,7 +16849,7 @@ pub struct ProviderFlowState {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderFlowStateSource {
     #[serde(rename = "snapshot")]
@@ -16220,7 +16870,9 @@ impl ::std::fmt::Display for ProviderFlowStateSource {
 }
 impl ::std::str::FromStr for ProviderFlowStateSource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "snapshot" => Ok(Self::Snapshot),
             "argo_live" => Ok(Self::ArgoLive),
@@ -16231,7 +16883,9 @@ impl ::std::str::FromStr for ProviderFlowStateSource {
 }
 impl ::std::convert::TryFrom<&str> for ProviderFlowStateSource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -16257,10 +16911,7 @@ pub struct ProviderFlowSummary {
     pub requested_via: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub triggered_at: ::std::option::Option<Timestamp>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<::std::string::String>,
@@ -16274,21 +16925,28 @@ patched binary auditable.
 pub struct ProviderPatchComparison {
     ///Findings present upstream and absent in the patched revision.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub fixed: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub fixed: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Findings the patch introduced.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub introduced: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub introduced: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provenance: ::std::option::Option<ProviderPatchComparisonProvenance>,
     ///Findings the patch did not address.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub remaining: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub remaining: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     /**Fixes that would need a major-version bump. Reported, never applied — a major bump can
-    change provider behaviour.
-    */
+change provider behaviour.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub report_only_majors:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub report_only_majors: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
 }
 ///Exactly which commits produced the patched artifact.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -16334,7 +16992,7 @@ pub struct ProviderScanQueued {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderScanQueuedStatus {
     #[serde(rename = "queued")]
@@ -16352,7 +17010,9 @@ impl ::std::fmt::Display for ProviderScanQueuedStatus {
 }
 impl ::std::str::FromStr for ProviderScanQueuedStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "queued" => Ok(Self::Queued),
             "inflight" => Ok(Self::Inflight),
@@ -16362,7 +17022,9 @@ impl ::std::str::FromStr for ProviderScanQueuedStatus {
 }
 impl ::std::convert::TryFrom<&str> for ProviderScanQueuedStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -16382,21 +17044,22 @@ pub struct ProviderScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub arch: ::std::option::Option<::std::string::String>,
     /**Archives the malware scan left out because a member inflates past clamd's per-file limit
-    (512 MiB), so ClamAV could not have scanned all of it. A **coverage gap, not a
-    detection**: `malware_detected` is unaffected. Stored as JSON on the shared row; omitted
-    or empty when nothing was left out. Older scanners never send it.
-    */
+(512 MiB), so ClamAV could not have scanned all of it. A **coverage gap, not a
+detection**: `malware_detected` is unaffected. Stored as JSON on the shared row; omitted
+or empty when nothing was left out. Older scanners never send it.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub clamav_unscanned:
-        ::std::option::Option<::std::vec::Vec<ProviderScanResultsBodyClamavUnscannedItem>>,
+    pub clamav_unscanned: ::std::option::Option<
+        ::std::vec::Vec<ProviderScanResultsBodyClamavUnscannedItem>,
+    >,
     ///Job-level reason, or this version's reason on a `failed`/`skipped` report.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub error_message: ::std::option::Option<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub findings: ::std::vec::Vec<ProviderFindingInput>,
     /**A job-level terminal failure — for example a constraint that matched no versions. Marks
-    the whole job failed; the per-version fields are absent.
-    */
+the whole job failed; the per-version fields are absent.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub job_failed: ::std::option::Option<bool>,
     ///Echoed from the queue message.
@@ -16415,8 +17078,8 @@ pub struct ProviderScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub os: ::std::option::Option<::std::string::String>,
     /**Self-built only. Materialised per-org, with the blocked gate derived from each policy's
-    enforcing flag.
-    */
+enforcing flag.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_results: ::std::option::Option<::std::vec::Vec<ScanPolicyResultInput>>,
     ///Named `provider_type` rather than `type` to avoid the JavaScript collision.
@@ -16429,9 +17092,9 @@ pub struct ProviderScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub rule_id: ::std::option::Option<::std::string::String>,
     /**The key the `sbom-url` route returned for this job and version
-    (`provider-sboms/shared/<upstream>/<namespace>/<type>/<version>/<os>-<arch>.spdx.json`).
-    Any other key is refused with `invalid_sbom_key`.
-    */
+(`provider-sboms/shared/<upstream>/<namespace>/<type>/<version>/<os>-<arch>.spdx.json`).
+Any other key is refused with `invalid_sbom_key`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub sbom_key: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -16446,9 +17109,9 @@ pub struct ProviderScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source_signals: ::std::option::Option<::serde_json::Value>,
     /**`published` ⇒ scanned. `failed` ⇒ attempted and failed (enters the retry tier).
-    `skipped` ⇒ **never attempted** because the job ran out of wall budget: no result row is
-    written and the backlog marker is re-armed for the next drain.
-    */
+`skipped` ⇒ **never attempted** because the job ran out of wall budget: no result row is
+written and the backlog marker is re-armed for the next drain.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<ProviderScanResultsBodyStatus>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -16483,7 +17146,7 @@ written and the backlog marker is re-armed for the next drain.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderScanResultsBodyStatus {
     #[serde(rename = "published")]
@@ -16504,7 +17167,9 @@ impl ::std::fmt::Display for ProviderScanResultsBodyStatus {
 }
 impl ::std::str::FromStr for ProviderScanResultsBodyStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "published" => Ok(Self::Published),
             "failed" => Ok(Self::Failed),
@@ -16515,7 +17180,9 @@ impl ::std::str::FromStr for ProviderScanResultsBodyStatus {
 }
 impl ::std::convert::TryFrom<&str> for ProviderScanResultsBodyStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -16540,7 +17207,7 @@ signed itself. A self-built row also records the registry lineage its source cam
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderUpstream {
     #[serde(rename = "terraform.io")]
@@ -16561,7 +17228,9 @@ impl ::std::fmt::Display for ProviderUpstream {
 }
 impl ::std::str::FromStr for ProviderUpstream {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "terraform.io" => Ok(Self::TerraformIo),
             "opentofu.org" => Ok(Self::OpentofuOrg),
@@ -16572,7 +17241,9 @@ impl ::std::str::FromStr for ProviderUpstream {
 }
 impl ::std::convert::TryFrom<&str> for ProviderUpstream {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -16609,26 +17280,26 @@ pub struct ProviderVersionFinding {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub cvss_score: ::std::option::Option<f64>,
     /**EPSS probability (0–1, 2 dp) that the resolved CVE is exploited in the wild in the next
-    30 days. How *likely* exploitation is, where `cvss_score` says how *bad* it would be.
-    See the schema description for what `null` means.
-    */
+30 days. How *likely* exploitation is, where `cvss_score` says how *bad* it would be.
+See the schema description for what `null` means.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub epss: ::std::option::Option<f64>,
     /**When TerraMantle's mirror last wrote this score (epoch ms). That is our refresh time,
-    not FIRST's model date. `null` whenever `epss` is.
-    */
+not FIRST's model date. `null` whenever `epss` is.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub epss_at: ::std::option::Option<i64>,
     /**The CVE the EPSS and KEV data were resolved through: `cve_id` itself for a CVE, its
-    alias target for a GHSA/GO id. `null` when no intel row matched — an unaliased id, or a
-    CVE with neither a stored score nor a KEV listing.
-    */
+alias target for a GHSA/GO id. `null` when no intel row matched — an unaliased id, or a
+CVE with neither a stored score nor a KEV listing.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub epss_cve_id: ::std::option::Option<::std::string::String>,
     /**Share (0–1) of all EPSS-scored CVEs this one ranks above, from the same feed row.
-    `null` whenever `epss` is, and also on a mirror row written before the percentile was
-    stored, until the next daily refresh.
-    */
+`null` whenever `epss` is, and also on a mirror row written before the percentile was
+stored, until the next daily refresh.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub epss_percentile: ::std::option::Option<f64>,
     ///The `go.mod` the finding was read from. Always the root module here.
@@ -16648,9 +17319,9 @@ pub struct ProviderVersionFinding {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub pkg_name: ::std::option::Option<::std::string::String>,
     /**The scanner's advisory URL, unvalidated. Often an avd.aquasec.com page that 404s for
-    recent CVEs, which is why the portal links `CVE-`/`GHSA-` ids to NVD and GitHub
-    Advisories instead.
-    */
+recent CVEs, which is why the portal links `CVE-`/`GHSA-` ids to NVD and GitHub
+Advisories instead.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub primary_url: ::std::option::Option<::std::string::String>,
     ///Scanner severity, lower-case: `critical`, `high`, `medium`, `low`, or `info` for an advisory the scanner rates UNKNOWN.
@@ -16699,12 +17370,11 @@ pub struct ProviderVersionProvenance {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub full_version: ::std::option::Option<::std::string::String>,
     ///Per-gate outcome from the statement's gate-verdict byproducts, e.g. `{"G1":"passed"}`.
-    #[serde(
-        default,
-        skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
-    )]
-    pub gates:
-        ::std::collections::HashMap<::std::string::String, ProviderVersionProvenanceGatesValue>,
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
+    pub gates: ::std::collections::HashMap<
+        ::std::string::String,
+        ProviderVersionProvenanceGatesValue,
+    >,
     ///The provenance key that signed it (Enterprise only).
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub key_id: ::std::option::Option<::std::string::String>,
@@ -16739,7 +17409,7 @@ pub struct ProviderVersionProvenance {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderVersionProvenanceGatesValue {
     #[serde(rename = "passed")]
@@ -16757,7 +17427,9 @@ impl ::std::fmt::Display for ProviderVersionProvenanceGatesValue {
 }
 impl ::std::str::FromStr for ProviderVersionProvenanceGatesValue {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "passed" => Ok(Self::Passed),
             "blocked" => Ok(Self::Blocked),
@@ -16767,11 +17439,14 @@ impl ::std::str::FromStr for ProviderVersionProvenanceGatesValue {
 }
 impl ::std::convert::TryFrom<&str> for ProviderVersionProvenanceGatesValue {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for ProviderVersionProvenanceGatesValue {
+impl ::std::convert::TryFrom<::std::string::String>
+for ProviderVersionProvenanceGatesValue {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -16790,7 +17465,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProviderVersionProvenanc
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ProviderVersionProvenanceStatus {
     #[serde(rename = "verified")]
@@ -16811,7 +17486,9 @@ impl ::std::fmt::Display for ProviderVersionProvenanceStatus {
 }
 impl ::std::str::FromStr for ProviderVersionProvenanceStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "verified" => Ok(Self::Verified),
             "invalid" => Ok(Self::Invalid),
@@ -16822,7 +17499,9 @@ impl ::std::str::FromStr for ProviderVersionProvenanceStatus {
 }
 impl ::std::convert::TryFrom<&str> for ProviderVersionProvenanceStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -16850,16 +17529,18 @@ unverified version is excluded on purpose and an in-flight build surfaces under
 pub struct ProviderVersionRow {
     ///Build/patch state for this version. `null` when none, or when tier-gated.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub build: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub build: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub critical_count: ::std::option::Option<i64>,
     ///Includes downloads of this version's patched revisions.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub downloads_30d: ::std::option::Option<i64>,
     /**This version's vulnerability findings, root module only (a nested `tools/go.mod` never
-    ships in the binary), ordered worst severity first. The same rows the counts above are
-    computed from, so the list and the counts cannot disagree.
-    */
+ships in the binary), ordered worst severity first. The same rows the counts above are
+computed from, so the list and the counts cannot disagree.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub findings: ::std::vec::Vec<ProviderVersionFinding>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -16879,23 +17560,24 @@ pub struct ProviderVersionRow {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_cvss: ::std::option::Option<f64>,
     /**Highest EPSS probability among **all** of this version's vulnerability findings. The
-    same rollup and `null` semantics as `ProviderArtefactSummary.max_epss`: `null` means
-    nothing scored at or above the mirror's 0.04 floor, not that the score is unknown.
-    */
+same rollup and `null` semantics as `ProviderArtefactSummary.max_epss`: `null` means
+nothing scored at or above the mirror's 0.04 floor, not that the score is unknown.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_epss: ::std::option::Option<f64>,
     /**SLSA build provenance of this version's self-built revision. `null` when the version
-    has no self-built revision, so nothing to have provenance for.
+has no self-built revision, so nothing to have provenance for.
 
-    Deliberately **not** inside `build`, which is `null` below Business: every tier sees
-    the verified state, because "built by a platform that signed a record of how" is the
-    trust signal itself. Enterprise also gets the material behind it (see `entitled`).
-    */
+Deliberately **not** inside `build`, which is `null` below Business: every tier sees
+the verified state, because "built by a platform that signed a record of how" is the
+trust signal itself. Enterprise also gets the material behind it (see `entitled`).
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub provenance: ::std::option::Option<ProviderVersionProvenance>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub referenced_by_modules:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub referenced_by_modules: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub referenced_module_count: ::std::option::Option<i64>,
     ///Upstream release date, backfilled from the source repository's release tag.
@@ -16906,8 +17588,8 @@ pub struct ProviderVersionRow {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub scanned: ::std::option::Option<bool>,
     /**The authorization contract in one field: bytes exist, the version satisfies the org's
-    constraint, and the org is entitled to it.
-    */
+constraint, and the org is entitled to it.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub servable: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -16919,9 +17601,9 @@ pub struct ProviderVersionRow {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub usage_workspace_count: ::std::option::Option<i64>,
     /**The org's workspaces that lock this version — the base itself or any of its folded
-    revisions, since a substituted serve writes the revision string into the lock file.
-    This is the blast radius of the version, and it is what a client renders beside it.
-    */
+revisions, since a substituted serve writes the revision string into the lock file.
+This is the blast radius of the version, and it is what a client renders beside it.
+*/
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub used_by: ::std::vec::Vec<ProviderVersionUsedBy>,
     pub version: ::std::string::String,
@@ -16977,8 +17659,8 @@ pub struct PublicFormSubmission {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub email: ::std::option::Option<PublicFormSubmissionEmail>,
     /**The enterprise quote form's structured answers. When present it is stored as JSON in
-    place of `use_case`.
-    */
+place of `use_case`.
+*/
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub metadata: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -17005,7 +17687,9 @@ impl ::std::convert::From<PublicFormSubmissionCompany> for ::std::string::String
 }
 impl ::std::str::FromStr for PublicFormSubmissionCompany {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 300usize {
             return Err("longer than 300 characters".into());
         }
@@ -17014,7 +17698,9 @@ impl ::std::str::FromStr for PublicFormSubmissionCompany {
 }
 impl ::std::convert::TryFrom<&str> for PublicFormSubmissionCompany {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17055,7 +17741,9 @@ impl ::std::convert::From<PublicFormSubmissionEmail> for ::std::string::String {
 }
 impl ::std::str::FromStr for PublicFormSubmissionEmail {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 300usize {
             return Err("longer than 300 characters".into());
         }
@@ -17064,7 +17752,9 @@ impl ::std::str::FromStr for PublicFormSubmissionEmail {
 }
 impl ::std::convert::TryFrom<&str> for PublicFormSubmissionEmail {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17105,7 +17795,9 @@ impl ::std::convert::From<PublicFormSubmissionName> for ::std::string::String {
 }
 impl ::std::str::FromStr for PublicFormSubmissionName {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 300usize {
             return Err("longer than 300 characters".into());
         }
@@ -17117,7 +17809,9 @@ impl ::std::str::FromStr for PublicFormSubmissionName {
 }
 impl ::std::convert::TryFrom<&str> for PublicFormSubmissionName {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17158,7 +17852,9 @@ impl ::std::convert::From<PublicFormSubmissionUseCase> for ::std::string::String
 }
 impl ::std::str::FromStr for PublicFormSubmissionUseCase {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 5000usize {
             return Err("longer than 5000 characters".into());
         }
@@ -17167,7 +17863,9 @@ impl ::std::str::FromStr for PublicFormSubmissionUseCase {
 }
 impl ::std::convert::TryFrom<&str> for PublicFormSubmissionUseCase {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17211,7 +17909,9 @@ pub struct PublicModuleFinding {
     pub line_start: ::std::option::Option<i64>,
     ///Free-form tool-specific metadata. Shape varies by category and rule.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Suggested remediation text.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
@@ -17235,7 +17935,7 @@ pub struct PublicPlanFinding {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub attr: ::std::option::Option<::std::string::String>,
     /**Plan-specific category (free text), e.g. `drift`, `replacement`, `secret_exposure`, `stateful_destroy`.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub category: ::std::option::Option<::std::string::String>,
     ///Attribute path / metadata — never a concrete value.
@@ -17245,7 +17945,9 @@ pub struct PublicPlanFinding {
     pub id: ::std::option::Option<::std::string::String>,
     ///Free-form metadata (e.g. `meta.provider` for a replacement). Value-free.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
     ///Plan resource address, e.g. "aws_s3_bucket.main".
@@ -17268,15 +17970,17 @@ pub struct PublicStateFinding {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
     /**Free-form metadata. For exposure findings, meta carries a `subtype`
-    discriminator string with one of the following values:
-      - 'endpoint' — an exposed HTTP/HTTPS endpoint
-      - 'port'     — an exposed network port
+discriminator string with one of the following values:
+  - 'endpoint' — an exposed HTTP/HTTPS endpoint
+  - 'port'     — an exposed network port
 
-    All other fields in meta are tool-specific and should not be relied
-    upon as stable contract.
-    */
+All other fields in meta are tool-specific and should not be relied
+upon as stable contract.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub meta: ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub meta: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Suggested remediation text.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub remediation: ::std::option::Option<::std::string::String>,
@@ -17369,7 +18073,7 @@ pub struct QuarantinedStateWrite {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum QuarantinedStateWriteResolution {
     #[serde(rename = "accepted")]
@@ -17390,7 +18094,9 @@ impl ::std::fmt::Display for QuarantinedStateWriteResolution {
 }
 impl ::std::str::FromStr for QuarantinedStateWriteResolution {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "accepted" => Ok(Self::Accepted),
             "discarded" => Ok(Self::Discarded),
@@ -17401,7 +18107,9 @@ impl ::std::str::FromStr for QuarantinedStateWriteResolution {
 }
 impl ::std::convert::TryFrom<&str> for QuarantinedStateWriteResolution {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17470,7 +18178,9 @@ impl ::std::convert::From<ReasonRequestReason> for ::std::string::String {
 }
 impl ::std::str::FromStr for ReasonRequestReason {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 1000usize {
             return Err("longer than 1000 characters".into());
         }
@@ -17482,7 +18192,9 @@ impl ::std::str::FromStr for ReasonRequestReason {
 }
 impl ::std::convert::TryFrom<&str> for ReasonRequestReason {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17553,16 +18265,16 @@ impl ::std::ops::Deref for RefreshProviderVcsStatsResponse {
     }
 }
 impl ::std::convert::From<RefreshProviderVcsStatsResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: RefreshProviderVcsStatsResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for RefreshProviderVcsStatsResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for RefreshProviderVcsStatsResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -17628,10 +18340,7 @@ a **discovered** artefact in the consuming org's catalog.
 pub struct RequiredProviderRef {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub namespace: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<UpstreamRegistry>,
@@ -17681,7 +18390,7 @@ anyone else assigns only roles below their own, to members below their own.
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum Role {
     #[serde(rename = "reader")]
@@ -17708,7 +18417,9 @@ impl ::std::fmt::Display for Role {
 }
 impl ::std::str::FromStr for Role {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "reader" => Ok(Self::Reader),
             "member" => Ok(Self::Member),
@@ -17721,7 +18432,9 @@ impl ::std::str::FromStr for Role {
 }
 impl ::std::convert::TryFrom<&str> for Role {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17794,7 +18507,7 @@ pub struct SeenAsn {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ServeMode {
     #[serde(rename = "off")]
@@ -17815,7 +18528,9 @@ impl ::std::fmt::Display for ServeMode {
 }
 impl ::std::str::FromStr for ServeMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "off" => Ok(Self::Off),
             "serve" => Ok(Self::Serve),
@@ -17826,7 +18541,9 @@ impl ::std::str::FromStr for ServeMode {
 }
 impl ::std::convert::TryFrom<&str> for ServeMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17852,7 +18569,7 @@ including over a passing policy; `allow` skips the policy check but never a manu
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ServeOverride {
     #[serde(rename = "block")]
@@ -17870,7 +18587,9 @@ impl ::std::fmt::Display for ServeOverride {
 }
 impl ::std::str::FromStr for ServeOverride {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "allow" => Ok(Self::Allow),
@@ -17880,7 +18599,9 @@ impl ::std::str::FromStr for ServeOverride {
 }
 impl ::std::convert::TryFrom<&str> for ServeOverride {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -17918,7 +18639,9 @@ impl ::std::convert::From<ServeOverrideRequestReason> for ::std::string::String 
 }
 impl ::std::str::FromStr for ServeOverrideRequestReason {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 1000usize {
             return Err("longer than 1000 characters".into());
         }
@@ -17927,7 +18650,9 @@ impl ::std::str::FromStr for ServeOverrideRequestReason {
 }
 impl ::std::convert::TryFrom<&str> for ServeOverrideRequestReason {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18001,8 +18726,9 @@ pub struct SetWorkspacePlanPolicyConfigResponseEffective {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub allow_self_approval: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub approver_min_role:
-        ::std::option::Option<SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole>,
+    pub approver_min_role: ::std::option::Option<
+        SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -18027,7 +18753,7 @@ pub struct SetWorkspacePlanPolicyConfigResponseEffective {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     #[serde(rename = "admin")]
@@ -18037,7 +18763,8 @@ pub enum SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     #[serde(rename = "owner")]
     Owner,
 }
-impl ::std::fmt::Display for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+impl ::std::fmt::Display
+for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Admin => f.write_str("admin"),
@@ -18046,9 +18773,12 @@ impl ::std::fmt::Display for SetWorkspacePlanPolicyConfigResponseEffectiveApprov
         }
     }
 }
-impl ::std::str::FromStr for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
+impl ::std::str::FromStr
+for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "admin" => Ok(Self::Admin),
             "privileged_admin" => Ok(Self::PrivilegedAdmin),
@@ -18058,16 +18788,16 @@ impl ::std::str::FromStr for SetWorkspacePlanPolicyConfigResponseEffectiveApprov
     }
 }
 impl ::std::convert::TryFrom<&str>
-    for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole
-{
+for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole
-{
+for SetWorkspacePlanPolicyConfigResponseEffectiveApproverMinRole {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -18094,7 +18824,7 @@ pub struct StartPaymentMethodUpdateResponse {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateFindingSeverity {
     #[serde(rename = "critical")]
@@ -18121,7 +18851,9 @@ impl ::std::fmt::Display for StateFindingSeverity {
 }
 impl ::std::str::FromStr for StateFindingSeverity {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "critical" => Ok(Self::Critical),
             "high" => Ok(Self::High),
@@ -18134,7 +18866,9 @@ impl ::std::str::FromStr for StateFindingSeverity {
 }
 impl ::std::convert::TryFrom<&str> for StateFindingSeverity {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18190,28 +18924,22 @@ CLIs impose on these values.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct StateLockRefusal {
     ///RFC3339. Must parse as a Go `time.Time` or the whole body fails to unmarshal.
-    #[serde(
-        rename = "Created",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "Created", skip_serializing_if = "::std::option::Option::is_none")]
     pub created: ::std::option::Option<::std::string::String>,
     ///The machine contract. This, not the status, distinguishes the two cases.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub error: ::std::option::Option<StateLockRefusalError>,
     /**`POLICY-BLOCK-<req_id>` for a refusal, the held lock's id for a conflict. Terraform
-    prints it as `HTTP remote state already locked: ID=...`, the only text on its first
-    line. Non-empty makes the error retriable under a non-zero `-lock-timeout`.
-    */
+prints it as `HTTP remote state already locked: ID=...`, the only text on its first
+line. Non-empty makes the error retriable under a non-zero `-lock-timeout`.
+*/
     #[serde(rename = "ID", skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**Multi-line detail: why, what to do, and links to the decision record and the
-    workspace. Every line begins with a space, because terraform's diagnostic renderer
-    word-wraps only lines that do not — which would break the URLs mid-token.
-    */
-    #[serde(
-        rename = "Info",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+workspace. Every line begins with a space, because terraform's diagnostic renderer
+word-wraps only lines that do not — which would break the URLs mid-token.
+*/
+    #[serde(rename = "Info", skip_serializing_if = "::std::option::Option::is_none")]
     pub info: ::std::option::Option<::std::string::String>,
     ///Human prose. Not a contract — do not match on it.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -18223,18 +18951,12 @@ pub struct StateLockRefusal {
     )]
     pub operation: ::std::option::Option<::std::string::String>,
     ///`<org>/<workspace>`. Absent on a genuine conflict.
-    #[serde(
-        rename = "Path",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "Path", skip_serializing_if = "::std::option::Option::is_none")]
     pub path: ::std::option::Option<::std::string::String>,
     /**Repurposed for a refusal: the responsible policy's id, self-labelled because the field
-    label no longer means a semver.
-    */
-    #[serde(
-        rename = "Version",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+label no longer means a semver.
+*/
+    #[serde(rename = "Version", skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
     ///For a refusal, what refused — a policy name, an org owner or an org admin.
     #[serde(rename = "Who", skip_serializing_if = "::std::option::Option::is_none")]
@@ -18251,7 +18973,7 @@ pub struct StateLockRefusal {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateLockRefusalError {
     #[serde(rename = "locked")]
@@ -18269,7 +18991,9 @@ impl ::std::fmt::Display for StateLockRefusalError {
 }
 impl ::std::str::FromStr for StateLockRefusalError {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "locked" => Ok(Self::Locked),
             "policy_blocked" => Ok(Self::PolicyBlocked),
@@ -18279,7 +19003,9 @@ impl ::std::str::FromStr for StateLockRefusalError {
 }
 impl ::std::convert::TryFrom<&str> for StateLockRefusalError {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18296,33 +19022,21 @@ impl ::std::convert::TryFrom<::std::string::String> for StateLockRefusalError {
 */
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct StateLockRequest {
-    #[serde(
-        rename = "Created",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "Created", skip_serializing_if = "::std::option::Option::is_none")]
     pub created: ::std::option::Option<::std::string::String>,
     ///Lock id. A random one is generated when absent.
     #[serde(rename = "ID", skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "Info",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "Info", skip_serializing_if = "::std::option::Option::is_none")]
     pub info: ::std::option::Option<::std::string::String>,
     #[serde(
         rename = "Operation",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub operation: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "Path",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "Path", skip_serializing_if = "::std::option::Option::is_none")]
     pub path: ::std::option::Option<::std::string::String>,
-    #[serde(
-        rename = "Version",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "Version", skip_serializing_if = "::std::option::Option::is_none")]
     pub version: ::std::option::Option<::std::string::String>,
     #[serde(rename = "Who", skip_serializing_if = "::std::option::Option::is_none")]
     pub who: ::std::option::Option<::std::string::String>,
@@ -18354,15 +19068,12 @@ pub struct StateProviderInput {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub namespace: ::std::option::Option<::std::string::String>,
     ///The type segment, e.g. `aws`.
-    #[serde(
-        rename = "type",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "type", skip_serializing_if = "::std::option::Option::is_none")]
     pub type_: ::std::option::Option<::std::string::String>,
     /**Derived from the address host, matching how lock-file and module discovery resolve it:
-    an explicit `registry.opentofu.org` means `opentofu.org`, anything else defaults to
-    `terraform.io`.
-    */
+an explicit `registry.opentofu.org` means `opentofu.org`, anything else defaults to
+`terraform.io`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub upstream: ::std::option::Option<ProviderUpstream>,
 }
@@ -18418,30 +19129,30 @@ pub struct StateScanResultsBody {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub internal_resource_count: ::std::option::Option<i64>,
     /**A failing **enforcing** verdict sets the workspace block that the next apply's `LOCK` is
-    refused on. Stored whether or not policies are enabled, so re-enabling re-blocks.
-    */
+refused on. Stored whether or not policies are enabled, so re-enabling re-blocks.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_results: ::std::option::Option<::std::vec::Vec<ScanPolicyResultInput>>,
     /**The providers backing this state's **managed** resources, parsed from each resource's
-    provider address. Feeds provider discovery, so each one becomes a discovered artefact
-    for the org and gets scanned.
+provider address. Feeds provider discovery, so each one becomes a discovered artefact
+for the org and gets scanned.
 
-    This is the second of two discovery sources, and the one that reaches most orgs. The
-    first is an uploaded `.terraform.lock.hcl`, which carries pinned versions but which
-    few workspaces ever upload — so without this, the providers of every workspace
-    without a lock file never became artefacts at all and were invisible to CVE and
-    outdated-version reporting.
+This is the second of two discovery sources, and the one that reaches most orgs. The
+first is an uploaded `.terraform.lock.hcl`, which carries pinned versions but which
+few workspaces ever upload — so without this, the providers of every workspace
+without a lock file never became artefacts at all and were invisible to CVE and
+outdated-version reporting.
 
-    Carries no version on purpose: state records *which* provider is in use, never which
-    version. Where a lock file names the same provider, its pinned constraint wins.
+Carries no version on purpose: state records *which* provider is in use, never which
+version. Where a lock file names the same provider, its pinned constraint wins.
 
-    Optional and additive, so a scanner can ship ahead of the Worker; absent is a no-op.
-    */
+Optional and additive, so a scanner can ship ahead of the Worker; absent is a no-op.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub providers: ::std::option::Option<::std::vec::Vec<StateProviderInput>>,
     /**Best-effort. Absent (older scanner) or `null` (classifier bailout) leaves the stored
-    columns untouched — which is also how pre-classification versions get backfilled.
-    */
+columns untouched — which is also how pre-classification versions get backfilled.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub real_resource_count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -18460,7 +19171,7 @@ pub struct StateScanResultsBody {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateScanResultsBodyStatus {
     #[serde(rename = "published")]
@@ -18478,7 +19189,9 @@ impl ::std::fmt::Display for StateScanResultsBodyStatus {
 }
 impl ::std::str::FromStr for StateScanResultsBodyStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "published" => Ok(Self::Published),
             "failed" => Ok(Self::Failed),
@@ -18488,7 +19201,9 @@ impl ::std::str::FromStr for StateScanResultsBodyStatus {
 }
 impl ::std::convert::TryFrom<&str> for StateScanResultsBodyStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18512,8 +19227,8 @@ pub struct StateSerial {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**The serial the next apply works from — the highest one. Deleting it needs `force`, and
-    moves the workspace's current-state pointer back.
-    */
+moves the workspace's current-state pointer back.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub is_current: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -18524,8 +19239,8 @@ pub struct StateSerial {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub pushed_at: ::std::option::Option<i64>,
     /**Real infrastructure only, instance-level. `null` means not yet classified — a legacy
-    row or a classifier bailout — which is distinct from `0`.
-    */
+row or a classifier bailout — which is distinct from `0`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub real_resource_count: ::std::option::Option<i64>,
     ///Block-level
@@ -18558,7 +19273,7 @@ pub struct StateSerial {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateSerialActorType {
     #[serde(rename = "vcs")]
@@ -18579,7 +19294,9 @@ impl ::std::fmt::Display for StateSerialActorType {
 }
 impl ::std::str::FromStr for StateSerialActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "vcs" => Ok(Self::Vcs),
             "bot_token" => Ok(Self::BotToken),
@@ -18590,7 +19307,9 @@ impl ::std::str::FromStr for StateSerialActorType {
 }
 impl ::std::convert::TryFrom<&str> for StateSerialActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18613,7 +19332,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StateSerialActorType {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateSerialScanStatus {
     #[serde(rename = "pending")]
@@ -18637,7 +19356,9 @@ impl ::std::fmt::Display for StateSerialScanStatus {
 }
 impl ::std::str::FromStr for StateSerialScanStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "pending" => Ok(Self::Pending),
             "processing" => Ok(Self::Processing),
@@ -18649,7 +19370,9 @@ impl ::std::str::FromStr for StateSerialScanStatus {
 }
 impl ::std::convert::TryFrom<&str> for StateSerialScanStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18682,7 +19405,7 @@ pub struct StateTokenGrant {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateTokenGrantPermission {
     #[serde(rename = "read")]
@@ -18700,7 +19423,9 @@ impl ::std::fmt::Display for StateTokenGrantPermission {
 }
 impl ::std::str::FromStr for StateTokenGrantPermission {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "read" => Ok(Self::Read),
             "write" => Ok(Self::Write),
@@ -18710,7 +19435,9 @@ impl ::std::str::FromStr for StateTokenGrantPermission {
 }
 impl ::std::convert::TryFrom<&str> for StateTokenGrantPermission {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -18859,8 +19586,8 @@ pub struct StateWorkspaceDetail {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub total_serials: ::std::option::Option<i64>,
     /**True when the workspace holds more serials than were listed, so a "delete every serial"
-    action covers more than the table shows.
-    */
+action covers more than the table shows.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub truncated: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -18874,8 +19601,8 @@ pub struct StateWorkspaceDetailWorkspace {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub blocked_reason: ::std::option::Option<::std::string::String>,
     /**May name a serial that no longer exists: it carries no foreign key, and deleting the
-    blocked serial nulls this while KEEPING `blocked`.
-    */
+blocked serial nulls this while KEEPING `blocked`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub blocked_version_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -18901,7 +19628,9 @@ pub struct StateWorkspaceDetailWorkspace {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_count: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub serve_override: ::std::option::Option<StateWorkspaceDetailWorkspaceServeOverride>,
+    pub serve_override: ::std::option::Option<
+        StateWorkspaceDetailWorkspaceServeOverride,
+    >,
 }
 ///The live state lock, or `null`. Non-null means a delete needs `force`.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -18926,7 +19655,7 @@ pub struct StateWorkspaceDetailWorkspaceLock {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateWorkspaceDetailWorkspaceServeOverride {
     #[serde(rename = "block")]
@@ -18944,7 +19673,9 @@ impl ::std::fmt::Display for StateWorkspaceDetailWorkspaceServeOverride {
 }
 impl ::std::str::FromStr for StateWorkspaceDetailWorkspaceServeOverride {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "allow" => Ok(Self::Allow),
@@ -18954,11 +19685,14 @@ impl ::std::str::FromStr for StateWorkspaceDetailWorkspaceServeOverride {
 }
 impl ::std::convert::TryFrom<&str> for StateWorkspaceDetailWorkspaceServeOverride {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for StateWorkspaceDetailWorkspaceServeOverride {
+impl ::std::convert::TryFrom<::std::string::String>
+for StateWorkspaceDetailWorkspaceServeOverride {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -18997,8 +19731,8 @@ pub struct StateWorkspaceListItem {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub locked_by: ::std::option::Option<::std::string::String>,
     /**Sum of the measured `size_bytes`. `null` means versions exist and NONE is measured —
-    render that as "unmeasured", never as 0 B. An empty workspace reports `0`.
-    */
+render that as "unmeasured", never as 0 B. An empty workspace reports `0`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub measured_bytes: ::std::option::Option<i64>,
     ///The terraform workspace name
@@ -19035,7 +19769,7 @@ pub struct StateWorkspaceListItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateWorkspaceListItemServeOverride {
     #[serde(rename = "block")]
@@ -19053,7 +19787,9 @@ impl ::std::fmt::Display for StateWorkspaceListItemServeOverride {
 }
 impl ::std::str::FromStr for StateWorkspaceListItemServeOverride {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "allow" => Ok(Self::Allow),
@@ -19063,11 +19799,14 @@ impl ::std::str::FromStr for StateWorkspaceListItemServeOverride {
 }
 impl ::std::convert::TryFrom<&str> for StateWorkspaceListItemServeOverride {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for StateWorkspaceListItemServeOverride {
+impl ::std::convert::TryFrom<::std::string::String>
+for StateWorkspaceListItemServeOverride {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -19099,10 +19838,10 @@ pub struct StateWorkspaceSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub actor_type: ::std::option::Option<ActorType>,
     /**`1` ⇒ the policy gate will reject the next apply's `LOCK`: the state block, the
-    plan block, or both are set (see `lockState`). Which one decides the remedy —
-    attest the state, or approve the plan. An integer rather than a boolean for
-    compatibility: it was the raw column before the two blocks were separated.
-    */
+plan block, or both are set (see `lockState`). Which one decides the remedy —
+attest the state, or approve the plan. An integer rather than a boolean for
+compatibility: it was the raw column before the two blocks were separated.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub blocked: ::std::option::Option<StateWorkspaceSummaryBlocked>,
     ///The plan version that raised the plan block.
@@ -19128,7 +19867,7 @@ pub struct StateWorkspaceSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub gate_plan_prior_serial: ::std::option::Option<i64>,
     /**The plan the gate points at: the last un-ref'd plan able to move it (pushed with its binary, not refresh-only, not errored, current). `null` ⇒ none yet.
-     */
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub gate_plan_version_id: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -19165,8 +19904,8 @@ pub struct StateWorkspaceSummary {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub pushed_at: ::std::option::Option<Timestamp>,
     /**Legacy `users.id` foreign key — `null` for every bot-token push, which is most CI
-    pushes. Read `actor_type` / `actor_name` instead.
-    */
+pushes. Read `actor_type` / `actor_name` instead.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub pushed_by: ::std::option::Option<::std::string::String>,
     ///Refused state writes waiting for an admin to accept or discard them.
@@ -19180,16 +19919,18 @@ pub struct StateWorkspaceSummary {
     pub require_plan: ::std::option::Option<StateWorkspaceSummaryRequirePlan>,
     ///What the lock gate actually uses - the workspace's setting, else the org default.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub require_plan_effective: ::std::option::Option<StateWorkspaceSummaryRequirePlanEffective>,
+    pub require_plan_effective: ::std::option::Option<
+        StateWorkspaceSummaryRequirePlanEffective,
+    >,
     /**Under "require a passing plan": why the workspace may NOT be applied to right now,
-    or `null` when the requirement is met, is not in force, or a break-glass window is
-    open. Computed by the same function the LOCK gate uses, which compares the plan's
-    (lineage, serial) PAIR with the state's - so read this rather than re-deriving it
-    from `gate_plan_ok` and the serials, which cannot see a lineage change.
-    `failure` is `no_plan` (nothing that can be applied has been pushed),
-    `not_passing` (the gating plan failed and is not approved) or `stale` (it passed,
-    but the state has moved since).
-    */
+or `null` when the requirement is met, is not in force, or a break-glass window is
+open. Computed by the same function the LOCK gate uses, which compares the plan's
+(lineage, serial) PAIR with the state's - so read this rather than re-deriving it
+from `gate_plan_ok` and the serials, which cannot see a lineage change.
+`failure` is `no_plan` (nothing that can be applied has been pushed),
+`not_passing` (the gating plan failed and is not approved) or `stale` (it passed,
+but the state has moved since).
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub require_plan_unmet: ::std::option::Option<StateWorkspaceSummaryRequirePlanUnmet>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -19239,7 +19980,9 @@ impl ::std::convert::From<StateWorkspaceSummaryBlocked> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryBlocked {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -19253,7 +19996,7 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryBlocked {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`1` ⇒ that plan passed, or was approved.
@@ -19273,7 +20016,9 @@ impl ::std::convert::From<StateWorkspaceSummaryGatePlanOk> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryGatePlanOk {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -19287,7 +20032,7 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryGatePlanOk {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`1` ⇒ specifically the PLAN block is set: lifted by a passing plan, or by approving `blocked_plan_version_id`.
@@ -19307,7 +20052,9 @@ impl ::std::convert::From<StateWorkspaceSummaryPlanBlocked> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryPlanBlocked {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -19321,7 +20068,7 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryPlanBlocked {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///The workspace's OWN "require a passing plan" setting. `null` ⇒ inherits the org default.
@@ -19341,7 +20088,9 @@ impl ::std::convert::From<StateWorkspaceSummaryRequirePlan> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryRequirePlan {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -19355,7 +20104,7 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryRequirePlan {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///What the lock gate actually uses - the workspace's setting, else the org default.
@@ -19375,7 +20124,9 @@ impl ::std::convert::From<StateWorkspaceSummaryRequirePlanEffective> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryRequirePlanEffective {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -19389,7 +20140,7 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryRequirePlanEffectiv
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`StateWorkspaceSummaryRequirePlanUnmet`
@@ -19412,7 +20163,7 @@ pub struct StateWorkspaceSummaryRequirePlanUnmet {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum StateWorkspaceSummaryRequirePlanUnmetFailure {
     #[serde(rename = "no_plan")]
@@ -19433,7 +20184,9 @@ impl ::std::fmt::Display for StateWorkspaceSummaryRequirePlanUnmetFailure {
 }
 impl ::std::str::FromStr for StateWorkspaceSummaryRequirePlanUnmetFailure {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "no_plan" => Ok(Self::NoPlan),
             "not_passing" => Ok(Self::NotPassing),
@@ -19444,13 +20197,14 @@ impl ::std::str::FromStr for StateWorkspaceSummaryRequirePlanUnmetFailure {
 }
 impl ::std::convert::TryFrom<&str> for StateWorkspaceSummaryRequirePlanUnmetFailure {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for StateWorkspaceSummaryRequirePlanUnmetFailure
-{
+for StateWorkspaceSummaryRequirePlanUnmetFailure {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -19475,7 +20229,9 @@ impl ::std::convert::From<StateWorkspaceSummaryStateBlocked> for i64 {
 }
 impl ::std::convert::TryFrom<i64> for StateWorkspaceSummaryStateBlocked {
     type Error = self::error::ConversionError;
-    fn try_from(value: i64) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if ![0_i64, 1_i64].contains(&value) {
             Err("invalid value".into())
         } else {
@@ -19489,7 +20245,7 @@ impl<'de> ::serde::Deserialize<'de> for StateWorkspaceSummaryStateBlocked {
         D: ::serde::Deserializer<'de>,
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
-            .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///`StateWorkspaceTimeline`
@@ -19567,7 +20323,7 @@ impl ::std::default::Default for TenantAccessRules {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TenantAccessRulesAppliesTo {
     #[serde(rename = "machine")]
@@ -19585,7 +20341,9 @@ impl ::std::fmt::Display for TenantAccessRulesAppliesTo {
 }
 impl ::std::str::FromStr for TenantAccessRulesAppliesTo {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "machine" => Ok(Self::Machine),
             "all" => Ok(Self::All),
@@ -19595,7 +20353,9 @@ impl ::std::str::FromStr for TenantAccessRulesAppliesTo {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesAppliesTo {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -19629,9 +20389,11 @@ impl ::std::convert::From<TenantAccessRulesCountriesItem> for ::std::string::Str
 }
 impl ::std::str::FromStr for TenantAccessRulesCountriesItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
-            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^([A-Za-z]{2}|T1|XX)$").unwrap());
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> = ::std::sync::LazyLock::new(||
+        { ::regress::Regex::new("^([A-Za-z]{2}|T1|XX)$").unwrap() });
         if PATTERN.find(value).is_none() {
             return Err("doesn't match pattern \"^([A-Za-z]{2}|T1|XX)$\"".into());
         }
@@ -19640,7 +20402,9 @@ impl ::std::str::FromStr for TenantAccessRulesCountriesItem {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesCountriesItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -19709,7 +20473,7 @@ impl ::std::default::Default for TenantAccessRulesInput {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TenantAccessRulesInputAppliesTo {
     #[serde(rename = "machine")]
@@ -19727,7 +20491,9 @@ impl ::std::fmt::Display for TenantAccessRulesInputAppliesTo {
 }
 impl ::std::str::FromStr for TenantAccessRulesInputAppliesTo {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "machine" => Ok(Self::Machine),
             "all" => Ok(Self::All),
@@ -19737,7 +20503,9 @@ impl ::std::str::FromStr for TenantAccessRulesInputAppliesTo {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputAppliesTo {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -19771,7 +20539,9 @@ impl ::std::fmt::Display for TenantAccessRulesInputAsnsItem {
 }
 impl ::std::str::FromStr for TenantAccessRulesInputAsnsItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if let Ok(v) = value.parse() {
             Ok(Self::Integer(v))
         } else if let Ok(v) = value.parse() {
@@ -19783,7 +20553,9 @@ impl ::std::str::FromStr for TenantAccessRulesInputAsnsItem {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputAsnsItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -19800,7 +20572,8 @@ impl ::std::convert::From<u32> for TenantAccessRulesInputAsnsItem {
         Self::Integer(value)
     }
 }
-impl ::std::convert::From<TenantAccessRulesInputAsnsItemString> for TenantAccessRulesInputAsnsItem {
+impl ::std::convert::From<TenantAccessRulesInputAsnsItemString>
+for TenantAccessRulesInputAsnsItem {
     fn from(value: TenantAccessRulesInputAsnsItemString) -> Self {
         Self::String(value)
     }
@@ -19815,16 +20588,19 @@ impl ::std::ops::Deref for TenantAccessRulesInputAsnsItemString {
         &self.0
     }
 }
-impl ::std::convert::From<TenantAccessRulesInputAsnsItemString> for ::std::string::String {
+impl ::std::convert::From<TenantAccessRulesInputAsnsItemString>
+for ::std::string::String {
     fn from(value: TenantAccessRulesInputAsnsItemString) -> Self {
         value.0
     }
 }
 impl ::std::str::FromStr for TenantAccessRulesInputAsnsItemString {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
-            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^(AS|as)?\\d{1,10}$").unwrap());
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> = ::std::sync::LazyLock::new(||
+        { ::regress::Regex::new("^(AS|as)?\\d{1,10}$").unwrap() });
         if PATTERN.find(value).is_none() {
             return Err("doesn't match pattern \"^(AS|as)?\\d{1,10}$\"".into());
         }
@@ -19833,11 +20609,14 @@ impl ::std::str::FromStr for TenantAccessRulesInputAsnsItemString {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputAsnsItemString {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputAsnsItemString {
+impl ::std::convert::TryFrom<::std::string::String>
+for TenantAccessRulesInputAsnsItemString {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -19867,16 +20646,19 @@ impl ::std::ops::Deref for TenantAccessRulesInputCountriesItem {
         &self.0
     }
 }
-impl ::std::convert::From<TenantAccessRulesInputCountriesItem> for ::std::string::String {
+impl ::std::convert::From<TenantAccessRulesInputCountriesItem>
+for ::std::string::String {
     fn from(value: TenantAccessRulesInputCountriesItem) -> Self {
         value.0
     }
 }
 impl ::std::str::FromStr for TenantAccessRulesInputCountriesItem {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        static PATTERN: ::std::sync::LazyLock<::regress::Regex> =
-            ::std::sync::LazyLock::new(|| ::regress::Regex::new("^([A-Za-z]{2}|T1|XX)$").unwrap());
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> = ::std::sync::LazyLock::new(||
+        { ::regress::Regex::new("^([A-Za-z]{2}|T1|XX)$").unwrap() });
         if PATTERN.find(value).is_none() {
             return Err("doesn't match pattern \"^([A-Za-z]{2}|T1|XX)$\"".into());
         }
@@ -19885,11 +20667,14 @@ impl ::std::str::FromStr for TenantAccessRulesInputCountriesItem {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputCountriesItem {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputCountriesItem {
+impl ::std::convert::TryFrom<::std::string::String>
+for TenantAccessRulesInputCountriesItem {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -19920,7 +20705,7 @@ impl<'de> ::serde::Deserialize<'de> for TenantAccessRulesInputCountriesItem {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TenantAccessRulesInputMode {
     #[serde(rename = "allow")]
@@ -19938,7 +20723,9 @@ impl ::std::fmt::Display for TenantAccessRulesInputMode {
 }
 impl ::std::str::FromStr for TenantAccessRulesInputMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "allow" => Ok(Self::Allow),
             "deny" => Ok(Self::Deny),
@@ -19948,7 +20735,9 @@ impl ::std::str::FromStr for TenantAccessRulesInputMode {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesInputMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -19971,7 +20760,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TenantAccessRulesInputMo
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TenantAccessRulesMode {
     #[serde(rename = "allow")]
@@ -19989,7 +20778,9 @@ impl ::std::fmt::Display for TenantAccessRulesMode {
 }
 impl ::std::str::FromStr for TenantAccessRulesMode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "allow" => Ok(Self::Allow),
             "deny" => Ok(Self::Deny),
@@ -19999,7 +20790,9 @@ impl ::std::str::FromStr for TenantAccessRulesMode {
 }
 impl ::std::convert::TryFrom<&str> for TenantAccessRulesMode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20029,50 +20822,62 @@ pub struct TenantAnalytics {
     pub footprint: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     ///Per-severity drill-down for the open-findings donuts.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub module_findings_artifacts:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub module_findings_artifacts: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub module_findings_by_severity:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub module_findings_by_severity: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     /**Continuous-patching exposure: vulnerable superseded versions still being downloaded.
-     */
+*/
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub patch_adoption: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub slowest_applies:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub slowest_applies: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Workspace, version and apply counts.
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub state: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub state_daily_series: ::std::vec::Vec<DailyPoint>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub state_findings_artifacts:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub state_findings_artifacts: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub state_findings_by_severity:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub state_findings_by_severity: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Top 5 modules by downloads over 90 days, each with its daily series.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub top_module_download_series:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub top_module_download_series: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub top_modules: ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub top_modules: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub top_risk_modules:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub top_risk_modules: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub top_risk_workspaces:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub top_risk_workspaces: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Top 5 workspaces by pushes over 90 days, each with its daily series.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub top_workspace_push_series:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub top_workspace_push_series: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub total_downloads: ::std::option::Option<i64>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub workspace_runtime:
-        ::std::vec::Vec<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub workspace_runtime: ::std::vec::Vec<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
 }
 ///Terraform's remote service discovery document.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
@@ -20084,8 +20889,8 @@ pub struct TerraformDiscovery {
     )]
     pub modules_v1: ::std::option::Option<::std::string::String>,
     /**Base path of the provider registry protocol. Org-scoped on an org subdomain, bare
-    otherwise.
-    */
+otherwise.
+*/
     #[serde(
         rename = "providers.v1",
         skip_serializing_if = "::std::option::Option::is_none"
@@ -20103,7 +20908,7 @@ pub struct TerraformDiscovery {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum Tier {
     #[serde(rename = "starter")]
@@ -20127,7 +20932,9 @@ impl ::std::fmt::Display for Tier {
 }
 impl ::std::str::FromStr for Tier {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "starter" => Ok(Self::Starter),
             "team" => Ok(Self::Team),
@@ -20139,7 +20946,9 @@ impl ::std::str::FromStr for Tier {
 }
 impl ::std::convert::TryFrom<&str> for Tier {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20156,10 +20965,7 @@ with `QuotaExceeded`.
 */
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct TierFeatureFlags {
-    #[serde(
-        rename = "auditLog",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "auditLog", skip_serializing_if = "::std::option::Option::is_none")]
     pub audit_log: ::std::option::Option<bool>,
     #[serde(
         rename = "botTokens",
@@ -20167,18 +20973,18 @@ pub struct TierFeatureFlags {
     )]
     pub bot_tokens: ::std::option::Option<i64>,
     /**Flat monthly price, in pence, for each billable user past `includedUsers`. `null` ⇒
-    no overage exists on this tier (Starter hard-caps; Enterprise buys user packs, so
-    past `includedUsers` it is a soft limit and nothing is charged in arrears).
-    */
+no overage exists on this tier (Starter hard-caps; Enterprise buys user packs, so
+past `includedUsers` it is a soft limit and nothing is charged in arrears).
+*/
     #[serde(
         rename = "extraUserPencePerMonth",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub extra_user_pence_per_month: ::std::option::Option<i64>,
     /**Seats inside the flat org price. Enterprise's 100 grow by 10 per user pack on the
-    subscription. What makes a user billable is activity, not membership: see
-    `BillingState.seats`.
-    */
+subscription. What makes a user billable is activity, not membership: see
+`BillingState.seats`.
+*/
     #[serde(
         rename = "includedUsers",
         skip_serializing_if = "::std::option::Option::is_none"
@@ -20235,9 +21041,9 @@ pub struct TierFeatureFlags {
     )]
     pub state_backend: ::std::option::Option<bool>,
     /**Hard ceiling on org members; `null` ⇒ none. Only Starter has one. Team and Business
-    are uncapped because a member past `includedUsers` becomes a billable seat rather
-    than a refusal, so adding members never answers `402` on those tiers.
-    */
+are uncapped because a member past `includedUsers` becomes a billable seat rather
+than a refusal, so adding members never answers `402` on those tiers.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub users: ::std::option::Option<i64>,
 }
@@ -20261,8 +21067,8 @@ pub struct TimelineDecisionEntry {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_version_id: ::std::option::Option<::std::string::String>,
     /**Null for the builtin gate and for a manual block, neither of which has a policies row.
-    Not a foreign key, so deleting a policy does not erase its history.
-    */
+Not a foreign key, so deleting a policy does not erase its history.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub policy_id: ::std::option::Option<::std::string::String>,
     ///Denormalised
@@ -20277,32 +21083,32 @@ pub struct TimelineDecisionEntry {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub run_id: ::std::option::Option<::std::string::String>,
     /**Which engine or authority decided — `builtin` the synchronous threshold/denylist plan
-    gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
-    `manual` an explicit admin block or approval, `serve_override` a tri-state force.
-    */
+gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
+`manual` an explicit admin block or approval, `serve_override` a tri-state force.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub source: ::std::option::Option<TimelineDecisionEntrySource>,
     /**The subject's row id where one resolved. No foreign key: the subject is polymorphic
-    across five tables, and the ledger must outlive the row it refers to.
-    */
+across five tables, and the ledger must outlive the row it refers to.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub subject_id: ::std::option::Option<::std::string::String>,
     /**Machine coordinates for the subject, so a client can build a link to it (migration
-    128). One of `workspace:<name>`, `state:<workspace>/<versionId>`,
-    `plan:<workspace>/<planVersionId>`,
-    `module:<namespace>/<name>/<provider>@<version>`, or
-    `provider:<registry>/<namespace>/<type>@<version>`.
+128). One of `workspace:<name>`, `state:<workspace>/<versionId>`,
+`plan:<workspace>/<planVersionId>`,
+`module:<namespace>/<name>/<provider>@<version>`, or
+`provider:<registry>/<namespace>/<type>@<version>`.
 
-    The provider form carries the resolved registry lineage (`terraform.io` /
-    `opentofu.org`), never the raw upstream — the provider policy gate is self-built only,
-    so a key built from the upstream would read `provider:self_built/…` on every policy
-    refusal and route nowhere.
+The provider form carries the resolved registry lineage (`terraform.io` /
+`opentofu.org`), never the raw upstream — the provider policy gate is self-built only,
+so a key built from the upstream would read `provider:self_built/…` on every policy
+refusal and route nowhere.
 
-    `null` on a row written before migration 128, and on any row whose coordinates did not
-    fully resolve. It is NOT derivable from `subject_label`, which is lossy display text (a
-    module label carries no provider segment). Clients must render the label unlinked when
-    this is null rather than guessing a route.
-    */
+`null` on a row written before migration 128, and on any row whose coordinates did not
+fully resolve. It is NOT derivable from `subject_label`, which is lossy display text (a
+module label carries no provider segment). Clients must render the label unlinked when
+this is null rather than guessing a route.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub subject_key: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -20319,8 +21125,8 @@ pub struct TimelineDecisionEntry {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub trace_id: ::std::option::Option<::std::string::String>,
     /**`block` the interaction was refused; `override` a human lifted or imposed a refusal;
-    `warn` evaluated and failed, but the policy was not enforcing.
-    */
+`warn` evaluated and failed, but the policy was not enforcing.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub verdict: ::std::option::Option<TimelineDecisionEntryVerdict>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -20337,7 +21143,7 @@ pub struct TimelineDecisionEntry {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineDecisionEntryActorType {
     #[serde(rename = "human")]
@@ -20364,7 +21170,9 @@ impl ::std::fmt::Display for TimelineDecisionEntryActorType {
 }
 impl ::std::str::FromStr for TimelineDecisionEntryActorType {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "human" => Ok(Self::Human),
             "bot" => Ok(Self::Bot),
@@ -20377,7 +21185,9 @@ impl ::std::str::FromStr for TimelineDecisionEntryActorType {
 }
 impl ::std::convert::TryFrom<&str> for TimelineDecisionEntryActorType {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20400,7 +21210,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntryAct
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineDecisionEntryKind {
     #[serde(rename = "decision")]
@@ -20415,7 +21225,9 @@ impl ::std::fmt::Display for TimelineDecisionEntryKind {
 }
 impl ::std::str::FromStr for TimelineDecisionEntryKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "decision" => Ok(Self::Decision),
             _ => Err("invalid value".into()),
@@ -20424,7 +21236,9 @@ impl ::std::str::FromStr for TimelineDecisionEntryKind {
 }
 impl ::std::convert::TryFrom<&str> for TimelineDecisionEntryKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20450,7 +21264,7 @@ gate, `opa` custom Rego, `scan` an enforcing policy result written by a scanner,
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineDecisionEntrySource {
     #[serde(rename = "builtin")]
@@ -20477,7 +21291,9 @@ impl ::std::fmt::Display for TimelineDecisionEntrySource {
 }
 impl ::std::str::FromStr for TimelineDecisionEntrySource {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "builtin" => Ok(Self::Builtin),
             "opa" => Ok(Self::Opa),
@@ -20490,7 +21306,9 @@ impl ::std::str::FromStr for TimelineDecisionEntrySource {
 }
 impl ::std::convert::TryFrom<&str> for TimelineDecisionEntrySource {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20513,7 +21331,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntrySou
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineDecisionEntrySubjectKind {
     #[serde(rename = "state_workspace")]
@@ -20540,7 +21358,9 @@ impl ::std::fmt::Display for TimelineDecisionEntrySubjectKind {
 }
 impl ::std::str::FromStr for TimelineDecisionEntrySubjectKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "state_workspace" => Ok(Self::StateWorkspace),
             "state_version" => Ok(Self::StateVersion),
@@ -20553,11 +21373,14 @@ impl ::std::str::FromStr for TimelineDecisionEntrySubjectKind {
 }
 impl ::std::convert::TryFrom<&str> for TimelineDecisionEntrySubjectKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntrySubjectKind {
+impl ::std::convert::TryFrom<::std::string::String>
+for TimelineDecisionEntrySubjectKind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -20578,7 +21401,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TimelineDecisionEntrySub
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineDecisionEntryVerdict {
     #[serde(rename = "block")]
@@ -20599,7 +21422,9 @@ impl ::std::fmt::Display for TimelineDecisionEntryVerdict {
 }
 impl ::std::str::FromStr for TimelineDecisionEntryVerdict {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "block" => Ok(Self::Block),
             "override" => Ok(Self::Override),
@@ -20610,7 +21435,9 @@ impl ::std::str::FromStr for TimelineDecisionEntryVerdict {
 }
 impl ::std::convert::TryFrom<&str> for TimelineDecisionEntryVerdict {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20660,7 +21487,7 @@ pub struct TimelineRunEntry {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineRunEntryKind {
     #[serde(rename = "run")]
@@ -20675,7 +21502,9 @@ impl ::std::fmt::Display for TimelineRunEntryKind {
 }
 impl ::std::str::FromStr for TimelineRunEntryKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "run" => Ok(Self::Run),
             _ => Err("invalid value".into()),
@@ -20684,7 +21513,9 @@ impl ::std::str::FromStr for TimelineRunEntryKind {
 }
 impl ::std::convert::TryFrom<&str> for TimelineRunEntryKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20707,7 +21538,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TimelineRunEntryKind {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TimelineRunEntryStatus {
     #[serde(rename = "active")]
@@ -20731,7 +21562,9 @@ impl ::std::fmt::Display for TimelineRunEntryStatus {
 }
 impl ::std::str::FromStr for TimelineRunEntryStatus {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "active" => Ok(Self::Active),
             "completed" => Ok(Self::Completed),
@@ -20743,7 +21576,9 @@ impl ::std::str::FromStr for TimelineRunEntryStatus {
 }
 impl ::std::convert::TryFrom<&str> for TimelineRunEntryStatus {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20809,7 +21644,7 @@ impl ::std::convert::TryFrom<String> for Timestamp {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TokenPermission {
     #[serde(rename = "none")]
@@ -20830,7 +21665,9 @@ impl ::std::fmt::Display for TokenPermission {
 }
 impl ::std::str::FromStr for TokenPermission {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "none" => Ok(Self::None),
             "read" => Ok(Self::Read),
@@ -20841,7 +21678,9 @@ impl ::std::str::FromStr for TokenPermission {
 }
 impl ::std::convert::TryFrom<&str> for TokenPermission {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20871,7 +21710,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TokenPermission {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TokenScope {
     #[serde(rename = "global")]
@@ -20892,7 +21731,9 @@ impl ::std::fmt::Display for TokenScope {
 }
 impl ::std::str::FromStr for TokenScope {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "global" => Ok(Self::Global),
             "org" => Ok(Self::Org),
@@ -20903,7 +21744,9 @@ impl ::std::str::FromStr for TokenScope {
 }
 impl ::std::convert::TryFrom<&str> for TokenScope {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -20942,16 +21785,16 @@ impl ::std::ops::Deref for UpdateOrgProviderResponse {
     }
 }
 impl ::std::convert::From<UpdateOrgProviderResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: UpdateOrgProviderResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for UpdateOrgProviderResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for UpdateOrgProviderResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -20976,16 +21819,16 @@ impl ::std::ops::Deref for UploadLockFileResponse {
     }
 }
 impl ::std::convert::From<UploadLockFileResponse>
-    for ::serde_json::Map<::std::string::String, ::serde_json::Value>
-{
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
     fn from(value: UploadLockFileResponse) -> Self {
         value.0
     }
 }
 impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
-    for UploadLockFileResponse
-{
-    fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
+for UploadLockFileResponse {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
         Self(value)
     }
 }
@@ -21002,7 +21845,7 @@ which lineage an org serves when it manages both (`OpenTofu/` ⇒ `opentofu.org`
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum UpstreamRegistry {
     #[serde(rename = "terraform.io")]
@@ -21020,7 +21863,9 @@ impl ::std::fmt::Display for UpstreamRegistry {
 }
 impl ::std::str::FromStr for UpstreamRegistry {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "terraform.io" => Ok(Self::TerraformIo),
             "opentofu.org" => Ok(Self::OpentofuOrg),
@@ -21030,7 +21875,9 @@ impl ::std::str::FromStr for UpstreamRegistry {
 }
 impl ::std::convert::TryFrom<&str> for UpstreamRegistry {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -21050,8 +21897,8 @@ pub struct User {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub email: ::std::option::Option<::std::string::String>,
     /**The internal user id. This, not the OIDC subject, is the identity other endpoints take
-    as `userId`.
-    */
+as `userId`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
 }
@@ -21079,7 +21926,7 @@ pub struct ValidationError {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum VcsProvider {
     #[serde(rename = "github")]
@@ -21097,7 +21944,9 @@ impl ::std::fmt::Display for VcsProvider {
 }
 impl ::std::str::FromStr for VcsProvider {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "github" => Ok(Self::Github),
             "gitlab" => Ok(Self::Gitlab),
@@ -21107,7 +21956,9 @@ impl ::std::str::FromStr for VcsProvider {
 }
 impl ::std::convert::TryFrom<&str> for VcsProvider {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -21138,8 +21989,8 @@ pub struct VcsStats {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct VcsTrustEntry {
     /**See `AllowedRefs`. An empty list is not creatable but can be returned: it means the
-    stored rule failed to parse, and the entry denies every push until it is re-saved.
-    */
+stored rule failed to parse, and the entry denies every push until it is re-saved.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub allowed_refs: ::std::option::Option<AllowedRefs>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -21173,8 +22024,8 @@ pub struct VersionScanRollup {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_cvss: ::std::option::Option<f64>,
     /**Highest EPSS probability among all vulnerability findings. `null` means nothing scored
-    at or above the EPSS mirror's 0.04 floor, not that the score is unknown.
-    */
+at or above the EPSS mirror's 0.04 floor, not that the score is unknown.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_epss: ::std::option::Option<f64>,
     ///Always `true` here — an unscanned version is `null`, not a rollup.
@@ -21199,8 +22050,8 @@ workflow from a supervisor that is down.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
 pub struct WorkflowEventsRequestHeartbeat {
     /**The pull loop is paused at its claim ceiling, so an unleased message may be
-    legitimate queued work — absence-based reaping must pause too.
-    */
+legitimate queued work — absence-based reaping must pause too.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub at_capacity: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -21209,8 +22060,8 @@ pub struct WorkflowEventsRequestHeartbeat {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub inflight: ::std::option::Option<i64>,
     /**`false` ⇒ this tick's cluster list failed. Claims cannot settle, but the lease side
-    is still alive, which is what the lost-message arm cares about.
-    */
+is still alive, which is what the lost-message arm cares about.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub list_ok: ::std::option::Option<bool>,
 }
@@ -21225,7 +22076,7 @@ pub struct WorkflowEventsRequestHeartbeat {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum WorkflowEventsRequestQueueKind {
     #[serde(rename = "provider_build")]
@@ -21252,7 +22103,9 @@ impl ::std::fmt::Display for WorkflowEventsRequestQueueKind {
 }
 impl ::std::str::FromStr for WorkflowEventsRequestQueueKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "provider_build" => Ok(Self::ProviderBuild),
             "provider_scan" => Ok(Self::ProviderScan),
@@ -21265,7 +22118,9 @@ impl ::std::str::FromStr for WorkflowEventsRequestQueueKind {
 }
 impl ::std::convert::TryFrom<&str> for WorkflowEventsRequestQueueKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -21294,8 +22149,8 @@ pub struct WorkflowFlowEvent {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub msg_key: ::std::option::Option<::std::string::String>,
     /**Supervisor clock when this state was observed. **The ordering guard** — the Worker drops
-    an event older than the stored timestamp, so a slow tick cannot overwrite newer state.
-    */
+an event older than the stored timestamp, so a slow tick cannot overwrite newer state.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub observed_at: ::std::option::Option<Timestamp>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -21344,7 +22199,7 @@ pub struct WorkflowFlowEventSettle {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum WorkflowFlowEventSettleAction {
     #[serde(rename = "ack")]
@@ -21362,7 +22217,9 @@ impl ::std::fmt::Display for WorkflowFlowEventSettleAction {
 }
 impl ::std::str::FromStr for WorkflowFlowEventSettleAction {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ack" => Ok(Self::Ack),
             "nack" => Ok(Self::Nack),
@@ -21372,7 +22229,9 @@ impl ::std::str::FromStr for WorkflowFlowEventSettleAction {
 }
 impl ::std::convert::TryFrom<&str> for WorkflowFlowEventSettleAction {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -21414,7 +22273,7 @@ pub struct WorkflowFlowStep {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum WorkflowFlowStepOutcome {
     #[serde(rename = "ok")]
@@ -21438,7 +22297,9 @@ impl ::std::fmt::Display for WorkflowFlowStepOutcome {
 }
 impl ::std::str::FromStr for WorkflowFlowStepOutcome {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "skipped" => Ok(Self::Skipped),
@@ -21450,7 +22311,9 @@ impl ::std::str::FromStr for WorkflowFlowStepOutcome {
 }
 impl ::std::convert::TryFrom<&str> for WorkflowFlowStepOutcome {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -21495,7 +22358,9 @@ pub struct WorkspaceGateConfigEffective {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub allow_self_approval: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub approver_min_role: ::std::option::Option<WorkspaceGateConfigEffectiveApproverMinRole>,
+    pub approver_min_role: ::std::option::Option<
+        WorkspaceGateConfigEffectiveApproverMinRole,
+    >,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub destroy_denylist: ::std::vec::Vec<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -21520,7 +22385,7 @@ pub struct WorkspaceGateConfigEffective {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum WorkspaceGateConfigEffectiveApproverMinRole {
     #[serde(rename = "admin")]
@@ -21541,7 +22406,9 @@ impl ::std::fmt::Display for WorkspaceGateConfigEffectiveApproverMinRole {
 }
 impl ::std::str::FromStr for WorkspaceGateConfigEffectiveApproverMinRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "admin" => Ok(Self::Admin),
             "privileged_admin" => Ok(Self::PrivilegedAdmin),
@@ -21552,13 +22419,14 @@ impl ::std::str::FromStr for WorkspaceGateConfigEffectiveApproverMinRole {
 }
 impl ::std::convert::TryFrom<&str> for WorkspaceGateConfigEffectiveApproverMinRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-    for WorkspaceGateConfigEffectiveApproverMinRole
-{
+for WorkspaceGateConfigEffectiveApproverMinRole {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -21581,9 +22449,9 @@ pub struct WorkspaceProvider {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<::std::string::String>,
     /**When the upstream-version lookup last FAILED, in epoch milliseconds. `null` ⇒ no
-    recorded failure. Paired with `latest_version_checked_at` so a caller can stop
-    waiting on a lookup that is not going to arrive.
-    */
+recorded failure. Paired with `latest_version_checked_at` so a caller can stop
+waiting on a lookup that is not going to arrive.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_lookup_error_at: ::std::option::Option<i64>,
     ///Newest version satisfying `constraints`. Drives the drift indicator.
@@ -21596,13 +22464,13 @@ pub struct WorkspaceProvider {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version: ::std::option::Option<::std::string::String>,
     /**When the upstream-version lookup last completed for this provider, in epoch
-    milliseconds. `null` ⇒ it has never run.
+milliseconds. `null` ⇒ it has never run.
 
-    This is a FRESHNESS signal, and clients poll on it: right after a lock-file upload
-    the rows exist but `latest_version` / `latest_matching` are still being resolved by
-    the lookup queue, so a client that waits for drift data waits for this (or for
-    `latest_lookup_error_at`) rather than for a field that may legitimately stay `null`.
-    */
+This is a FRESHNESS signal, and clients poll on it: right after a lock-file upload
+the rows exist but `latest_version` / `latest_matching` are still being resolved by
+the lookup queue, so a client that waits for drift data waits for this (or for
+`latest_lookup_error_at`) rather than for a field that may legitimately stay `null`.
+*/
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub latest_version_checked_at: ::std::option::Option<i64>,
     pub namespace: ::std::string::String,
@@ -21651,8 +22519,7 @@ pub struct WorkspaceProvidersResponseLockFile {
 }
 /// Generation of default values for serde.
 pub mod defaults {
-    pub(super) fn platform_telemetry_logs_request_direction(
-    ) -> super::PlatformTelemetryLogsRequestDirection {
+    pub(super) fn platform_telemetry_logs_request_direction() -> super::PlatformTelemetryLogsRequestDirection {
         super::PlatformTelemetryLogsRequestDirection::Backward
     }
     pub(super) fn tenant_access_rules_applies_to() -> super::TenantAccessRulesAppliesTo {
@@ -21668,12 +22535,18 @@ pub mod error {
     pub struct ConversionError(::std::borrow::Cow<'static, str>);
     impl ::std::error::Error for ConversionError {}
     impl ::std::fmt::Display for ConversionError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
+        fn fmt(
+            &self,
+            f: &mut ::std::fmt::Formatter<'_>,
+        ) -> Result<(), ::std::fmt::Error> {
             ::std::fmt::Display::fmt(&self.0, f)
         }
     }
     impl ::std::fmt::Debug for ConversionError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
+        fn fmt(
+            &self,
+            f: &mut ::std::fmt::Formatter<'_>,
+        ) -> Result<(), ::std::fmt::Error> {
             ::std::fmt::Debug::fmt(&self.0, f)
         }
     }
